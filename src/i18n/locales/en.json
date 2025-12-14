@@ -15,7 +15,8 @@
         "stop": "Stop",
         "pause": "Pause",
         "resume": "Resume",
-        "reset": "Reset"
+        "reset": "Reset",
+        "exit": "Exit"
     },
     "nav": {
         "jobs": "Jobs",
