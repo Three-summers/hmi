@@ -1,165 +1,165 @@
 .overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  /* Per SEMI E95: Don't cover title panel */
-  top: var(--title-panel-height);
-  /* Per SEMI E95: Don't cover nav panel */
-  bottom: var(--nav-panel-height);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    /* Per SEMI E95: Don't cover title panel */
+    top: var(--title-panel-height);
+    /* Per SEMI E95: Don't cover nav panel */
+    bottom: var(--nav-panel-height);
 }
 
 .dialog {
-  display: flex;
-  flex-direction: column;
-  background-color: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  min-width: 300px;
-  max-width: 90%;
-  max-height: 90%;
-  overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    min-width: 300px;
+    max-width: 90%;
+    max-height: 90%;
+    overflow: hidden;
 }
 
 /* Dialog Title Bar */
 .titleBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background-color: var(--bg-panel-header);
-  border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background-color: var(--bg-panel-header);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .title {
-  font-size: var(--font-size-title);
-  font-weight: 600;
-  color: var(--text-primary);
+    font-size: var(--font-size-title);
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .closeButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background-color: transparent;
-  border-radius: 4px;
-  color: var(--text-secondary);
-  font-size: 20px;
-  transition: background-color var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background-color: transparent;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 20px;
+    transition: background-color var(--transition-fast);
 }
 
 .closeButton:hover {
-  background-color: var(--button-bg-hover);
-  color: var(--text-primary);
+    background-color: var(--button-bg-hover);
+    color: var(--text-primary);
 }
 
 /* Dialog Content Area */
 .content {
-  flex: 1;
-  padding: 16px;
-  overflow: auto;
+    flex: 1;
+    padding: 16px;
+    overflow: auto;
 }
 
 /* Message Dialog Layout */
 .messageContent {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
 }
 
 .messageIcon {
-  font-size: 32px;
-  flex-shrink: 0;
+    font-size: 32px;
+    flex-shrink: 0;
 }
 
 .messageIcon[data-type="information"] {
-  color: var(--color-processing);
+    color: var(--color-processing);
 }
 
 .messageIcon[data-type="progress"] {
-  color: var(--color-processing);
+    color: var(--color-processing);
 }
 
 .messageIcon[data-type="attention"] {
-  color: var(--color-warning);
+    color: var(--color-warning);
 }
 
 .messageIcon[data-type="error"] {
-  color: var(--color-alarm);
+    color: var(--color-alarm);
 }
 
 .messageText {
-  flex: 1;
-  font-size: var(--font-size-normal);
-  color: var(--text-primary);
-  line-height: 1.5;
+    flex: 1;
+    font-size: var(--font-size-normal);
+    color: var(--text-primary);
+    line-height: 1.5;
 }
 
 /* Dialog Button Area */
 .buttonArea {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background-color: var(--bg-secondary);
-  border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background-color: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
 }
 
 /* Per SEMI E95: Primary buttons centered, auxiliary right-aligned */
 .primaryButtons {
-  display: flex;
-  gap: 12px;
+    display: flex;
+    gap: 12px;
 }
 
 .auxiliaryButtons {
-  margin-left: auto;
-  display: flex;
-  gap: 12px;
-  padding-left: 24px;
-  border-left: 1px solid var(--border-color);
+    margin-left: auto;
+    display: flex;
+    gap: 12px;
+    padding-left: 24px;
+    border-left: 1px solid var(--border-color);
 }
 
 .dialogButton {
-  min-width: 80px;
-  min-height: var(--button-nav-size);
-  padding: 8px 16px;
-  background-color: var(--button-bg);
-  border-radius: 4px;
-  color: var(--text-primary);
-  font-size: var(--font-size-normal);
-  font-weight: 500;
-  transition: background-color var(--transition-fast);
+    min-width: 80px;
+    min-height: var(--button-nav-size);
+    padding: 8px 16px;
+    background-color: var(--button-bg);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: var(--font-size-normal);
+    font-weight: 500;
+    transition: background-color var(--transition-fast);
 }
 
 .dialogButton:hover:not(:disabled) {
-  background-color: var(--button-bg-hover);
+    background-color: var(--button-bg-hover);
 }
 
 .dialogButton:active:not(:disabled) {
-  background-color: var(--button-bg-active);
+    background-color: var(--button-bg-active);
 }
 
 .dialogButton:disabled {
-  background-color: var(--button-bg-disabled);
-  color: var(--text-disabled);
-  cursor: not-allowed;
+    background-color: var(--button-bg-disabled);
+    color: var(--text-disabled);
+    cursor: not-allowed;
 }
 
 .dialogButton[data-primary="true"] {
-  background-color: var(--color-processing);
-  color: white;
+    background-color: var(--color-processing);
+    color: white;
 }
 
 .dialogButton[data-primary="true"]:hover:not(:disabled) {
-  background-color: #3458c5;
+    background-color: #3458c5;
 }

@@ -1,367 +1,387 @@
 .helpLayout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 16px;
-  height: 100%;
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 16px;
+    height: 100%;
 }
 
 .sidebar {
-  display: flex;
-  flex-direction: column;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
 }
 
 .sidebarHeader {
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.2);
-  border-bottom: 1px solid var(--border-color);
-  text-align: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid var(--border-color);
+    text-align: center;
 }
 
 .logo {
-  width: 64px;
-  height: 64px;
-  margin: 0 auto 12px;
-  background: linear-gradient(135deg, var(--color-processing) 0%, #2a4d8e 100%);
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(65, 105, 225, 0.3);
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 12px;
+    background: linear-gradient(
+        135deg,
+        var(--color-processing) 0%,
+        #2a4d8e 100%
+    );
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(65, 105, 225, 0.3);
 }
 
 .logo svg {
-  width: 36px;
-  height: 36px;
-  color: white;
+    width: 36px;
+    height: 36px;
+    color: white;
 }
 
 .appName {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 4px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 4px 0;
 }
 
 .appVersion {
-  font-size: 12px;
-  color: var(--text-secondary);
+    font-size: 12px;
+    color: var(--text-secondary);
 }
 
 .navList {
-  flex: 1;
-  padding: 8px;
-  overflow: auto;
+    flex: 1;
+    padding: 8px;
+    overflow: auto;
 }
 
 .navItem {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  margin-bottom: 4px;
-  color: var(--text-primary);
-  font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    margin-bottom: 4px;
+    color: var(--text-primary);
+    font-size: 13px;
 }
 
 .navItem:hover {
-  background: rgba(65, 105, 225, 0.1);
-  border-color: var(--border-color);
+    background: rgba(65, 105, 225, 0.1);
+    border-color: var(--border-color);
 }
 
 .navItem[data-selected="true"] {
-  background: rgba(65, 105, 225, 0.2);
-  border-color: var(--color-processing);
+    background: rgba(65, 105, 225, 0.2);
+    border-color: var(--color-processing);
 }
 
 .navIcon {
-  width: 20px;
-  height: 20px;
-  color: var(--color-processing);
+    width: 20px;
+    height: 20px;
+    color: var(--color-processing);
 }
 
 .navIcon svg {
-  width: 100%;
-  height: 100%;
+    width: 100%;
+    height: 100%;
 }
 
 .mainContent {
-  display: flex;
-  flex-direction: column;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  padding: 20px;
-  overflow: auto;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    overflow: auto;
 }
 
 .sectionTitle {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 16px 0;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  align-items: center;
-  gap: 10px;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 16px 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .sectionTitle svg {
-  width: 24px;
-  height: 24px;
-  color: var(--color-processing);
+    width: 24px;
+    height: 24px;
+    color: var(--color-processing);
 }
 
 .sectionContent {
-  flex: 1;
+    flex: 1;
 }
 
 .infoCard {
-  padding: 16px;
-  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  margin-bottom: 16px;
+    padding: 16px;
+    background: linear-gradient(
+        180deg,
+        var(--bg-secondary) 0%,
+        var(--bg-tertiary) 100%
+    );
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 16px;
 }
 
 .infoRow {
-  display: flex;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .infoRow:last-child {
-  border-bottom: none;
+    border-bottom: none;
 }
 
 .infoLabel {
-  font-size: 13px;
-  color: var(--text-secondary);
+    font-size: 13px;
+    color: var(--text-secondary);
 }
 
 .infoValue {
-  font-size: 13px;
-  color: var(--text-primary);
-  font-weight: 500;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 500;
 }
 
 .colorLegend {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
 }
 
 .colorItem {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
 }
 
 .colorDot {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
 .colorDot[data-color="alarm"] {
-  background: var(--color-alarm);
-  box-shadow: 0 0 8px var(--color-alarm);
+    background: var(--color-alarm);
+    box-shadow: 0 0 8px var(--color-alarm);
 }
 
 .colorDot[data-color="warning"] {
-  background: var(--color-warning);
-  box-shadow: 0 0 8px var(--color-warning);
+    background: var(--color-warning);
+    box-shadow: 0 0 8px var(--color-warning);
 }
 
 .colorDot[data-color="processing"] {
-  background: var(--color-processing);
-  box-shadow: 0 0 8px var(--color-processing);
+    background: var(--color-processing);
+    box-shadow: 0 0 8px var(--color-processing);
 }
 
 .colorDot[data-color="attention"] {
-  background: var(--color-attention);
-  box-shadow: 0 0 8px var(--color-attention);
+    background: var(--color-attention);
+    box-shadow: 0 0 8px var(--color-attention);
 }
 
 .colorInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .colorName {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .colorDesc {
-  font-size: 11px;
-  color: var(--text-secondary);
+    font-size: 11px;
+    color: var(--text-secondary);
 }
 
 .shortcutList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .shortcutItem {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
 }
 
 .shortcutAction {
-  font-size: 13px;
-  color: var(--text-primary);
+    font-size: 13px;
+    color: var(--text-primary);
 }
 
 .shortcutKey {
-  display: flex;
-  gap: 6px;
+    display: flex;
+    gap: 6px;
 }
 
 .key {
-  padding: 4px 10px;
-  background: linear-gradient(180deg, var(--button-bg) 0%, var(--button-bg-active) 100%);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-family: monospace;
+    padding: 4px 10px;
+    background: linear-gradient(
+        180deg,
+        var(--button-bg) 0%,
+        var(--button-bg-active) 100%
+    );
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: monospace;
 }
 
 .faqList {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .faqItem {
-  padding: 14px;
-  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
+    padding: 14px;
+    background: linear-gradient(
+        180deg,
+        var(--bg-secondary) 0%,
+        var(--bg-tertiary) 100%
+    );
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
 }
 
 .faqQuestion {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 8px 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 8px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
 }
 
 .faqQuestion::before {
-  content: "Q";
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  background: var(--color-processing);
-  color: white;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
-  flex-shrink: 0;
+    content: "Q";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: var(--color-processing);
+    color: white;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
 }
 
 .faqAnswer {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  padding-left: 28px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    padding-left: 28px;
 }
 
 .specList {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
 }
 
 .specCard {
-  padding: 14px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
+    padding: 14px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
 }
 
 .specTitle {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-processing);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin: 0 0 6px 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-processing);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 6px 0;
 }
 
 .specValue {
-  font-size: 14px;
-  color: var(--text-primary);
+    font-size: 14px;
+    color: var(--text-primary);
 }
 
 .contactCard {
-  padding: 20px;
-  background: linear-gradient(135deg, rgba(65, 105, 225, 0.1) 0%, rgba(65, 105, 225, 0.05) 100%);
-  border: 1px solid var(--color-processing);
-  border-radius: 8px;
-  text-align: center;
+    padding: 20px;
+    background: linear-gradient(
+        135deg,
+        rgba(65, 105, 225, 0.1) 0%,
+        rgba(65, 105, 225, 0.05) 100%
+    );
+    border: 1px solid var(--color-processing);
+    border-radius: 8px;
+    text-align: center;
 }
 
 .contactIcon {
-  width: 48px;
-  height: 48px;
-  margin: 0 auto 12px;
-  color: var(--color-processing);
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 12px;
+    color: var(--color-processing);
 }
 
 .contactIcon svg {
-  width: 100%;
-  height: 100%;
+    width: 100%;
+    height: 100%;
 }
 
 .contactTitle {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 8px 0;
 }
 
 .contactText {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0;
 }
 
 @media (max-width: 768px) {
-  .helpLayout {
-    grid-template-columns: 1fr;
-  }
+    .helpLayout {
+        grid-template-columns: 1fr;
+    }
 
-  .colorLegend,
-  .specList {
-    grid-template-columns: 1fr;
-  }
+    .colorLegend,
+    .specList {
+        grid-template-columns: 1fr;
+    }
 }

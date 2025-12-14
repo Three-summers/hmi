@@ -13,30 +13,37 @@ const AlarmsView = lazy(() => import("@/components/views/Alarms"));
 const HelpView = lazy(() => import("@/components/views/Help"));
 
 interface InfoPanelProps {
-  currentView: ViewId;
+    currentView: ViewId;
 }
 
-const viewComponents: Record<ViewId, React.LazyExoticComponent<() => JSX.Element>> = {
-  jobs: JobsView,
-  system: SystemView,
-  monitor: MonitorView,
-  recipes: RecipesView,
-  datalog: DatalogView,
-  setup: SetupView,
-  alarms: AlarmsView,
-  help: HelpView,
+const viewComponents: Record<
+    ViewId,
+    React.LazyExoticComponent<() => JSX.Element>
+> = {
+    jobs: JobsView,
+    system: SystemView,
+    monitor: MonitorView,
+    recipes: RecipesView,
+    datalog: DatalogView,
+    setup: SetupView,
+    alarms: AlarmsView,
+    help: HelpView,
 };
 
 export function InfoPanel({ currentView }: InfoPanelProps) {
-  const ViewComponent = viewComponents[currentView];
+    const ViewComponent = viewComponents[currentView];
 
-  return (
-    <div className={styles.infoPanel}>
-      <div className={styles.viewContainer}>
-        <Suspense fallback={<div className={styles.placeholder}>Loading...</div>}>
-          <ViewComponent />
-        </Suspense>
-      </div>
-    </div>
-  );
+    return (
+        <div className={styles.infoPanel}>
+            <div className={styles.viewContainer}>
+                <Suspense
+                    fallback={
+                        <div className={styles.placeholder}>Loading...</div>
+                    }
+                >
+                    <ViewComponent />
+                </Suspense>
+            </div>
+        </div>
+    );
 }

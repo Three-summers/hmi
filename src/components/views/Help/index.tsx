@@ -3,359 +3,520 @@ import { useTranslation } from "react-i18next";
 import styles from "./Help.module.css";
 import sharedStyles from "../shared.module.css";
 
-type HelpSection = "about" | "colors" | "shortcuts" | "semi" | "faq" | "support";
+type HelpSection =
+    | "about"
+    | "colors"
+    | "shortcuts"
+    | "semi"
+    | "faq"
+    | "support";
 
 const helpSections = [
-  { id: "about" as const, icon: "info", label: "About" },
-  { id: "colors" as const, icon: "palette", label: "Color Legend" },
-  { id: "shortcuts" as const, icon: "keyboard", label: "Shortcuts" },
-  { id: "semi" as const, icon: "standard", label: "SEMI E95" },
-  { id: "faq" as const, icon: "question", label: "FAQ" },
-  { id: "support" as const, icon: "support", label: "Support" },
+    { id: "about" as const, icon: "info", label: "About" },
+    { id: "colors" as const, icon: "palette", label: "Color Legend" },
+    { id: "shortcuts" as const, icon: "keyboard", label: "Shortcuts" },
+    { id: "semi" as const, icon: "standard", label: "SEMI E95" },
+    { id: "faq" as const, icon: "question", label: "FAQ" },
+    { id: "support" as const, icon: "support", label: "Support" },
 ];
 
 const icons: Record<string, JSX.Element> = {
-  info: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-    </svg>
-  ),
-  palette: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
-    </svg>
-  ),
-  keyboard: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/>
-    </svg>
-  ),
-  standard: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-    </svg>
-  ),
-  question: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
-    </svg>
-  ),
-  support: (
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z"/>
-    </svg>
-  ),
+    info: (
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+        </svg>
+    ),
+    palette: (
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
+        </svg>
+    ),
+    keyboard: (
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z" />
+        </svg>
+    ),
+    standard: (
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+        </svg>
+    ),
+    question: (
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z" />
+        </svg>
+    ),
+    support: (
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 1c-4.97 0-9 4.03-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2c0-3.87 3.13-7 7-7s7 3.13 7 7v2h-4v8h3c1.66 0 3-1.34 3-3v-7c0-4.97-4.03-9-9-9z" />
+        </svg>
+    ),
 };
 
 export default function HelpView() {
-  const { t } = useTranslation();
-  const [activeSection, setActiveSection] = useState<HelpSection>("about");
+    const { t } = useTranslation();
+    const [activeSection, setActiveSection] = useState<HelpSection>("about");
 
-  const renderSectionContent = () => {
-    switch (activeSection) {
-      case "about":
-        return (
-          <>
-            <h2 className={styles.sectionTitle}>
-              {icons.info}
-              {t("help.about")}
-            </h2>
-            <div className={styles.sectionContent}>
-              <div className={styles.infoCard}>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Application</span>
-                  <span className={styles.infoValue}>Industrial HMI</span>
+    const renderSectionContent = () => {
+        switch (activeSection) {
+            case "about":
+                return (
+                    <>
+                        <h2 className={styles.sectionTitle}>
+                            {icons.info}
+                            {t("help.about")}
+                        </h2>
+                        <div className={styles.sectionContent}>
+                            <div className={styles.infoCard}>
+                                <div className={styles.infoRow}>
+                                    <span className={styles.infoLabel}>
+                                        Application
+                                    </span>
+                                    <span className={styles.infoValue}>
+                                        Industrial HMI
+                                    </span>
+                                </div>
+                                <div className={styles.infoRow}>
+                                    <span className={styles.infoLabel}>
+                                        {t("help.version")}
+                                    </span>
+                                    <span className={styles.infoValue}>
+                                        0.1.0
+                                    </span>
+                                </div>
+                                <div className={styles.infoRow}>
+                                    <span className={styles.infoLabel}>
+                                        Framework
+                                    </span>
+                                    <span className={styles.infoValue}>
+                                        Tauri 2.x + React 18
+                                    </span>
+                                </div>
+                                <div className={styles.infoRow}>
+                                    <span className={styles.infoLabel}>
+                                        Standard
+                                    </span>
+                                    <span className={styles.infoValue}>
+                                        SEMI E95-1101
+                                    </span>
+                                </div>
+                                <div className={styles.infoRow}>
+                                    <span className={styles.infoLabel}>
+                                        Platform
+                                    </span>
+                                    <span className={styles.infoValue}>
+                                        Raspberry Pi CM5
+                                    </span>
+                                </div>
+                                <div className={styles.infoRow}>
+                                    <span className={styles.infoLabel}>
+                                        Display
+                                    </span>
+                                    <span className={styles.infoValue}>
+                                        1280x800 Touch
+                                    </span>
+                                </div>
+                            </div>
+                            <p
+                                style={{
+                                    color: "var(--text-secondary)",
+                                    fontSize: "13px",
+                                    lineHeight: 1.6,
+                                }}
+                            >
+                                This Human-Machine Interface (HMI) application
+                                is designed for industrial semiconductor
+                                equipment control, following the SEMI E95
+                                specification for standardized user interfaces.
+                                It provides real-time monitoring, process
+                                control, alarm management, and recipe execution
+                                capabilities.
+                            </p>
+                        </div>
+                    </>
+                );
+
+            case "colors":
+                return (
+                    <>
+                        <h2 className={styles.sectionTitle}>
+                            {icons.palette}
+                            SEMI E95 Color Legend
+                        </h2>
+                        <div className={styles.sectionContent}>
+                            <p
+                                style={{
+                                    color: "var(--text-secondary)",
+                                    fontSize: "13px",
+                                    marginBottom: "16px",
+                                }}
+                            >
+                                Colors follow the SEMI E95 specification for
+                                consistent visual feedback across all
+                                semiconductor equipment interfaces.
+                            </p>
+                            <div className={styles.colorLegend}>
+                                <div className={styles.colorItem}>
+                                    <span
+                                        className={styles.colorDot}
+                                        data-color="alarm"
+                                    />
+                                    <div className={styles.colorInfo}>
+                                        <span className={styles.colorName}>
+                                            Alarm (Red)
+                                        </span>
+                                        <span className={styles.colorDesc}>
+                                            Critical fault, immediate attention
+                                            required
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className={styles.colorItem}>
+                                    <span
+                                        className={styles.colorDot}
+                                        data-color="warning"
+                                    />
+                                    <div className={styles.colorInfo}>
+                                        <span className={styles.colorName}>
+                                            Warning (Yellow)
+                                        </span>
+                                        <span className={styles.colorDesc}>
+                                            Caution state, monitoring
+                                            recommended
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className={styles.colorItem}>
+                                    <span
+                                        className={styles.colorDot}
+                                        data-color="processing"
+                                    />
+                                    <div className={styles.colorInfo}>
+                                        <span className={styles.colorName}>
+                                            Processing (Blue)
+                                        </span>
+                                        <span className={styles.colorDesc}>
+                                            Active operation in progress
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className={styles.colorItem}>
+                                    <span
+                                        className={styles.colorDot}
+                                        data-color="attention"
+                                    />
+                                    <div className={styles.colorInfo}>
+                                        <span className={styles.colorName}>
+                                            Attention (Green)
+                                        </span>
+                                        <span className={styles.colorDesc}>
+                                            Normal operation, ready state
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                );
+
+            case "shortcuts":
+                return (
+                    <>
+                        <h2 className={styles.sectionTitle}>
+                            {icons.keyboard}
+                            Keyboard Shortcuts
+                        </h2>
+                        <div className={styles.sectionContent}>
+                            <div className={styles.shortcutList}>
+                                <div className={styles.shortcutItem}>
+                                    <span className={styles.shortcutAction}>
+                                        Emergency Stop
+                                    </span>
+                                    <div className={styles.shortcutKey}>
+                                        <span className={styles.key}>ESC</span>
+                                    </div>
+                                </div>
+                                <div className={styles.shortcutItem}>
+                                    <span className={styles.shortcutAction}>
+                                        Acknowledge Alarms
+                                    </span>
+                                    <div className={styles.shortcutKey}>
+                                        <span className={styles.key}>Ctrl</span>
+                                        <span className={styles.key}>A</span>
+                                    </div>
+                                </div>
+                                <div className={styles.shortcutItem}>
+                                    <span className={styles.shortcutAction}>
+                                        Start Process
+                                    </span>
+                                    <div className={styles.shortcutKey}>
+                                        <span className={styles.key}>F5</span>
+                                    </div>
+                                </div>
+                                <div className={styles.shortcutItem}>
+                                    <span className={styles.shortcutAction}>
+                                        Stop Process
+                                    </span>
+                                    <div className={styles.shortcutKey}>
+                                        <span className={styles.key}>F6</span>
+                                    </div>
+                                </div>
+                                <div className={styles.shortcutItem}>
+                                    <span className={styles.shortcutAction}>
+                                        Navigate Views
+                                    </span>
+                                    <div className={styles.shortcutKey}>
+                                        <span className={styles.key}>F1</span>
+                                        <span className={styles.key}>-</span>
+                                        <span className={styles.key}>F8</span>
+                                    </div>
+                                </div>
+                                <div className={styles.shortcutItem}>
+                                    <span className={styles.shortcutAction}>
+                                        Toggle Fullscreen
+                                    </span>
+                                    <div className={styles.shortcutKey}>
+                                        <span className={styles.key}>F11</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                );
+
+            case "semi":
+                return (
+                    <>
+                        <h2 className={styles.sectionTitle}>
+                            {icons.standard}
+                            SEMI E95 Specification
+                        </h2>
+                        <div className={styles.sectionContent}>
+                            <p
+                                style={{
+                                    color: "var(--text-secondary)",
+                                    fontSize: "13px",
+                                    marginBottom: "16px",
+                                }}
+                            >
+                                SEMI E95-1101 defines the standard for Human
+                                Interface for Semiconductor Manufacturing
+                                Equipment, ensuring consistent user experience
+                                across different equipment manufacturers.
+                            </p>
+                            <div className={styles.specList}>
+                                <div className={styles.specCard}>
+                                    <h4 className={styles.specTitle}>Layout</h4>
+                                    <p className={styles.specValue}>
+                                        4-panel architecture: Title, Navigation,
+                                        Main, Command
+                                    </p>
+                                </div>
+                                <div className={styles.specCard}>
+                                    <h4 className={styles.specTitle}>
+                                        Button Size
+                                    </h4>
+                                    <p className={styles.specValue}>
+                                        Minimum 70px (1.5cm) for touch targets
+                                    </p>
+                                </div>
+                                <div className={styles.specCard}>
+                                    <h4 className={styles.specTitle}>
+                                        Font Size
+                                    </h4>
+                                    <p className={styles.specValue}>
+                                        Minimum 12px for readability
+                                    </p>
+                                </div>
+                                <div className={styles.specCard}>
+                                    <h4 className={styles.specTitle}>
+                                        Color Coding
+                                    </h4>
+                                    <p className={styles.specValue}>
+                                        Standardized status colors (RYGB)
+                                    </p>
+                                </div>
+                                <div className={styles.specCard}>
+                                    <h4 className={styles.specTitle}>
+                                        Alarm Management
+                                    </h4>
+                                    <p className={styles.specValue}>
+                                        Visual and audible alerts with
+                                        acknowledgment
+                                    </p>
+                                </div>
+                                <div className={styles.specCard}>
+                                    <h4 className={styles.specTitle}>
+                                        User Levels
+                                    </h4>
+                                    <p className={styles.specValue}>
+                                        Operator, Engineer, Admin access control
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                );
+
+            case "faq":
+                return (
+                    <>
+                        <h2 className={styles.sectionTitle}>
+                            {icons.question}
+                            Frequently Asked Questions
+                        </h2>
+                        <div className={styles.sectionContent}>
+                            <div className={styles.faqList}>
+                                <div className={styles.faqItem}>
+                                    <h4 className={styles.faqQuestion}>
+                                        How do I connect to the equipment?
+                                    </h4>
+                                    <p className={styles.faqAnswer}>
+                                        Navigate to the Setup view and configure
+                                        either Serial or TCP connection
+                                        settings. Select the appropriate port
+                                        and baud rate for serial, or enter the
+                                        IP address and port for TCP connections.
+                                    </p>
+                                </div>
+                                <div className={styles.faqItem}>
+                                    <h4 className={styles.faqQuestion}>
+                                        What do the different alarm colors mean?
+                                    </h4>
+                                    <p className={styles.faqAnswer}>
+                                        Red indicates critical alarms requiring
+                                        immediate attention. Yellow shows
+                                        warnings that should be monitored. Blue
+                                        represents active processing states, and
+                                        green indicates normal operation.
+                                    </p>
+                                </div>
+                                <div className={styles.faqItem}>
+                                    <h4 className={styles.faqQuestion}>
+                                        How do I run a recipe?
+                                    </h4>
+                                    <p className={styles.faqAnswer}>
+                                        Go to the Recipes view and select a
+                                        recipe from the list. Review the process
+                                        steps and parameters, then use the
+                                        command panel to load and start the
+                                        recipe execution.
+                                    </p>
+                                </div>
+                                <div className={styles.faqItem}>
+                                    <h4 className={styles.faqQuestion}>
+                                        How do I change the language?
+                                    </h4>
+                                    <p className={styles.faqAnswer}>
+                                        Navigate to the Setup view and select
+                                        your preferred language from the
+                                        Language section. The interface will
+                                        update immediately to the selected
+                                        language.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                );
+
+            case "support":
+                return (
+                    <>
+                        <h2 className={styles.sectionTitle}>
+                            {icons.support}
+                            Technical Support
+                        </h2>
+                        <div className={styles.sectionContent}>
+                            <div className={styles.contactCard}>
+                                <div className={styles.contactIcon}>
+                                    {icons.support}
+                                </div>
+                                <h3 className={styles.contactTitle}>
+                                    Need Help?
+                                </h3>
+                                <p className={styles.contactText}>
+                                    For technical support, please contact your
+                                    equipment administrator or refer to the
+                                    equipment documentation.
+                                </p>
+                            </div>
+                            <div
+                                className={styles.infoCard}
+                                style={{ marginTop: "16px" }}
+                            >
+                                <div className={styles.infoRow}>
+                                    <span className={styles.infoLabel}>
+                                        Documentation
+                                    </span>
+                                    <span className={styles.infoValue}>
+                                        Equipment Manual
+                                    </span>
+                                </div>
+                                <div className={styles.infoRow}>
+                                    <span className={styles.infoLabel}>
+                                        Log Files
+                                    </span>
+                                    <span className={styles.infoValue}>
+                                        /var/log/hmi/
+                                    </span>
+                                </div>
+                                <div className={styles.infoRow}>
+                                    <span className={styles.infoLabel}>
+                                        Config Files
+                                    </span>
+                                    <span className={styles.infoValue}>
+                                        ~/.config/hmi/
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                );
+
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <div className={sharedStyles.view}>
+            <div className={styles.helpLayout}>
+                {/* Sidebar */}
+                <div className={styles.sidebar}>
+                    <div className={styles.sidebarHeader}>
+                        <div className={styles.logo}>
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                            </svg>
+                        </div>
+                        <h3 className={styles.appName}>Industrial HMI</h3>
+                        <span className={styles.appVersion}>
+                            v0.1.0 • SEMI E95
+                        </span>
+                    </div>
+                    <div className={styles.navList}>
+                        {helpSections.map((section) => (
+                            <div
+                                key={section.id}
+                                className={styles.navItem}
+                                data-selected={activeSection === section.id}
+                                onClick={() => setActiveSection(section.id)}
+                            >
+                                <span className={styles.navIcon}>
+                                    {icons[section.icon]}
+                                </span>
+                                {section.label}
+                            </div>
+                        ))}
+                    </div>
                 </div>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>{t("help.version")}</span>
-                  <span className={styles.infoValue}>0.1.0</span>
+
+                {/* Main Content */}
+                <div className={styles.mainContent}>
+                    {renderSectionContent()}
                 </div>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Framework</span>
-                  <span className={styles.infoValue}>Tauri 2.x + React 18</span>
-                </div>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Standard</span>
-                  <span className={styles.infoValue}>SEMI E95-1101</span>
-                </div>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Platform</span>
-                  <span className={styles.infoValue}>Raspberry Pi CM5</span>
-                </div>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Display</span>
-                  <span className={styles.infoValue}>1280x800 Touch</span>
-                </div>
-              </div>
-              <p style={{ color: "var(--text-secondary)", fontSize: "13px", lineHeight: 1.6 }}>
-                This Human-Machine Interface (HMI) application is designed for industrial
-                semiconductor equipment control, following the SEMI E95 specification for
-                standardized user interfaces. It provides real-time monitoring, process control,
-                alarm management, and recipe execution capabilities.
-              </p>
             </div>
-          </>
-        );
-
-      case "colors":
-        return (
-          <>
-            <h2 className={styles.sectionTitle}>
-              {icons.palette}
-              SEMI E95 Color Legend
-            </h2>
-            <div className={styles.sectionContent}>
-              <p style={{ color: "var(--text-secondary)", fontSize: "13px", marginBottom: "16px" }}>
-                Colors follow the SEMI E95 specification for consistent visual feedback across all semiconductor equipment interfaces.
-              </p>
-              <div className={styles.colorLegend}>
-                <div className={styles.colorItem}>
-                  <span className={styles.colorDot} data-color="alarm" />
-                  <div className={styles.colorInfo}>
-                    <span className={styles.colorName}>Alarm (Red)</span>
-                    <span className={styles.colorDesc}>Critical fault, immediate attention required</span>
-                  </div>
-                </div>
-                <div className={styles.colorItem}>
-                  <span className={styles.colorDot} data-color="warning" />
-                  <div className={styles.colorInfo}>
-                    <span className={styles.colorName}>Warning (Yellow)</span>
-                    <span className={styles.colorDesc}>Caution state, monitoring recommended</span>
-                  </div>
-                </div>
-                <div className={styles.colorItem}>
-                  <span className={styles.colorDot} data-color="processing" />
-                  <div className={styles.colorInfo}>
-                    <span className={styles.colorName}>Processing (Blue)</span>
-                    <span className={styles.colorDesc}>Active operation in progress</span>
-                  </div>
-                </div>
-                <div className={styles.colorItem}>
-                  <span className={styles.colorDot} data-color="attention" />
-                  <div className={styles.colorInfo}>
-                    <span className={styles.colorName}>Attention (Green)</span>
-                    <span className={styles.colorDesc}>Normal operation, ready state</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
-        );
-
-      case "shortcuts":
-        return (
-          <>
-            <h2 className={styles.sectionTitle}>
-              {icons.keyboard}
-              Keyboard Shortcuts
-            </h2>
-            <div className={styles.sectionContent}>
-              <div className={styles.shortcutList}>
-                <div className={styles.shortcutItem}>
-                  <span className={styles.shortcutAction}>Emergency Stop</span>
-                  <div className={styles.shortcutKey}>
-                    <span className={styles.key}>ESC</span>
-                  </div>
-                </div>
-                <div className={styles.shortcutItem}>
-                  <span className={styles.shortcutAction}>Acknowledge Alarms</span>
-                  <div className={styles.shortcutKey}>
-                    <span className={styles.key}>Ctrl</span>
-                    <span className={styles.key}>A</span>
-                  </div>
-                </div>
-                <div className={styles.shortcutItem}>
-                  <span className={styles.shortcutAction}>Start Process</span>
-                  <div className={styles.shortcutKey}>
-                    <span className={styles.key}>F5</span>
-                  </div>
-                </div>
-                <div className={styles.shortcutItem}>
-                  <span className={styles.shortcutAction}>Stop Process</span>
-                  <div className={styles.shortcutKey}>
-                    <span className={styles.key}>F6</span>
-                  </div>
-                </div>
-                <div className={styles.shortcutItem}>
-                  <span className={styles.shortcutAction}>Navigate Views</span>
-                  <div className={styles.shortcutKey}>
-                    <span className={styles.key}>F1</span>
-                    <span className={styles.key}>-</span>
-                    <span className={styles.key}>F8</span>
-                  </div>
-                </div>
-                <div className={styles.shortcutItem}>
-                  <span className={styles.shortcutAction}>Toggle Fullscreen</span>
-                  <div className={styles.shortcutKey}>
-                    <span className={styles.key}>F11</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
-        );
-
-      case "semi":
-        return (
-          <>
-            <h2 className={styles.sectionTitle}>
-              {icons.standard}
-              SEMI E95 Specification
-            </h2>
-            <div className={styles.sectionContent}>
-              <p style={{ color: "var(--text-secondary)", fontSize: "13px", marginBottom: "16px" }}>
-                SEMI E95-1101 defines the standard for Human Interface for Semiconductor Manufacturing Equipment,
-                ensuring consistent user experience across different equipment manufacturers.
-              </p>
-              <div className={styles.specList}>
-                <div className={styles.specCard}>
-                  <h4 className={styles.specTitle}>Layout</h4>
-                  <p className={styles.specValue}>4-panel architecture: Title, Navigation, Main, Command</p>
-                </div>
-                <div className={styles.specCard}>
-                  <h4 className={styles.specTitle}>Button Size</h4>
-                  <p className={styles.specValue}>Minimum 70px (1.5cm) for touch targets</p>
-                </div>
-                <div className={styles.specCard}>
-                  <h4 className={styles.specTitle}>Font Size</h4>
-                  <p className={styles.specValue}>Minimum 12px for readability</p>
-                </div>
-                <div className={styles.specCard}>
-                  <h4 className={styles.specTitle}>Color Coding</h4>
-                  <p className={styles.specValue}>Standardized status colors (RYGB)</p>
-                </div>
-                <div className={styles.specCard}>
-                  <h4 className={styles.specTitle}>Alarm Management</h4>
-                  <p className={styles.specValue}>Visual and audible alerts with acknowledgment</p>
-                </div>
-                <div className={styles.specCard}>
-                  <h4 className={styles.specTitle}>User Levels</h4>
-                  <p className={styles.specValue}>Operator, Engineer, Admin access control</p>
-                </div>
-              </div>
-            </div>
-          </>
-        );
-
-      case "faq":
-        return (
-          <>
-            <h2 className={styles.sectionTitle}>
-              {icons.question}
-              Frequently Asked Questions
-            </h2>
-            <div className={styles.sectionContent}>
-              <div className={styles.faqList}>
-                <div className={styles.faqItem}>
-                  <h4 className={styles.faqQuestion}>How do I connect to the equipment?</h4>
-                  <p className={styles.faqAnswer}>
-                    Navigate to the Setup view and configure either Serial or TCP connection settings.
-                    Select the appropriate port and baud rate for serial, or enter the IP address and
-                    port for TCP connections.
-                  </p>
-                </div>
-                <div className={styles.faqItem}>
-                  <h4 className={styles.faqQuestion}>What do the different alarm colors mean?</h4>
-                  <p className={styles.faqAnswer}>
-                    Red indicates critical alarms requiring immediate attention. Yellow shows warnings
-                    that should be monitored. Blue represents active processing states, and green
-                    indicates normal operation.
-                  </p>
-                </div>
-                <div className={styles.faqItem}>
-                  <h4 className={styles.faqQuestion}>How do I run a recipe?</h4>
-                  <p className={styles.faqAnswer}>
-                    Go to the Recipes view and select a recipe from the list. Review the process steps
-                    and parameters, then use the command panel to load and start the recipe execution.
-                  </p>
-                </div>
-                <div className={styles.faqItem}>
-                  <h4 className={styles.faqQuestion}>How do I change the language?</h4>
-                  <p className={styles.faqAnswer}>
-                    Navigate to the Setup view and select your preferred language from the Language
-                    section. The interface will update immediately to the selected language.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </>
-        );
-
-      case "support":
-        return (
-          <>
-            <h2 className={styles.sectionTitle}>
-              {icons.support}
-              Technical Support
-            </h2>
-            <div className={styles.sectionContent}>
-              <div className={styles.contactCard}>
-                <div className={styles.contactIcon}>
-                  {icons.support}
-                </div>
-                <h3 className={styles.contactTitle}>Need Help?</h3>
-                <p className={styles.contactText}>
-                  For technical support, please contact your equipment administrator
-                  or refer to the equipment documentation.
-                </p>
-              </div>
-              <div className={styles.infoCard} style={{ marginTop: "16px" }}>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Documentation</span>
-                  <span className={styles.infoValue}>Equipment Manual</span>
-                </div>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Log Files</span>
-                  <span className={styles.infoValue}>/var/log/hmi/</span>
-                </div>
-                <div className={styles.infoRow}>
-                  <span className={styles.infoLabel}>Config Files</span>
-                  <span className={styles.infoValue}>~/.config/hmi/</span>
-                </div>
-              </div>
-            </div>
-          </>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className={sharedStyles.view}>
-      <div className={styles.helpLayout}>
-        {/* Sidebar */}
-        <div className={styles.sidebar}>
-          <div className={styles.sidebarHeader}>
-            <div className={styles.logo}>
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
-            </div>
-            <h3 className={styles.appName}>Industrial HMI</h3>
-            <span className={styles.appVersion}>v0.1.0 • SEMI E95</span>
-          </div>
-          <div className={styles.navList}>
-            {helpSections.map((section) => (
-              <div
-                key={section.id}
-                className={styles.navItem}
-                data-selected={activeSection === section.id}
-                onClick={() => setActiveSection(section.id)}
-              >
-                <span className={styles.navIcon}>{icons[section.icon]}</span>
-                {section.label}
-              </div>
-            ))}
-          </div>
         </div>
-
-        {/* Main Content */}
-        <div className={styles.mainContent}>
-          {renderSectionContent()}
-        </div>
-      </div>
-    </div>
-  );
+    );
 }

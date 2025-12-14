@@ -1,295 +1,351 @@
 .statsGrid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
 }
 
 .statCard {
-  display: flex;
-  flex-direction: column;
-  padding: 16px 20px;
-  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  position: relative;
-  overflow: hidden;
-  transition: all var(--transition-fast);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 20px;
+    background: linear-gradient(
+        180deg,
+        var(--bg-secondary) 0%,
+        var(--bg-tertiary) 100%
+    );
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+    transition: all var(--transition-fast);
 }
 
 .statCard::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
-  background: var(--border-color);
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--border-color);
 }
 
-.statCard[data-type="temperature"]::before { background: #ff6b6b; }
-.statCard[data-type="pressure"]::before { background: #4ecdc4; }
-.statCard[data-type="humidity"]::before { background: #45b7d1; }
+.statCard[data-type="temperature"]::before {
+    background: #ff6b6b;
+}
+.statCard[data-type="pressure"]::before {
+    background: #4ecdc4;
+}
+.statCard[data-type="humidity"]::before {
+    background: #45b7d1;
+}
 
 .statCard[data-status="warning"] {
-  border-color: var(--color-warning);
+    border-color: var(--color-warning);
 }
 
 .statCard[data-status="alarm"] {
-  border-color: var(--color-alarm);
-  animation: alarmPulse 1.5s ease-in-out infinite;
+    border-color: var(--color-alarm);
+    animation: alarmPulse 1.5s ease-in-out infinite;
 }
 
 @keyframes alarmPulse {
-  0%, 100% { background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%); }
-  50% { background: linear-gradient(180deg, rgba(255, 0, 0, 0.15) 0%, rgba(255, 0, 0, 0.05) 100%); }
+    0%,
+    100% {
+        background: linear-gradient(
+            180deg,
+            var(--bg-secondary) 0%,
+            var(--bg-tertiary) 100%
+        );
+    }
+    50% {
+        background: linear-gradient(
+            180deg,
+            rgba(255, 0, 0, 0.15) 0%,
+            rgba(255, 0, 0, 0.05) 100%
+        );
+    }
 }
 
 .cardHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
 }
 
 .cardIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .cardIcon svg {
-  width: 18px;
-  height: 18px;
+    width: 18px;
+    height: 18px;
 }
 
-.statCard[data-type="temperature"] .cardIcon { color: #ff6b6b; background: rgba(255, 107, 107, 0.2); }
-.statCard[data-type="pressure"] .cardIcon { color: #4ecdc4; background: rgba(78, 205, 196, 0.2); }
-.statCard[data-type="humidity"] .cardIcon { color: #45b7d1; background: rgba(69, 183, 209, 0.2); }
+.statCard[data-type="temperature"] .cardIcon {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.2);
+}
+.statCard[data-type="pressure"] .cardIcon {
+    color: #4ecdc4;
+    background: rgba(78, 205, 196, 0.2);
+}
+.statCard[data-type="humidity"] .cardIcon {
+    color: #45b7d1;
+    background: rgba(69, 183, 209, 0.2);
+}
 
 .statusBadge {
-  font-size: 9px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+    font-size: 9px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .statusBadge[data-status="normal"] {
-  background: rgba(50, 205, 50, 0.2);
-  color: var(--color-attention);
+    background: rgba(50, 205, 50, 0.2);
+    color: var(--color-attention);
 }
 
 .statusBadge[data-status="warning"] {
-  background: rgba(255, 255, 0, 0.2);
-  color: var(--color-warning);
+    background: rgba(255, 255, 0, 0.2);
+    color: var(--color-warning);
 }
 
 .statusBadge[data-status="alarm"] {
-  background: rgba(255, 0, 0, 0.2);
-  color: var(--color-alarm);
+    background: rgba(255, 0, 0, 0.2);
+    color: var(--color-alarm);
 }
 
 .statLabel {
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: 600;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
 }
 
 .statValue {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  margin-bottom: 8px;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    margin-bottom: 8px;
 }
 
-.statCard[data-type="temperature"] .statValue { color: #ff6b6b; }
-.statCard[data-type="pressure"] .statValue { color: #4ecdc4; }
-.statCard[data-type="humidity"] .statValue { color: #45b7d1; }
+.statCard[data-type="temperature"] .statValue {
+    color: #ff6b6b;
+}
+.statCard[data-type="pressure"] .statValue {
+    color: #4ecdc4;
+}
+.statCard[data-type="humidity"] .statValue {
+    color: #45b7d1;
+}
 
 .statMeta {
-  display: flex;
-  gap: 12px;
-  font-size: 10px;
-  color: var(--text-secondary);
-  padding-top: 8px;
-  border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 12px;
+    font-size: 10px;
+    color: var(--text-secondary);
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
 }
 
 .chartContainer {
-  flex: 1;
-  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
-  padding: 16px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+    flex: 1;
+    background: linear-gradient(
+        180deg,
+        var(--bg-secondary) 0%,
+        var(--bg-tertiary) 100%
+    );
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    padding: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .chartHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .chartTitle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .chartTitle svg {
-  width: 20px;
-  height: 20px;
-  color: var(--color-processing);
+    width: 20px;
+    height: 20px;
+    color: var(--color-processing);
 }
 
 .chartControls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .timeRangeGroup {
-  display: flex;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-  padding: 2px;
+    display: flex;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    padding: 2px;
 }
 
 .timeRangeBtn {
-  padding: 6px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-fast);
+    padding: 6px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
 }
 
 .timeRangeBtn:hover {
-  color: var(--text-primary);
+    color: var(--text-primary);
 }
 
 .timeRangeBtn[data-active="true"] {
-  background: var(--color-processing);
-  color: white;
+    background: var(--color-processing);
+    color: white;
 }
 
 .controlBtn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: linear-gradient(180deg, var(--button-bg) 0%, var(--button-bg-active) 100%);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: linear-gradient(
+        180deg,
+        var(--button-bg) 0%,
+        var(--button-bg-active) 100%
+    );
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
 }
 
 .controlBtn:hover {
-  background: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
-  border-color: var(--color-processing);
+    background: linear-gradient(
+        180deg,
+        var(--button-bg-hover) 0%,
+        var(--button-bg) 100%
+    );
+    border-color: var(--color-processing);
 }
 
 .controlBtn[data-active="true"] {
-  background: linear-gradient(180deg, var(--color-warning) 0%, #c5a700 100%);
-  border-color: var(--color-warning);
-  color: #000;
+    background: linear-gradient(180deg, var(--color-warning) 0%, #c5a700 100%);
+    border-color: var(--color-warning);
+    color: #000;
 }
 
 .controlBtn svg {
-  width: 14px;
-  height: 14px;
+    width: 14px;
+    height: 14px;
 }
 
 .chart {
-  width: 100%;
-  flex: 1;
-  min-height: 300px;
+    width: 100%;
+    flex: 1;
+    min-height: 300px;
 }
 
 .chartLegend {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
 }
 
 .legendItem {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
 }
 
 .legendDot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
 }
 
-.legendItem[data-type="temperature"] .legendDot { background: #ff6b6b; }
-.legendItem[data-type="pressure"] .legendDot { background: #4ecdc4; }
-.legendItem[data-type="humidity"] .legendDot { background: #45b7d1; }
+.legendItem[data-type="temperature"] .legendDot {
+    background: #ff6b6b;
+}
+.legendItem[data-type="pressure"] .legendDot {
+    background: #4ecdc4;
+}
+.legendItem[data-type="humidity"] .legendDot {
+    background: #45b7d1;
+}
 
 /* Override uPlot styles for dark theme */
 .chart :global(.u-legend) {
-  display: none !important;
+    display: none !important;
 }
 
 .chart :global(.u-wrap) {
-  background: transparent !important;
+    background: transparent !important;
 }
 
 @media (max-width: 768px) {
-  .statsGrid {
-    grid-template-columns: 1fr;
-  }
+    .statsGrid {
+        grid-template-columns: 1fr;
+    }
 
-  .statValue {
-    font-size: 24px;
-  }
+    .statValue {
+        font-size: 24px;
+    }
 
-  .chartHeader {
-    flex-direction: column;
-    gap: 12px;
-    align-items: flex-start;
-  }
+    .chartHeader {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+    }
 
-  .chartControls {
-    width: 100%;
-    justify-content: space-between;
-  }
+    .chartControls {
+        width: 100%;
+        justify-content: space-between;
+    }
 
-  .chartLegend {
-    flex-wrap: wrap;
-    gap: 12px;
-  }
+    .chartLegend {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
 }

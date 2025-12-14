@@ -1,213 +1,241 @@
 .setupGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
 }
 
 .section {
-  padding: 16px;
-  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
+    padding: 16px;
+    background: linear-gradient(
+        180deg,
+        var(--bg-secondary) 0%,
+        var(--bg-tertiary) 100%
+    );
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
 }
 
 .sectionHeader {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .sectionIcon {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(65, 105, 225, 0.2);
-  color: var(--color-processing);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(65, 105, 225, 0.2);
+    color: var(--color-processing);
 }
 
 .sectionIcon svg {
-  width: 20px;
-  height: 20px;
+    width: 20px;
+    height: 20px;
 }
 
 .sectionTitle {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
 }
 
 .sectionDesc {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin: 4px 0 0 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin: 4px 0 0 0;
 }
 
 .optionRow {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .optionButton {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 18px;
-  background: linear-gradient(180deg, var(--button-bg) 0%, var(--button-bg-active) 100%);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: var(--text-primary);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  min-width: 120px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    background: linear-gradient(
+        180deg,
+        var(--button-bg) 0%,
+        var(--button-bg-active) 100%
+    );
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    min-width: 120px;
 }
 
 .optionButton:hover {
-  background: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
-  border-color: var(--color-processing);
+    background: linear-gradient(
+        180deg,
+        var(--button-bg-hover) 0%,
+        var(--button-bg) 100%
+    );
+    border-color: var(--color-processing);
 }
 
 .optionButton[data-selected="true"] {
-  background: linear-gradient(180deg, var(--color-processing) 0%, #2a4d8e 100%);
-  border-color: var(--color-processing);
-  color: white;
+    background: linear-gradient(
+        180deg,
+        var(--color-processing) 0%,
+        #2a4d8e 100%
+    );
+    border-color: var(--color-processing);
+    color: white;
 }
 
 .optionIcon {
-  width: 24px;
-  height: 24px;
+    width: 24px;
+    height: 24px;
 }
 
 .optionIcon svg {
-  width: 100%;
-  height: 100%;
+    width: 100%;
+    height: 100%;
 }
 
 .formGroup {
-  margin-bottom: 14px;
+    margin-bottom: 14px;
 }
 
 .formLabel {
-  display: block;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .formRow {
-  display: flex;
-  gap: 12px;
-  align-items: center;
+    display: flex;
+    gap: 12px;
+    align-items: center;
 }
 
 .select,
 .input {
-  flex: 1;
-  padding: 10px 14px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 14px;
-  transition: all var(--transition-fast);
+    flex: 1;
+    padding: 10px 14px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: all var(--transition-fast);
 }
 
 .select:focus,
 .input:focus {
-  outline: none;
-  border-color: var(--color-processing);
-  box-shadow: 0 0 0 2px rgba(65, 105, 225, 0.2);
+    outline: none;
+    border-color: var(--color-processing);
+    box-shadow: 0 0 0 2px rgba(65, 105, 225, 0.2);
 }
 
 .select:disabled,
 .input:disabled {
-  background: var(--button-bg-disabled);
-  color: var(--text-disabled);
-  cursor: not-allowed;
+    background: var(--button-bg-disabled);
+    color: var(--text-disabled);
+    cursor: not-allowed;
 }
 
 .select option {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
 }
 
 .connectButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: linear-gradient(180deg, var(--button-bg) 0%, var(--button-bg-active) 100%);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  margin-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: linear-gradient(
+        180deg,
+        var(--button-bg) 0%,
+        var(--button-bg-active) 100%
+    );
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    margin-top: 14px;
 }
 
 .connectButton:hover {
-  background: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
-  border-color: var(--color-processing);
+    background: linear-gradient(
+        180deg,
+        var(--button-bg-hover) 0%,
+        var(--button-bg) 100%
+    );
+    border-color: var(--color-processing);
 }
 
 .connectButton[data-connected="true"] {
-  background: linear-gradient(180deg, var(--color-attention) 0%, #228b22 100%);
-  border-color: var(--color-attention);
-  color: white;
+    background: linear-gradient(
+        180deg,
+        var(--color-attention) 0%,
+        #228b22 100%
+    );
+    border-color: var(--color-attention);
+    color: white;
 }
 
 .connectButton svg {
-  width: 18px;
-  height: 18px;
+    width: 18px;
+    height: 18px;
 }
 
 .statusIndicator {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-  margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    margin-bottom: 14px;
 }
 
 .statusDot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-alarm);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-alarm);
 }
 
 .statusDot[data-connected="true"] {
-  background: var(--color-attention);
-  box-shadow: 0 0 8px var(--color-attention);
+    background: var(--color-attention);
+    box-shadow: 0 0 8px var(--color-attention);
 }
 
 .statusText {
-  font-size: 13px;
-  color: var(--text-secondary);
+    font-size: 13px;
+    color: var(--text-secondary);
 }
 
 .statusText[data-connected="true"] {
-  color: var(--color-attention);
+    color: var(--color-attention);
 }
 
 @media (max-width: 900px) {
-  .setupGrid {
-    grid-template-columns: 1fr;
-  }
+    .setupGrid {
+        grid-template-columns: 1fr;
+    }
 }

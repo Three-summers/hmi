@@ -1,248 +1,257 @@
 .systemGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  height: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    height: 100%;
 }
 
 .overviewPanel,
 .subsystemsPanel {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
 }
 
 .panelTitle {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 16px 0;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 16px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .overviewStats {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 20px;
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
 }
 
 .overviewItem {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
 }
 
 .overviewIcon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: rgba(65, 105, 225, 0.2);
-  color: var(--color-processing);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(65, 105, 225, 0.2);
+    color: var(--color-processing);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .overviewIcon[data-status="attention"] {
-  background: rgba(50, 205, 50, 0.2);
-  color: var(--color-attention);
+    background: rgba(50, 205, 50, 0.2);
+    color: var(--color-attention);
 }
 
 .overviewIcon svg {
-  width: 24px;
-  height: 24px;
+    width: 24px;
+    height: 24px;
 }
 
 .overviewInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .overviewLabel {
-  font-size: 11px;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .overviewValue {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .resourceBars {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .resourceItem {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .resourceHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .resourceLabel {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-weight: 500;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
 }
 
 .resourceValue {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
 }
 
 .resourceBar {
-  height: 8px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-  overflow: hidden;
+    height: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    overflow: hidden;
 }
 
 .resourceFill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-  background: var(--color-attention);
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    background: var(--color-attention);
 }
 
 .resourceFill[data-level="medium"] {
-  background: var(--color-warning);
+    background: var(--color-warning);
 }
 
 .resourceFill[data-level="high"] {
-  background: var(--color-alarm);
+    background: var(--color-alarm);
 }
 
 .subsystemsPanel {
-  overflow: hidden;
+    overflow: hidden;
 }
 
 .subsystemsList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex: 1;
-  overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    overflow: auto;
 }
 
 .subsystemCard {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: linear-gradient(
+        180deg,
+        var(--bg-secondary) 0%,
+        var(--bg-tertiary) 100%
+    );
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    transition: all var(--transition-fast);
 }
 
 .subsystemCard:hover {
-  border-color: var(--color-processing);
-  transform: translateX(4px);
+    border-color: var(--color-processing);
+    transform: translateX(4px);
 }
 
 .subsystemIndicator {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--text-secondary);
-  flex-shrink: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--text-secondary);
+    flex-shrink: 0;
 }
 
 .subsystemIndicator[data-status="attention"] {
-  background: var(--color-attention);
-  box-shadow: 0 0 8px var(--color-attention);
+    background: var(--color-attention);
+    box-shadow: 0 0 8px var(--color-attention);
 }
 
 .subsystemIndicator[data-status="warning"] {
-  background: var(--color-warning);
-  box-shadow: 0 0 8px var(--color-warning);
-  animation: pulse 2s infinite;
+    background: var(--color-warning);
+    box-shadow: 0 0 8px var(--color-warning);
+    animation: pulse 2s infinite;
 }
 
 .subsystemIndicator[data-status="alarm"] {
-  background: var(--color-alarm);
-  box-shadow: 0 0 8px var(--color-alarm);
-  animation: pulse 1s infinite;
+    background: var(--color-alarm);
+    box-shadow: 0 0 8px var(--color-alarm);
+    animation: pulse 1s infinite;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
 }
 
 .subsystemInfo {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
 }
 
 .subsystemName {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .subsystemValue {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
 }
 
 .subsystemStatus {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.3);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .subsystemStatus[data-status="attention"] {
-  background: rgba(50, 205, 50, 0.2);
-  color: var(--color-attention);
+    background: rgba(50, 205, 50, 0.2);
+    color: var(--color-attention);
 }
 
 .subsystemStatus[data-status="warning"] {
-  background: rgba(255, 255, 0, 0.2);
-  color: var(--color-warning);
+    background: rgba(255, 255, 0, 0.2);
+    color: var(--color-warning);
 }
 
 .subsystemStatus[data-status="alarm"] {
-  background: rgba(255, 0, 0, 0.2);
-  color: var(--color-alarm);
+    background: rgba(255, 0, 0, 0.2);
+    color: var(--color-alarm);
 }
 
 @media (max-width: 900px) {
-  .systemGrid {
-    grid-template-columns: 1fr;
-  }
+    .systemGrid {
+        grid-template-columns: 1fr;
+    }
 }

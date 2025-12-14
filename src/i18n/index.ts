@@ -4,17 +4,17 @@ import zh from "./locales/zh.json";
 import en from "./locales/en.json";
 
 const resources = {
-  zh: { translation: zh },
-  en: { translation: en },
+    zh: { translation: zh },
+    en: { translation: en },
 };
 
 i18n.use(initReactI18next).init({
-  resources,
-  lng: "zh", // Default language
-  fallbackLng: "en",
-  interpolation: {
-    escapeValue: false,
-  },
+    resources,
+    lng: "zh", // Default language
+    fallbackLng: "en",
+    interpolation: {
+        escapeValue: false,
+    },
 });
 
 export default i18n;
