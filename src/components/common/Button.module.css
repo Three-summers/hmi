@@ -1,0 +1,102 @@
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: var(--button-bg);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: var(--font-size-normal);
+  font-weight: 500;
+  text-transform: capitalize;
+  transition: background-color var(--transition-fast);
+  min-height: var(--button-min-size);
+  min-width: var(--button-min-size);
+}
+
+.button:hover:not(:disabled) {
+  background-color: var(--button-bg-hover);
+}
+
+.button:active:not(:disabled) {
+  background-color: var(--button-bg-active);
+}
+
+.button:disabled {
+  background-color: var(--button-bg-disabled);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+/* Size variants */
+.button[data-size="small"] {
+  min-height: var(--button-nav-size);
+  min-width: var(--button-nav-size);
+  padding: 4px 12px;
+  font-size: var(--font-size-small);
+}
+
+.button[data-size="large"] {
+  min-height: calc(var(--button-min-size) * 1.2);
+  min-width: calc(var(--button-min-size) * 1.5);
+  padding: 12px 24px;
+  font-size: var(--font-size-large);
+}
+
+/* Toggle (pressed) state for two-state buttons */
+.button[data-pressed="true"] {
+  background-color: var(--color-processing);
+  color: white;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Highlight states per SEMI E95 */
+.button[data-highlight="alarm"] {
+  box-shadow: 0 0 0 3px var(--color-alarm);
+}
+
+.button[data-highlight="warning"] {
+  box-shadow: 0 0 0 3px var(--color-warning);
+}
+
+.button[data-highlight="processing"] {
+  box-shadow: 0 0 0 3px var(--color-processing);
+}
+
+.button[data-highlight="attention"] {
+  box-shadow: 0 0 0 3px var(--color-attention);
+}
+
+/* Primary variant */
+.button[data-variant="primary"] {
+  background-color: var(--color-processing);
+  color: white;
+}
+
+.button[data-variant="primary"]:hover:not(:disabled) {
+  background-color: #3458c5;
+}
+
+.button[data-variant="primary"]:active:not(:disabled) {
+  background-color: #2a47a0;
+}
+
+/* Danger variant */
+.button[data-variant="danger"] {
+  background-color: var(--color-alarm);
+  color: white;
+}
+
+.button[data-variant="danger"]:hover:not(:disabled) {
+  background-color: #dd0000;
+}
+
+.button[data-variant="danger"]:active:not(:disabled) {
+  background-color: #bb0000;
+}
+
+/* Icon */
+.icon {
+  font-size: 1.2em;
+}

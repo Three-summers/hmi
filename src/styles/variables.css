@@ -1,0 +1,68 @@
+/* SEMI E95 Color Semantic Variables */
+:root {
+  /* Panel dimensions - responsive */
+  --title-panel-height: 80px;
+  --nav-panel-height: 80px;
+  --command-panel-width: 160px;
+
+  /* SEMI E95 Status Colors */
+  --color-alarm: #ff0000; /* Bright Red - Alarm */
+  --color-warning: #ffff00; /* Bright Yellow - Warning */
+  --color-processing: #4169e1; /* Medium Blue - Processing/Incomplete */
+  --color-attention: #32cd32; /* Medium Green - Needs Attention */
+
+  /* Button dimensions - SEMI E95 Touch Requirements */
+  --button-min-size: 70px; /* 1.5cm @ ~47px/cm */
+  --button-nav-size: 47px; /* 1.0cm for navigation */
+  --button-spacing: 8px;
+
+  /* Background colors */
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --bg-tertiary: #0f3460;
+  --bg-panel: #1a1a2e;
+  --bg-panel-header: #0f3460;
+
+  /* Text colors */
+  --text-primary: #ffffff;
+  --text-secondary: #b0b0b0;
+  --text-disabled: #666666;
+
+  /* Border colors */
+  --border-color: #333355;
+  --border-active: #4169e1;
+
+  /* Button colors */
+  --button-bg: #2d2d44;
+  --button-bg-hover: #3d3d55;
+  --button-bg-active: #1d1d33;
+  --button-bg-disabled: #1a1a2a;
+
+  /* Font settings */
+  --font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  --font-size-small: 12px;
+  --font-size-normal: 14px;
+  --font-size-large: 16px;
+  --font-size-title: 18px;
+
+  /* Transitions - minimal for performance */
+  --transition-fast: 100ms ease-out;
+  --transition-normal: 200ms ease-out;
+}
+
+/* Dark theme is default for industrial HMI */
+[data-theme="light"] {
+  --bg-primary: #f0f0f0;
+  --bg-secondary: #e0e0e0;
+  --bg-tertiary: #d0d0d0;
+  --bg-panel: #f5f5f5;
+  --bg-panel-header: #e0e0e0;
+  --text-primary: #1a1a1a;
+  --text-secondary: #555555;
+  --text-disabled: #999999;
+  --border-color: #cccccc;
+  --button-bg: #dddddd;
+  --button-bg-hover: #cccccc;
+  --button-bg-active: #bbbbbb;
+  --button-bg-disabled: #eeeeee;
+}

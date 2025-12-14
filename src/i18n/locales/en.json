@@ -1,0 +1,108 @@
+{
+  "common": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "close": "Close",
+    "yes": "Yes",
+    "no": "No",
+    "apply": "Apply",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "refresh": "Refresh",
+    "start": "Start",
+    "stop": "Stop",
+    "pause": "Pause",
+    "resume": "Resume",
+    "reset": "Reset"
+  },
+  "nav": {
+    "jobs": "Jobs",
+    "system": "System",
+    "monitor": "Monitor",
+    "recipes": "Recipes",
+    "datalog": "Datalog",
+    "setup": "Setup",
+    "alarms": "Alarms",
+    "help": "Help"
+  },
+  "title": {
+    "loginHere": "Login Here",
+    "logout": "Logout",
+    "commStatus": {
+      "connected": "Connected",
+      "disconnected": "Disconnected",
+      "local": "Local",
+      "remote": "Remote"
+    }
+  },
+  "dialog": {
+    "confirm": "Confirm",
+    "warning": "Warning",
+    "error": "Error",
+    "info": "Information",
+    "confirmDelete": "Are you sure you want to delete?",
+    "unsavedChanges": "You have unsaved changes. Do you want to save?"
+  },
+  "alarm": {
+    "title": "Alarm List",
+    "acknowledgeAll": "Acknowledge All",
+    "clearAll": "Clear All",
+    "noAlarms": "No Alarms",
+    "severity": {
+      "alarm": "Alarm",
+      "warning": "Warning",
+      "info": "Information"
+    }
+  },
+  "system": {
+    "title": "System Status",
+    "status": "Status",
+    "running": "Running",
+    "stopped": "Stopped",
+    "idle": "Idle",
+    "error": "Error"
+  },
+  "jobs": {
+    "title": "Job Management",
+    "newJob": "New Job",
+    "runJob": "Run Job",
+    "stopJob": "Stop Job",
+    "jobList": "Job List",
+    "noJobs": "No Jobs"
+  },
+  "recipes": {
+    "title": "Recipe Management",
+    "newRecipe": "New Recipe",
+    "editRecipe": "Edit Recipe",
+    "deleteRecipe": "Delete Recipe",
+    "recipeList": "Recipe List",
+    "noRecipes": "No Recipes"
+  },
+  "setup": {
+    "title": "System Setup",
+    "language": "Language",
+    "theme": "Theme",
+    "communication": "Communication Settings",
+    "serial": "Serial Port",
+    "tcp": "TCP/IP",
+    "port": "Port",
+    "baudRate": "Baud Rate",
+    "host": "Host Address",
+    "connect": "Connect",
+    "disconnect": "Disconnect"
+  },
+  "help": {
+    "title": "Help",
+    "about": "About",
+    "version": "Version",
+    "manual": "User Manual"
+  },
+  "monitor": {
+    "title": "Real-time Monitor",
+    "temperature": "Temperature",
+    "pressure": "Pressure",
+    "humidity": "Humidity"
+  }
+}

@@ -1,0 +1,173 @@
+.navPanel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(0deg, var(--bg-panel-header) 0%, rgba(15, 52, 96, 0.9) 100%);
+  border-top: 2px solid var(--border-color);
+  padding: 8px 16px;
+}
+
+.navContainer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.navButton {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 90px;
+  height: calc(var(--nav-panel-height) - 20px);
+  padding: 6px 14px;
+  background: linear-gradient(180deg, var(--button-bg) 0%, var(--button-bg-active) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-normal);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  overflow: hidden;
+}
+
+.navButton::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.navButton:hover {
+  background: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
+  color: var(--text-primary);
+  border-color: var(--color-processing);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.navButton:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.navButton[data-active="true"] {
+  background: linear-gradient(180deg, var(--color-processing) 0%, #2a4d8e 100%);
+  color: white;
+  border-color: var(--color-processing);
+  box-shadow: 0 0 16px rgba(65, 105, 225, 0.5);
+}
+
+/* Highlight states per SEMI E95 */
+.navButton[data-highlight="alarm"] {
+  border-color: var(--color-alarm);
+  box-shadow: 0 0 0 2px rgba(255, 0, 0, 0.3), inset 0 0 20px rgba(255, 0, 0, 0.1);
+  animation: alarmPulse 1s infinite;
+}
+
+.navButton[data-highlight="warning"] {
+  border-color: var(--color-warning);
+  box-shadow: 0 0 0 2px rgba(255, 255, 0, 0.3), inset 0 0 20px rgba(255, 255, 0, 0.1);
+}
+
+.navButton[data-highlight="processing"] {
+  border-color: var(--color-processing);
+  box-shadow: 0 0 0 2px rgba(65, 105, 225, 0.3);
+}
+
+.navButton[data-highlight="attention"] {
+  border-color: var(--color-attention);
+  box-shadow: 0 0 0 2px rgba(50, 205, 50, 0.3);
+}
+
+@keyframes alarmPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(255, 0, 0, 0.3), inset 0 0 20px rgba(255, 0, 0, 0.1); }
+  50% { box-shadow: 0 0 0 4px rgba(255, 0, 0, 0.5), inset 0 0 30px rgba(255, 0, 0, 0.2); }
+}
+
+/* Special spacing for Alarms button per SEMI E95 */
+.navButton[data-id="alarms"] {
+  margin-left: auto;
+}
+
+.navIconContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navIcon {
+  width: 24px;
+  height: 24px;
+  margin-bottom: 2px;
+}
+
+.navIcon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.badge {
+  position: absolute;
+  top: -8px;
+  right: -12px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--color-alarm);
+  border-radius: 9px;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.badge[data-severity="warning"] {
+  background: var(--color-warning);
+  color: #333;
+}
+
+.navLabel {
+  font-size: 12px;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+}
+
+.activeIndicator {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, white, transparent);
+  border-radius: 3px 3px 0 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .navButton {
+    min-width: 70px;
+    padding: 6px 8px;
+  }
+
+  .navLabel {
+    font-size: 11px;
+  }
+
+  .navIcon {
+    width: 20px;
+    height: 20px;
+  }
+}

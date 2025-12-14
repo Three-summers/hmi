@@ -1,0 +1,367 @@
+.titlePanel {
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--bg-panel-header) 0%, rgba(15, 52, 96, 0.8) 100%);
+  border-bottom: 2px solid var(--border-color);
+  padding: 6px 16px;
+  gap: 6px;
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 40px;
+}
+
+.leftSection {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.centerSection {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.viewName {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  margin: 0;
+}
+
+.rightSection {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Communication Status */
+.commStatus {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.commStatus[data-connected="true"] {
+  border-color: var(--color-attention);
+  box-shadow: 0 0 8px rgba(50, 205, 50, 0.3);
+}
+
+.commIcon {
+  width: 24px;
+  height: 24px;
+  color: var(--text-secondary);
+}
+
+.commStatus[data-connected="true"] .commIcon {
+  color: var(--color-attention);
+}
+
+.commInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.commLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.commStatus[data-connected="true"] .commLabel {
+  color: var(--color-attention);
+}
+
+.commType {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.commIndicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--color-alarm);
+  box-shadow: 0 0 6px var(--color-alarm);
+  animation: pulse 2s infinite;
+}
+
+.commIndicator[data-connected="true"] {
+  background-color: var(--color-attention);
+  box-shadow: 0 0 6px var(--color-attention);
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Date Time */
+.dateTimeContainer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.dateIcon {
+  width: 20px;
+  height: 20px;
+  color: var(--color-processing);
+}
+
+.dateTimeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.date {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.time {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Alarm Badge */
+.alarmBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 0, 0, 0.2);
+  border-radius: 8px;
+  border: 1px solid var(--color-alarm);
+  color: var(--color-alarm);
+  font-weight: 600;
+  font-size: 14px;
+  animation: alarmPulse 1s infinite;
+}
+
+.alarmBadge[data-severity="warning"] {
+  background: rgba(255, 255, 0, 0.15);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.alarmBadge svg {
+  width: 18px;
+  height: 18px;
+}
+
+@keyframes alarmPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
+}
+
+/* Login Button */
+.loginButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: linear-gradient(180deg, var(--button-bg) 0%, var(--button-bg-active) 100%);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.loginButton:hover {
+  background: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
+  border-color: var(--color-processing);
+}
+
+.loginButton[data-logged-in="true"] {
+  border-color: var(--color-attention);
+}
+
+.userIcon {
+  width: 24px;
+  height: 24px;
+  color: var(--text-secondary);
+}
+
+.loginButton[data-logged-in="true"] .userIcon {
+  color: var(--color-attention);
+}
+
+.loginInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+}
+
+.loginLabel {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.loginRole {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+/* Message Area */
+.messageArea {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  font-size: 13px;
+  color: var(--color-attention);
+}
+
+.messageArea[data-severity="alarm"] {
+  background: rgba(255, 0, 0, 0.15);
+  border-color: var(--color-alarm);
+  color: var(--color-alarm);
+  animation: alarmBlink 0.5s infinite;
+}
+
+.messageArea[data-severity="warning"] {
+  background: rgba(255, 255, 0, 0.1);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.messageArea[data-severity="info"] {
+  background: rgba(65, 105, 225, 0.1);
+  border-color: var(--color-processing);
+  color: var(--color-processing);
+}
+
+@keyframes alarmBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.messageIcon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.messageText {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.messageTime {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Login Modal */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.loginModal {
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 2px solid var(--border-color);
+  padding: 24px;
+  min-width: 300px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.modalTitle {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.loginOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.loginOption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--button-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.loginOption:hover {
+  background: var(--button-bg-hover);
+  border-color: var(--color-processing);
+  transform: translateX(4px);
+}
+
+.optionIcon {
+  font-size: 24px;
+}
+
+.cancelButton {
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.cancelButton:hover {
+  background: var(--button-bg);
+  color: var(--text-primary);
+}

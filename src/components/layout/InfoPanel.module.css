@@ -1,0 +1,24 @@
+.infoPanel {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-panel);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.viewContainer {
+  flex: 1;
+  padding: 12px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: var(--font-size-large);
+}

@@ -1,0 +1,76 @@
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: var(--font-size-small);
+  font-weight: 500;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Status colors per SEMI E95 */
+.indicator[data-status="alarm"] {
+  background-color: rgba(255, 0, 0, 0.15);
+  color: var(--color-alarm);
+}
+
+.indicator[data-status="alarm"] .dot {
+  background-color: var(--color-alarm);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.indicator[data-status="warning"] {
+  background-color: rgba(255, 255, 0, 0.15);
+  color: var(--color-warning);
+}
+
+.indicator[data-status="warning"] .dot {
+  background-color: var(--color-warning);
+}
+
+.indicator[data-status="processing"] {
+  background-color: rgba(65, 105, 225, 0.15);
+  color: var(--color-processing);
+}
+
+.indicator[data-status="processing"] .dot {
+  background-color: var(--color-processing);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.indicator[data-status="attention"] {
+  background-color: rgba(50, 205, 50, 0.15);
+  color: var(--color-attention);
+}
+
+.indicator[data-status="attention"] .dot {
+  background-color: var(--color-attention);
+}
+
+.indicator[data-status="none"],
+.indicator[data-status="idle"] {
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.indicator[data-status="none"] .dot,
+.indicator[data-status="idle"] .dot {
+  background-color: var(--text-disabled);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
