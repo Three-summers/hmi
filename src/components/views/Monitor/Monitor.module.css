@@ -41,6 +41,17 @@
     background: #45b7d1;
 }
 
+/* 频谱图统计卡片样式 */
+.statCard[data-type="peak-freq"]::before {
+    background: linear-gradient(180deg, #00d4ff, #0066ff);
+}
+.statCard[data-type="peak-amp"]::before {
+    background: linear-gradient(180deg, #ff6b6b, #ff3366);
+}
+.statCard[data-type="bandwidth"]::before {
+    background: linear-gradient(180deg, #00ff88, #00cc66);
+}
+
 .statCard[data-status="warning"] {
     border-color: var(--color-warning);
 }
@@ -101,6 +112,31 @@
 .statCard[data-type="humidity"] .cardIcon {
     color: #45b7d1;
     background: rgba(69, 183, 209, 0.2);
+}
+
+/* 频谱图统计卡片图标样式 */
+.statCard[data-type="peak-freq"] .cardIcon {
+    color: #00d4ff;
+    background: rgba(0, 212, 255, 0.2);
+}
+.statCard[data-type="peak-amp"] .cardIcon {
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.2);
+}
+.statCard[data-type="bandwidth"] .cardIcon {
+    color: #00ff88;
+    background: rgba(0, 255, 136, 0.2);
+}
+
+/* 频谱图统计值颜色 */
+.statCard[data-type="peak-freq"] .statValue {
+    color: #00d4ff;
+}
+.statCard[data-type="peak-amp"] .statValue {
+    color: #ff6b6b;
+}
+.statCard[data-type="bandwidth"] .statValue {
+    color: #00ff88;
 }
 
 .statusBadge {
@@ -313,6 +349,25 @@
 }
 .legendItem[data-type="humidity"] .legendDot {
     background: #45b7d1;
+}
+
+/* 频谱图图例样式 */
+.legendItem[data-type="spectrum"] .legendDot {
+    background: linear-gradient(180deg, #00d4ff, #00ff88);
+}
+.legendItem[data-type="peak"] .legendDot {
+    background: #ff4444;
+}
+.legendItem[data-type="noise"] .legendDot {
+    background: rgba(100, 150, 200, 0.5);
+}
+
+/* 频谱图 Canvas 样式 */
+.spectrumCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border-radius: 6px;
 }
 
 /* Override uPlot styles for dark theme */

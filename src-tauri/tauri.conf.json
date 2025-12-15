@@ -13,14 +13,16 @@
     "windows": [
       {
         "title": "HMI",
-        "width": 1024,
-        "height": 600,
-        "resizable": false,
+        "width": 1400,
+        "height": 900,
+        "resizable": true,
         "fullscreen": false,
         "decorations": false,
-        "alwaysOnTop": true,
+        "alwaysOnTop": false,
         "skipTaskbar": false,
-        "center": true
+        "center": true,
+        "minWidth": 1200,
+        "minHeight": 700
       }
     ],
     "security": {

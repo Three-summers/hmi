@@ -26,7 +26,7 @@ export default function SetupView() {
     const [selectedPort, setSelectedPort] = useState("");
     const [baudRate, setBaudRate] = useState(9600);
     const [tcpHost, setTcpHost] = useState("127.0.0.1");
-    const [tcpPort, setTcpPort] = useState(502);
+    const [tcpPort, setTcpPort] = useState("502");
 
     useEffect(() => {
         getSerialPorts().then(setAvailablePorts);
@@ -50,9 +50,14 @@ export default function SetupView() {
         if (tcpConnected) {
             await disconnectTcp();
         } else {
+            const portNum = parseInt(tcpPort, 10);
+            if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+                console.error("Invalid port number");
+                return;
+            }
             await connectTcp({
                 host: tcpHost,
-                port: tcpPort,
+                port: portNum,
                 timeoutMs: 5000,
             });
         }
@@ -288,11 +293,20 @@ export default function SetupView() {
                             {t("setup.port")}
                         </label>
                         <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={tcpPort}
-                            onChange={(e) => setTcpPort(Number(e.target.value))}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                // 只允许数字输入
+                                if (val === "" || /^\d+$/.test(val)) {
+                                    setTcpPort(val);
+                                }
+                            }}
                             className={styles.input}
                             disabled={tcpConnected}
+                            placeholder="9000"
                         />
                     </div>
 
