@@ -38,8 +38,8 @@
     --button-bg-active: #1d1d33;
     --button-bg-disabled: #1a1a2a;
 
-    /* Font settings */
-    --font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    /* Font settings - using system fonts for cross-platform compatibility */
+    --font-family: system-ui, -apple-system, "Noto Sans", "DejaVu Sans", "Liberation Sans", sans-serif;
     --font-size-small: 12px;
     --font-size-normal: 14px;
     --font-size-large: 16px;
