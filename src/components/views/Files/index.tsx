@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { readTextFile, readDir } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import uPlot from "uplot";
+import "uplot/dist/uPlot.min.css";
 import styles from "../shared.module.css";
 import filesStyles from "./Files.module.css";
 
@@ -33,17 +34,23 @@ export default function FilesView() {
     const [csvData, setCsvData] = useState<CsvData | null>(null);
     const [visibleCharts, setVisibleCharts] = useState<number>(DEFAULT_VISIBLE_CHARTS);
     const [enabledColumns, setEnabledColumns] = useState<Set<number>>(new Set());
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [treeLoading, setTreeLoading] = useState(false);
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [treeError, setTreeError] = useState<string | null>(null);
+    const [previewError, setPreviewError] = useState<string | null>(null);
     const [logBasePath, setLogBasePath] = useState<string>("");
+    const [enlargedColumn, setEnlargedColumn] = useState<number | null>(null);
     const chartRefs = useRef<Map<number, HTMLDivElement>>(new Map());
     const uplotInstances = useRef<Map<number, uPlot>>(new Map());
+    const enlargedChartRef = useRef<HTMLDivElement | null>(null);
+    const enlargedUplotInstance = useRef<uPlot | null>(null);
+    const enlargedFullXRange = useRef<{ min: number; max: number } | null>(null);
 
     // Get Log directory path
     useEffect(() => {
         const initPath = async () => {
             if (!isTauri()) {
-                setError("Not running in Tauri environment");
+                setTreeError("Not running in Tauri environment");
                 return;
             }
             try {
@@ -51,7 +58,7 @@ export default function FilesView() {
                 setLogBasePath(logPath);
             } catch (err) {
                 console.error("Failed to get Log directory:", err);
-                setError(t("files.noLogFolder"));
+                setTreeError(t("files.noLogFolder"));
             }
         };
         initPath();
@@ -62,8 +69,8 @@ export default function FilesView() {
         if (!logBasePath || !isTauri()) return;
 
         try {
-            setLoading(true);
-            setError(null);
+            setTreeLoading(true);
+            setTreeError(null);
 
             const entries = await readDir(logBasePath);
             const tree: FileEntry[] = [];
@@ -101,10 +108,10 @@ export default function FilesView() {
             setFileTree(tree);
         } catch (err) {
             console.error("Failed to load file tree:", err);
-            setError(t("files.noLogFolder"));
+            setTreeError(t("files.noLogFolder"));
             setFileTree([]);
         } finally {
-            setLoading(false);
+            setTreeLoading(false);
         }
     }, [logBasePath, t]);
 
@@ -114,21 +121,70 @@ export default function FilesView() {
         }
     }, [logBasePath, loadFileTree]);
 
+    const formatHms = (seconds: number): string => {
+        const date = new Date(seconds * 1000);
+        const hh = String(date.getHours()).padStart(2, "0");
+        const mm = String(date.getMinutes()).padStart(2, "0");
+        const ss = String(date.getSeconds()).padStart(2, "0");
+        return `${hh}:${mm}:${ss}`;
+    };
+
+    const xAxisValues = (_u: uPlot, splits: number[]): string[] => {
+        return splits.map((value) => (Number.isFinite(value) ? formatHms(value) : ""));
+    };
+
+    const getXRange = (xData: number[]): { min: number; max: number } | null => {
+        let min = Number.POSITIVE_INFINITY;
+        let max = Number.NEGATIVE_INFINITY;
+        for (const value of xData) {
+            if (!Number.isFinite(value)) continue;
+            if (value < min) min = value;
+            if (value > max) max = value;
+        }
+        if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) return null;
+        return { min, max };
+    };
+
     // Parse CSV content
     const parseCsv = (content: string): CsvData | null => {
-        const lines = content.trim().split("\n");
+        const lines = content.trim().split(/\r?\n/);
         if (lines.length < 2) return null;
 
         const headers = lines[0].split(",").map((h) => h.trim());
         const rows: number[][] = [];
 
+        const isPlainNumber = (value: string): boolean => {
+            return /^[-+]?(\d+(\.\d+)?|\.\d+)(e[-+]?\d+)?$/i.test(value);
+        };
+
+        const parseDateTimeToSeconds = (value: string): number | null => {
+            // 支持：YYYY-MM-DD HH:mm:ss(.SSS) / YYYY-MM-DDTHH:mm:ss(.SSS) / YYYY/MM/DD HH:mm:ss(.SSS)
+            const match = value.match(
+                /^(\d{4})[-/](\d{2})[-/](\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/
+            );
+            if (!match) return null;
+            const year = Number(match[1]);
+            const month = Number(match[2]);
+            const day = Number(match[3]);
+            const hours = Number(match[4]);
+            const minutes = Number(match[5]);
+            const seconds = Number(match[6]);
+            const millis = match[7] ? Number(match[7].padEnd(3, "0")) : 0;
+            const date = new Date(year, month - 1, day, hours, minutes, seconds, millis);
+            const time = date.getTime();
+            if (!Number.isFinite(time)) return null;
+            return time / 1000;
+        };
+
         for (let i = 1; i < lines.length; i++) {
             const values = lines[i].split(",").map((v) => {
                 const trimmed = v.trim();
-                // Try to parse as number, handle date/time strings
-                const num = parseFloat(trimmed);
-                if (!isNaN(num)) return num;
-                // Try to parse as date
+                // 仅当字段为“纯数字”时才按数值解析，避免把时间戳（如 2024-12-17 08:00:00）误解析成 2024
+                if (isPlainNumber(trimmed)) return parseFloat(trimmed);
+                // 优先按固定格式解析，避免不同 WebView 的 Date 解析差异
+                const parsedFixed = parseDateTimeToSeconds(trimmed);
+                if (parsedFixed !== null) return parsedFixed;
+                // 兜底：尝试按日期时间解析
                 const date = new Date(trimmed);
                 if (!isNaN(date.getTime())) return date.getTime() / 1000;
                 return NaN;
@@ -150,8 +206,8 @@ export default function FilesView() {
         setSelectedFile(file.path);
         setFileContent("");
         setCsvData(null);
-        setLoading(true);
-        setError(null);
+        setPreviewLoading(true);
+        setPreviewError(null);
 
         try {
             const content = await readTextFile(file.path);
@@ -173,9 +229,9 @@ export default function FilesView() {
             }
         } catch (err) {
             console.error("Failed to read file:", err);
-            setError(t("files.readError"));
+            setPreviewError(t("files.readError"));
         } finally {
-            setLoading(false);
+            setPreviewLoading(false);
         }
     };
 
@@ -203,17 +259,97 @@ export default function FilesView() {
         // Prepare X axis data (first column as time)
         const xData = csvData.rows.map((row) => row[0]);
 
-        // Render chart for each enabled column
-        enabledColumns.forEach((colIndex) => {
-            const container = chartRefs.current.get(colIndex);
-            if (!container || colIndex >= csvData.headers.length) return;
+        // Use requestAnimationFrame to ensure container is rendered
+        requestAnimationFrame(() => {
+            // Render chart for each enabled column
+            enabledColumns.forEach((colIndex) => {
+                const container = chartRefs.current.get(colIndex);
+                if (!container || colIndex >= csvData.headers.length) return;
 
-            const yData = csvData.rows.map((row) => row[colIndex]);
-            const data: uPlot.AlignedData = [xData, yData];
+                const yData = csvData.rows.map((row) => row[colIndex]);
+                const data: uPlot.AlignedData = [xData, yData];
+
+                const chartHeight = 200;
+                const chartWidth = container.clientWidth || 400;
+
+                const opts: uPlot.Options = {
+                    width: chartWidth,
+                    height: chartHeight,
+                    scales: {
+                        x: { time: true },
+                        y: { auto: true },
+                    },
+                    series: [
+                        {},
+                        {
+                            label: csvData.headers[colIndex],
+                            stroke: getSeriesColor(colIndex),
+                            width: 2,
+                            fill: getSeriesFill(colIndex),
+                        },
+                    ],
+                    axes: [
+                        {
+                            stroke: "rgba(180, 200, 230, 0.9)",
+                            grid: { stroke: "rgba(100, 150, 200, 0.2)" },
+                            ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
+                            size: 30,
+                            values: xAxisValues,
+                        },
+                        {
+                            stroke: "rgba(180, 200, 230, 0.9)",
+                            grid: { stroke: "rgba(100, 150, 200, 0.2)" },
+                            ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
+                            size: 50,
+                        },
+                    ],
+                    cursor: {
+                        // 小图模式禁用拖拽交互（避免误操作 & 与滚动冲突）
+                        drag: { x: false, y: false },
+                    },
+                };
+
+                const chart = new uPlot(opts, data, container);
+                uplotInstances.current.set(colIndex, chart);
+            });
+        });
+    }, [csvData, enabledColumns]);
+
+    // Enlarged chart (click-to-zoom modal)
+    useEffect(() => {
+        const cleanup = () => {
+            if (enlargedUplotInstance.current) {
+                enlargedUplotInstance.current.destroy();
+                enlargedUplotInstance.current = null;
+            }
+            enlargedFullXRange.current = null;
+        };
+
+        if (!csvData || !enlargedColumn) {
+            cleanup();
+            return;
+        }
+
+        const container = enlargedChartRef.current;
+        if (!container || enlargedColumn >= csvData.headers.length) {
+            cleanup();
+            return;
+        }
+
+        cleanup();
+
+        const xData = csvData.rows.map((row) => row[0]);
+        const yData = csvData.rows.map((row) => row[enlargedColumn]);
+        const alignedData: uPlot.AlignedData = [xData, yData];
+        enlargedFullXRange.current = getXRange(xData);
+
+        requestAnimationFrame(() => {
+            const width = container.clientWidth || 800;
+            const height = container.clientHeight || 520;
 
             const opts: uPlot.Options = {
-                width: container.clientWidth,
-                height: 200,
+                width,
+                height,
                 scales: {
                     x: { time: true },
                     y: { auto: true },
@@ -221,10 +357,10 @@ export default function FilesView() {
                 series: [
                     {},
                     {
-                        label: csvData.headers[colIndex],
-                        stroke: getSeriesColor(colIndex),
+                        label: csvData.headers[enlargedColumn],
+                        stroke: getSeriesColor(enlargedColumn),
                         width: 2,
-                        fill: getSeriesFill(colIndex),
+                        fill: getSeriesFill(enlargedColumn),
                     },
                 ],
                 axes: [
@@ -232,22 +368,58 @@ export default function FilesView() {
                         stroke: "rgba(180, 200, 230, 0.9)",
                         grid: { stroke: "rgba(100, 150, 200, 0.2)" },
                         ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
+                        size: 40,
+                        values: xAxisValues,
                     },
                     {
                         stroke: "rgba(180, 200, 230, 0.9)",
                         grid: { stroke: "rgba(100, 150, 200, 0.2)" },
                         ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
+                        size: 60,
                     },
                 ],
                 cursor: {
                     drag: { x: true, y: false },
                 },
+                select: {
+                    show: true,
+                    left: 0,
+                    top: 0,
+                    width: 0,
+                    height: 0,
+                },
+                hooks: {
+                    setSelect: [
+                        (u) => {
+                            const { left, width: selectWidth } = u.select;
+                            if (selectWidth < 10) return;
+                            const min = u.posToVal(left, "x");
+                            const max = u.posToVal(left + selectWidth, "x");
+                            if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) return;
+                            u.setScale("x", { min: Math.min(min, max), max: Math.max(min, max) });
+                            u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
+                        },
+                    ],
+                },
             };
 
-            const chart = new uPlot(opts, data, container);
-            uplotInstances.current.set(colIndex, chart);
+            const chart = new uPlot(opts, alignedData, container);
+            enlargedUplotInstance.current = chart;
         });
-    }, [csvData, enabledColumns]);
+
+        return cleanup;
+    }, [csvData, enlargedColumn]);
+
+    const closeEnlargedChart = () => {
+        setEnlargedColumn(null);
+    };
+
+    const resetEnlargedZoom = () => {
+        const chart = enlargedUplotInstance.current;
+        const range = enlargedFullXRange.current;
+        if (!chart || !range) return;
+        chart.setScale("x", { min: range.min, max: range.max });
+    };
 
     // Handle window resize
     useEffect(() => {
@@ -369,7 +541,7 @@ export default function FilesView() {
         <div className={styles.view}>
             <div className={styles.header}>
                 <h2 className={styles.title}>{t("nav.files")}</h2>
-                <button className={filesStyles.refreshBtn} onClick={loadFileTree} disabled={loading}>
+                <button className={filesStyles.refreshBtn} onClick={loadFileTree} disabled={treeLoading}>
                     <svg viewBox="0 0 24 24" fill="currentColor">
                         <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
                     </svg>
@@ -384,10 +556,10 @@ export default function FilesView() {
                         <span>{t("files.logFolder")}</span>
                     </div>
                     <div className={filesStyles.treeContent}>
-                        {loading && !fileTree.length ? (
+                        {treeLoading && !fileTree.length ? (
                             <div className={filesStyles.loading}>{t("files.loading")}</div>
-                        ) : error && !fileTree.length ? (
-                            <div className={filesStyles.error}>{error}</div>
+                        ) : treeError && !fileTree.length ? (
+                            <div className={filesStyles.error}>{treeError}</div>
                         ) : fileTree.length === 0 ? (
                             <div className={filesStyles.empty}>{t("files.empty")}</div>
                         ) : (
@@ -405,10 +577,10 @@ export default function FilesView() {
                             </svg>
                             <span>{t("files.selectFile")}</span>
                         </div>
-                    ) : loading ? (
+                    ) : previewLoading ? (
                         <div className={filesStyles.loading}>{t("files.loading")}</div>
-                    ) : error ? (
-                        <div className={filesStyles.error}>{error}</div>
+                    ) : previewError ? (
+                        <div className={filesStyles.error}>{previewError}</div>
                     ) : isCsvFile && csvData ? (
                         <div className={filesStyles.csvPreview}>
                             <div className={filesStyles.csvHeader}>
@@ -443,7 +615,13 @@ export default function FilesView() {
                                 {Array.from(enabledColumns)
                                     .sort((a, b) => a - b)
                                     .map((colIndex) => (
-                                        <div key={colIndex} className={filesStyles.chartWrapper}>
+                                        <div
+                                            key={colIndex}
+                                            className={filesStyles.chartWrapper}
+                                            onClick={() => setEnlargedColumn(colIndex)}
+                                            role="button"
+                                            tabIndex={0}
+                                        >
                                             <div className={filesStyles.chartLabel}>
                                                 <span
                                                     className={filesStyles.colorDot}
@@ -472,6 +650,30 @@ export default function FilesView() {
                     )}
                 </div>
             </div>
+
+            {csvData && enlargedColumn !== null && (
+                <div className={filesStyles.chartModal} onClick={closeEnlargedChart} role="dialog" aria-modal="true">
+                    <div className={filesStyles.chartModalContent} onClick={(e) => e.stopPropagation()}>
+                        <div className={filesStyles.chartModalHeader}>
+                            <div className={filesStyles.chartModalTitle}>
+                                {csvData.headers[enlargedColumn]}
+                            </div>
+                            <div className={filesStyles.chartModalActions}>
+                                <button className={filesStyles.chartModalBtn} onClick={resetEnlargedZoom}>
+                                    重置
+                                </button>
+                                <button className={filesStyles.chartModalBtn} onClick={closeEnlargedChart}>
+                                    关闭
+                                </button>
+                            </div>
+                        </div>
+                        <div ref={enlargedChartRef} className={filesStyles.chartModalBody} />
+                        <div className={filesStyles.chartModalHint}>
+                            拖拽横向选择区域可缩放（小图模式已禁用拖拽）
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

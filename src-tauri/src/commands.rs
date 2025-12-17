@@ -6,14 +6,18 @@ use std::path::PathBuf;
 /// Get the Log directory path
 #[tauri::command]
 pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
-    // Get the path to the executable directory
-    let exe_dir = app.path().resource_dir()
-        .map_err(|e| e.to_string())?;
-
-    // Log folder is at the same level as the resource directory
-    let log_dir: PathBuf = exe_dir.parent()
-        .map(|p| p.join("Log"))
-        .unwrap_or_else(|| exe_dir.join("Log"));
+    // Get application data directory for logs
+    let log_dir: PathBuf = if cfg!(debug_assertions) {
+        // Development mode: use compile-time CARGO_MANIFEST_DIR
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Log")
+    } else {
+        // Production mode: use exe directory's sibling Log folder
+        let exe_dir = app.path().resource_dir()
+            .map_err(|e| e.to_string())?;
+        exe_dir.parent()
+            .map(|p| p.join("Log"))
+            .unwrap_or_else(|| exe_dir.join("Log"))
+    };
 
     // Create the directory if it doesn't exist
     if !log_dir.exists() {

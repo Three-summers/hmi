@@ -1,0 +1,13 @@
+[2024-12-17 08:00:00] INFO: System started
+[2024-12-17 08:00:01] INFO: Loading configuration...
+[2024-12-17 08:00:02] INFO: Configuration loaded successfully
+[2024-12-17 08:00:03] INFO: Initializing communication module
+[2024-12-17 08:00:04] INFO: Serial port COM1 opened
+[2024-12-17 08:00:05] INFO: TCP connection established to 192.168.1.100:502
+[2024-12-17 08:00:10] INFO: Sensor data collection started
+[2024-12-17 08:05:23] WARNING: Temperature sensor reading high: 28.6C
+[2024-12-17 08:10:45] INFO: Recipe #1 loaded
+[2024-12-17 08:15:00] INFO: Process started - Recipe #1
+[2024-12-17 08:30:00] INFO: Process completed successfully
+[2024-12-17 08:30:01] INFO: Logging data to file...
+[2024-12-17 08:30:02] INFO: Data logged: sensor_data_2024-12-17.csv

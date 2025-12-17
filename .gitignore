@@ -32,3 +32,4 @@ src-tauri/gen/android/
 src-tauri/gen/apple/
 
 .*
+verification.md

@@ -1,0 +1,18 @@
+ALARM HISTORY LOG
+=================
+
+[2024-12-17 08:05:23] ALARM-001: Temperature exceeded threshold (28.6C > 28.0C)
+  - Source: Sensor Module
+  - Severity: Warning
+  - Acknowledged: Yes (08:05:45 by Operator)
+
+[2024-12-17 09:12:33] ALARM-002: Pressure drop detected (99.5 kPa < 100.0 kPa)
+  - Source: Pressure Sensor
+  - Severity: Warning
+  - Acknowledged: Yes (09:13:00 by Engineer)
+
+[2024-12-17 10:30:00] ALARM-003: Motor overcurrent detected (11.2A > 11.0A)
+  - Source: Motor Controller
+  - Severity: Alarm
+  - Acknowledged: Yes (10:30:15 by Admin)
+  - Action: Motor speed reduced automatically

@@ -8,10 +8,16 @@
     "core:window:default",
     "core:window:allow-close",
     "core:window:allow-set-fullscreen",
+    "core:window:allow-is-fullscreen",
+    "core:path:default",
     "shell:allow-open",
     "fs:default",
-    "fs:allow-read-text-file",
+    "fs:read-all",
     "fs:allow-read-dir",
-    "path:default"
+    "fs:allow-read-text-file",
+    {
+      "identifier": "fs:scope",
+      "allow": ["**"]
+    }
   ]
 }
