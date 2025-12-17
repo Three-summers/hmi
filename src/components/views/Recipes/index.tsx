@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Tabs } from "@/components/common";
 import styles from "./Recipes.module.css";
 import sharedStyles from "../shared.module.css";
 
@@ -115,6 +117,8 @@ const demoRecipes: Recipe[] = [
 ];
 
 export default function RecipesView() {
+    const { t } = useTranslation();
+    const [activeTab, setActiveTab] = useState<"overview" | "info">("overview");
     const [selectedRecipe, setSelectedRecipe] = useState<string | null>(
         demoRecipes[0]?.id || null,
     );
@@ -142,214 +146,266 @@ export default function RecipesView() {
 
     return (
         <div className={sharedStyles.view}>
-            <div className={styles.recipesLayout}>
-                {/* Recipe List */}
-                <div className={styles.recipeList}>
-                    <div className={styles.listHeader}>
-                        <span className={styles.listTitle}>
-                            Recipes ({recipes.length})
-                        </span>
-                    </div>
-                    <div className={styles.listContent}>
-                        {recipes.map((recipe) => (
-                            <div
-                                key={recipe.id}
-                                className={styles.recipeItem}
-                                data-selected={selectedRecipe === recipe.id}
-                                data-status={recipe.status}
-                                onClick={() => setSelectedRecipe(recipe.id)}
-                            >
-                                <div
-                                    className={styles.recipeIcon}
-                                    data-status={recipe.status}
-                                >
-                                    <svg
-                                        viewBox="0 0 24 24"
-                                        fill="currentColor"
-                                    >
-                                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-                                    </svg>
-                                </div>
-                                <div className={styles.recipeInfo}>
-                                    <span className={styles.recipeName}>
-                                        {recipe.name}
-                                    </span>
-                                    <span className={styles.recipeMeta}>
-                                        v{recipe.version} •{" "}
-                                        {recipe.steps.length} steps
-                                    </span>
-                                </div>
-                                <div
-                                    className={styles.recipeStatus}
-                                    data-status={recipe.status}
-                                >
-                                    {recipe.status.toUpperCase()}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Recipe Details */}
-                <div className={styles.recipeDetails}>
-                    {selectedRecipeData ? (
-                        <>
-                            <div className={styles.detailsHeader}>
-                                <div className={styles.headerInfo}>
-                                    <h3 className={styles.detailsTitle}>
-                                        {selectedRecipeData.name}
-                                    </h3>
-                                    <p className={styles.detailsDesc}>
-                                        {selectedRecipeData.description}
-                                    </p>
-                                </div>
-                                <div
-                                    className={styles.headerBadge}
-                                    data-status={selectedRecipeData.status}
-                                >
-                                    {selectedRecipeData.status.toUpperCase()}
-                                </div>
-                            </div>
-
-                            <div className={styles.detailsStats}>
-                                <div className={styles.statBox}>
-                                    <span className={styles.statLabel}>
-                                        Version
-                                    </span>
-                                    <span className={styles.statValue}>
-                                        {selectedRecipeData.version}
-                                    </span>
-                                </div>
-                                <div className={styles.statBox}>
-                                    <span className={styles.statLabel}>
-                                        Steps
-                                    </span>
-                                    <span className={styles.statValue}>
-                                        {selectedRecipeData.steps.length}
-                                    </span>
-                                </div>
-                                <div className={styles.statBox}>
-                                    <span className={styles.statLabel}>
-                                        Duration
-                                    </span>
-                                    <span className={styles.statValue}>
-                                        {formatDuration(
-                                            getTotalDuration(
-                                                selectedRecipeData.steps,
-                                            ),
-                                        )}
-                                    </span>
-                                </div>
-                                <div className={styles.statBox}>
-                                    <span className={styles.statLabel}>
-                                        Modified
-                                    </span>
-                                    <span className={styles.statValue}>
-                                        {formatDate(
-                                            selectedRecipeData.lastModified,
-                                        )}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className={styles.stepsSection}>
-                                <h4 className={styles.sectionTitle}>
-                                    Process Steps
-                                </h4>
-                                {selectedRecipeData.steps.length === 0 ? (
-                                    <div className={styles.noSteps}>
-                                        No steps defined
+            <Tabs
+                activeId={activeTab}
+                onChange={setActiveTab}
+                tabs={[
+                    {
+                        id: "overview",
+                        label: t("common.tabs.overview"),
+                        content: (
+                            <div className={styles.recipesLayout}>
+                                <div className={styles.recipeList}>
+                                    <div className={styles.listHeader}>
+                                        <span className={styles.listTitle}>
+                                            Recipes ({recipes.length})
+                                        </span>
                                     </div>
-                                ) : (
-                                    <div className={styles.stepsList}>
-                                        {selectedRecipeData.steps.map(
-                                            (step, index) => (
+                                    <div className={styles.listContent}>
+                                        {recipes.map((recipe) => (
+                                            <div
+                                                key={recipe.id}
+                                                className={styles.recipeItem}
+                                                data-selected={
+                                                    selectedRecipe ===
+                                                    recipe.id
+                                                }
+                                                data-status={recipe.status}
+                                                onClick={() =>
+                                                    setSelectedRecipe(
+                                                        recipe.id,
+                                                    )
+                                                }
+                                            >
                                                 <div
-                                                    key={step.id}
-                                                    className={styles.stepCard}
+                                                    className={styles.recipeIcon}
+                                                    data-status={recipe.status}
                                                 >
-                                                    <div
-                                                        className={
-                                                            styles.stepNumber
-                                                        }
+                                                    <svg
+                                                        viewBox="0 0 24 24"
+                                                        fill="currentColor"
                                                     >
-                                                        {index + 1}
-                                                    </div>
-                                                    <div
-                                                        className={
-                                                            styles.stepContent
-                                                        }
-                                                    >
-                                                        <div
-                                                            className={
-                                                                styles.stepHeader
-                                                            }
-                                                        >
-                                                            <span
-                                                                className={
-                                                                    styles.stepName
-                                                                }
-                                                            >
-                                                                {step.name}
-                                                            </span>
-                                                            <span
-                                                                className={
-                                                                    styles.stepDuration
-                                                                }
-                                                            >
-                                                                {formatDuration(
-                                                                    step.duration,
-                                                                )}
-                                                            </span>
-                                                        </div>
-                                                        <div
-                                                            className={
-                                                                styles.stepParams
-                                                            }
-                                                        >
-                                                            {Object.entries(
-                                                                step.parameters,
-                                                            ).map(
-                                                                ([
-                                                                    key,
-                                                                    value,
-                                                                ]) => (
-                                                                    <span
-                                                                        key={
-                                                                            key
-                                                                        }
-                                                                        className={
-                                                                            styles.param
-                                                                        }
-                                                                    >
-                                                                        {key}:{" "}
-                                                                        <strong>
-                                                                            {
-                                                                                value
-                                                                            }
-                                                                        </strong>
-                                                                    </span>
-                                                                ),
-                                                            )}
-                                                        </div>
-                                                    </div>
+                                                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                                                    </svg>
                                                 </div>
-                                            ),
-                                        )}
+                                                <div className={styles.recipeInfo}>
+                                                    <span
+                                                        className={styles.recipeName}
+                                                    >
+                                                        {recipe.name}
+                                                    </span>
+                                                    <span
+                                                        className={styles.recipeMeta}
+                                                    >
+                                                        v{recipe.version} •{" "}
+                                                        {recipe.steps.length}{" "}
+                                                        steps
+                                                    </span>
+                                                </div>
+                                                <div
+                                                    className={
+                                                        styles.recipeStatus
+                                                    }
+                                                    data-status={recipe.status}
+                                                >
+                                                    {recipe.status.toUpperCase()}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                )}
+                                </div>
+
+                                <div className={styles.recipeDetails}>
+                                    {selectedRecipeData ? (
+                                        <>
+                                            <div
+                                                className={
+                                                    styles.detailsHeader
+                                                }
+                                            >
+                                                <div
+                                                    className={
+                                                        styles.headerInfo
+                                                    }
+                                                >
+                                                    <h3
+                                                        className={
+                                                            styles.detailsTitle
+                                                        }
+                                                    >
+                                                        {selectedRecipeData.name}
+                                                    </h3>
+                                                    <p
+                                                        className={
+                                                            styles.detailsDesc
+                                                        }
+                                                    >
+                                                        {selectedRecipeData.description}
+                                                    </p>
+                                                </div>
+                                                <div
+                                                    className={styles.headerBadge}
+                                                    data-status={
+                                                        selectedRecipeData.status
+                                                    }
+                                                >
+                                                    {selectedRecipeData.status.toUpperCase()}
+                                                </div>
+                                            </div>
+
+                                            <div className={styles.detailsStats}>
+                                                <div className={styles.statBox}>
+                                                    <span
+                                                        className={styles.statLabel}
+                                                    >
+                                                        Version
+                                                    </span>
+                                                    <span
+                                                        className={styles.statValue}
+                                                    >
+                                                        {selectedRecipeData.version}
+                                                    </span>
+                                                </div>
+                                                <div className={styles.statBox}>
+                                                    <span
+                                                        className={styles.statLabel}
+                                                    >
+                                                        Steps
+                                                    </span>
+                                                    <span
+                                                        className={styles.statValue}
+                                                    >
+                                                        {selectedRecipeData.steps.length}
+                                                    </span>
+                                                </div>
+                                                <div className={styles.statBox}>
+                                                    <span
+                                                        className={styles.statLabel}
+                                                    >
+                                                        Duration
+                                                    </span>
+                                                    <span
+                                                        className={styles.statValue}
+                                                    >
+                                                        {formatDuration(
+                                                            getTotalDuration(
+                                                                selectedRecipeData.steps,
+                                                            ),
+                                                        )}
+                                                    </span>
+                                                </div>
+                                                <div className={styles.statBox}>
+                                                    <span
+                                                        className={styles.statLabel}
+                                                    >
+                                                        Modified
+                                                    </span>
+                                                    <span
+                                                        className={styles.statValue}
+                                                    >
+                                                        {formatDate(
+                                                            selectedRecipeData.lastModified,
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div className={styles.stepsSection}>
+                                                <h4 className={styles.sectionTitle}>
+                                                    Process Steps
+                                                </h4>
+                                                {selectedRecipeData.steps.length ===
+                                                0 ? (
+                                                    <div className={styles.noSteps}>
+                                                        No steps defined
+                                                    </div>
+                                                ) : (
+                                                    <div className={styles.stepsList}>
+                                                        {selectedRecipeData.steps.map(
+                                                            (step, index) => (
+                                                                <div
+                                                                    key={step.id}
+                                                                    className={styles.stepCard}
+                                                                >
+                                                                    <div
+                                                                        className={styles.stepNumber}
+                                                                    >
+                                                                        {index + 1}
+                                                                    </div>
+                                                                    <div
+                                                                        className={styles.stepContent}
+                                                                    >
+                                                                        <div
+                                                                            className={styles.stepHeader}
+                                                                        >
+                                                                            <span
+                                                                                className={styles.stepName}
+                                                                            >
+                                                                                {step.name}
+                                                                            </span>
+                                                                            <span
+                                                                                className={styles.stepDuration}
+                                                                            >
+                                                                                {formatDuration(
+                                                                                    step.duration,
+                                                                                )}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div
+                                                                            className={styles.stepParams}
+                                                                        >
+                                                                            {Object.entries(
+                                                                                step.parameters,
+                                                                            ).map(
+                                                                                ([key, value]) => (
+                                                                                    <span
+                                                                                        key={key}
+                                                                                        className={styles.param}
+                                                                                    >
+                                                                                        {key}:{" "}
+                                                                                        <strong>
+                                                                                            {value}
+                                                                                        </strong>
+                                                                                    </span>
+                                                                                ),
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className={styles.noSelection}>
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="currentColor"
+                                            >
+                                                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+                                            </svg>
+                                            <span>
+                                                Select a recipe to view details
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </>
-                    ) : (
-                        <div className={styles.noSelection}>
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-                            </svg>
-                            <span>Select a recipe to view details</span>
-                        </div>
-                    )}
-                </div>
-            </div>
+                        ),
+                    },
+                    {
+                        id: "info",
+                        label: t("common.tabs.info"),
+                        content: (
+                            <div className={styles.recipesInfo}>
+                                {t("recipes.title")}
+                            </div>
+                        ),
+                    },
+                ]}
+            />
         </div>
     );
 }

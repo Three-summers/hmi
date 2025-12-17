@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import i18n from "@/i18n";
-import type { CommandPanelPosition, UserSession } from "@/types";
+import type { CommandPanelPosition, ThemeId, UserSession } from "@/types";
 
 interface AppState {
     user: UserSession | null;
@@ -10,6 +10,11 @@ interface AppState {
 
     language: "zh" | "en";
     setLanguage: (lang: "zh" | "en") => void;
+
+    // 主题：仅通过 CSS 变量切换，避免对各模块造成侵入式改动
+    theme: ThemeId;
+    setTheme: (theme: ThemeId) => void;
+    cycleTheme: () => void;
 
     // 命令面板位置
     commandPanelPosition: CommandPanelPosition;
@@ -35,6 +40,16 @@ export const useAppStore = create<AppState>()(
                 set({ language: lang });
             },
 
+            theme: "dark",
+            setTheme: (theme) => set({ theme }),
+            cycleTheme: () =>
+                set((state) => {
+                    const order: ThemeId[] = ["dark", "light", "high-contrast"];
+                    const currentIndex = order.indexOf(state.theme);
+                    const next = order[(currentIndex + 1) % order.length];
+                    return { theme: next };
+                }),
+
             commandPanelPosition: "right",
             setCommandPanelPosition: (position) =>
                 set({ commandPanelPosition: position }),
@@ -51,6 +66,7 @@ export const useAppStore = create<AppState>()(
             // 部分持久化，只保存 language 和 layout 设置，为安全起见不保存用户会话
             partialize: (state) => ({
                 language: state.language,
+                theme: state.theme,
                 commandPanelPosition: state.commandPanelPosition,
             }),
             onRehydrateStorage: () => (state) => {

@@ -4,7 +4,7 @@
     background: linear-gradient(
         180deg,
         var(--bg-panel-header) 0%,
-        rgba(15, 52, 96, 0.8) 100%
+        var(--bg-tertiary) 100%
     );
     border-bottom: 2px solid var(--border-color);
     padding: 6px 16px;
@@ -46,13 +46,13 @@
     gap: 12px;
 }
 
-/* Communication Status */
+/* 通信状态 */
 .commStatus {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 6px 12px;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--overlay-strong);
     border-radius: 8px;
     border: 1px solid var(--border-color);
 }
@@ -121,13 +121,13 @@
     }
 }
 
-/* Date Time */
+/* 日期与时间 */
 .dateTimeContainer {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 6px 12px;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--overlay-strong);
     border-radius: 8px;
     border: 1px solid var(--border-color);
 }
@@ -157,7 +157,7 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* Alarm Badge */
+/* 报警角标 */
 .alarmBadge {
     display: flex;
     align-items: center;
@@ -195,7 +195,7 @@
     }
 }
 
-/* Login Button */
+/* 登录按钮 */
 .loginButton {
     display: flex;
     align-items: center;
@@ -254,14 +254,14 @@
     text-transform: capitalize;
 }
 
-/* Message Area */
+/* 消息区域 */
 .messageArea {
     height: 28px;
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 0 12px;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--overlay-strong);
     border-radius: 6px;
     border: 1px solid var(--border-color);
     font-size: 13px;
@@ -317,14 +317,14 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* Login Modal */
+/* 登录弹窗 */
 .modalOverlay {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: var(--overlay-modal);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -395,7 +395,7 @@
     color: var(--text-primary);
 }
 
-/* Exit Button */
+/* 退出按钮 */
 .exitButton {
     display: flex;
     align-items: center;
@@ -421,7 +421,34 @@
     height: 20px;
 }
 
-/* Fullscreen Button */
+/* 主题按钮 */
+.themeButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.themeButton:hover {
+    border-color: var(--color-processing);
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(1.05);
+}
+
+.themeButton svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* 全屏按钮 */
 .fullscreenButton {
     display: flex;
     align-items: center;

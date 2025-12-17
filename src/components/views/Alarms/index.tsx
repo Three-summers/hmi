@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Tabs } from "@/components/common";
 import { useAlarmStore } from "@/stores";
 import styles from "./Alarms.module.css";
 import sharedStyles from "../shared.module.css";
@@ -14,7 +15,6 @@ export default function AlarmsView() {
         unacknowledgedWarningCount,
     } = useAlarmStore();
 
-    // Add demo alarms on first load if empty
     useEffect(() => {
         if (alarms.length === 0) {
             addAlarm({
@@ -80,10 +80,10 @@ export default function AlarmsView() {
 
     const activeAlarms = alarms.filter((a) => !a.acknowledged);
     const acknowledgedAlarms = alarms.filter((a) => a.acknowledged);
+    const [activeTab, setActiveTab] = useState<"active" | "history">("active");
 
     return (
         <div className={sharedStyles.view}>
-            {/* Stats Summary */}
             <div className={styles.statsBar}>
                 <div className={styles.statItem} data-severity="alarm">
                     <span className={styles.statIcon}>
@@ -122,162 +122,221 @@ export default function AlarmsView() {
                 </div>
             </div>
 
-            <div className={styles.alarmsContent}>
-                {alarms.length === 0 ? (
-                    <div className={styles.emptyState}>
-                        <div className={styles.emptyIcon}>
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                            </svg>
-                        </div>
-                        <span className={styles.emptyText}>
-                            {t("alarm.noAlarms")}
-                        </span>
-                    </div>
-                ) : (
-                    <>
-                        {/* Active Alarms */}
-                        {activeAlarms.length > 0 && (
-                            <div className={styles.alarmSection}>
-                                <h3 className={styles.sectionTitle}>
-                                    Active ({activeAlarms.length})
-                                </h3>
-                                <div className={styles.alarmsList}>
-                                    {activeAlarms.map((alarm) => (
-                                        <div
-                                            key={alarm.id}
-                                            className={styles.alarmCard}
-                                            data-severity={alarm.severity}
-                                        >
-                                            <div
-                                                className={styles.alarmIcon}
-                                                data-severity={alarm.severity}
+            <Tabs
+                activeId={activeTab}
+                onChange={setActiveTab}
+                tabs={[
+                    {
+                        id: "active",
+                        label: t("alarm.tabs.active"),
+                        content: (
+                            <div className={styles.alarmsContent}>
+                                {activeAlarms.length === 0 ? (
+                                    <div className={styles.emptyState}>
+                                        <div className={styles.emptyIcon}>
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="currentColor"
                                             >
-                                                {getSeverityIcon(
-                                                    alarm.severity,
-                                                )}
-                                            </div>
-                                            <div
-                                                className={styles.alarmContent}
-                                            >
-                                                <span
+                                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                                            </svg>
+                                        </div>
+                                        <span className={styles.emptyText}>
+                                            {t("alarm.noAlarms")}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className={styles.alarmSection}>
+                                        <h3 className={styles.sectionTitle}>
+                                            Active ({activeAlarms.length})
+                                        </h3>
+                                        <div className={styles.alarmsList}>
+                                            {activeAlarms.map((alarm) => (
+                                                <div
+                                                    key={alarm.id}
                                                     className={
-                                                        styles.alarmMessage
+                                                        styles.alarmCard
+                                                    }
+                                                    data-severity={
+                                                        alarm.severity
                                                     }
                                                 >
-                                                    {alarm.message}
-                                                </span>
-                                                <div
-                                                    className={styles.alarmMeta}
-                                                >
-                                                    <span
+                                                    <div
                                                         className={
-                                                            styles.alarmTime
-                                                        }
-                                                    >
-                                                        {formatDate(
-                                                            alarm.timestamp,
-                                                        )}{" "}
-                                                        {formatTime(
-                                                            alarm.timestamp,
-                                                        )}
-                                                    </span>
-                                                    <span
-                                                        className={
-                                                            styles.alarmSeverity
+                                                            styles.alarmIcon
                                                         }
                                                         data-severity={
                                                             alarm.severity
                                                         }
                                                     >
-                                                        {alarm.severity.toUpperCase()}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <button
-                                                className={styles.ackButton}
-                                                onClick={() =>
-                                                    acknowledgeAlarm(alarm.id)
-                                                }
-                                            >
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                >
-                                                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                                                </svg>
-                                                ACK
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Acknowledged Alarms */}
-                        {acknowledgedAlarms.length > 0 && (
-                            <div className={styles.alarmSection}>
-                                <h3 className={styles.sectionTitle}>
-                                    History ({acknowledgedAlarms.length})
-                                </h3>
-                                <div className={styles.alarmsList}>
-                                    {acknowledgedAlarms.map((alarm) => (
-                                        <div
-                                            key={alarm.id}
-                                            className={styles.alarmCard}
-                                            data-severity={alarm.severity}
-                                            data-acknowledged="true"
-                                        >
-                                            <div
-                                                className={styles.alarmIcon}
-                                                data-severity={alarm.severity}
-                                            >
-                                                {getSeverityIcon(
-                                                    alarm.severity,
-                                                )}
-                                            </div>
-                                            <div
-                                                className={styles.alarmContent}
-                                            >
-                                                <span
-                                                    className={
-                                                        styles.alarmMessage
-                                                    }
-                                                >
-                                                    {alarm.message}
-                                                </span>
-                                                <div
-                                                    className={styles.alarmMeta}
-                                                >
-                                                    <span
-                                                        className={
-                                                            styles.alarmTime
-                                                        }
-                                                    >
-                                                        {formatDate(
-                                                            alarm.timestamp,
-                                                        )}{" "}
-                                                        {formatTime(
-                                                            alarm.timestamp,
+                                                        {getSeverityIcon(
+                                                            alarm.severity,
                                                         )}
-                                                    </span>
-                                                    <span
+                                                    </div>
+                                                    <div
                                                         className={
-                                                            styles.alarmAcked
+                                                            styles.alarmContent
                                                         }
                                                     >
-                                                        ACKNOWLEDGED
-                                                    </span>
+                                                        <span
+                                                            className={
+                                                                styles.alarmMessage
+                                                            }
+                                                        >
+                                                            {alarm.message}
+                                                        </span>
+                                                        <div
+                                                            className={
+                                                                styles.alarmMeta
+                                                            }
+                                                        >
+                                                            <span
+                                                                className={
+                                                                    styles.alarmTime
+                                                                }
+                                                            >
+                                                                {formatDate(
+                                                                    alarm.timestamp,
+                                                                )}{" "}
+                                                                {formatTime(
+                                                                    alarm.timestamp,
+                                                                )}
+                                                            </span>
+                                                            <span
+                                                                className={
+                                                                    styles.alarmSeverity
+                                                                }
+                                                                data-severity={
+                                                                    alarm.severity
+                                                                }
+                                                            >
+                                                                {alarm.severity.toUpperCase()}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        className={
+                                                            styles.ackButton
+                                                        }
+                                                        onClick={() =>
+                                                            acknowledgeAlarm(
+                                                                alarm.id,
+                                                            )
+                                                        }
+                                                    >
+                                                        <svg
+                                                            viewBox="0 0 24 24"
+                                                            fill="currentColor"
+                                                        >
+                                                            <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                                                        </svg>
+                                                        ACK
+                                                    </button>
                                                 </div>
-                                            </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </>
-                )}
-            </div>
+                        ),
+                    },
+                    {
+                        id: "history",
+                        label: t("alarm.tabs.history"),
+                        content: (
+                            <div className={styles.alarmsContent}>
+                                {acknowledgedAlarms.length === 0 ? (
+                                    <div className={styles.emptyState}>
+                                        <div className={styles.emptyIcon}>
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="currentColor"
+                                            >
+                                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                                            </svg>
+                                        </div>
+                                        <span className={styles.emptyText}>
+                                            {t("alarm.noAlarms")}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <div className={styles.alarmSection}>
+                                        <h3 className={styles.sectionTitle}>
+                                            History ({acknowledgedAlarms.length}
+                                            )
+                                        </h3>
+                                        <div className={styles.alarmsList}>
+                                            {acknowledgedAlarms.map((alarm) => (
+                                                <div
+                                                    key={alarm.id}
+                                                    className={
+                                                        styles.alarmCard
+                                                    }
+                                                    data-severity={
+                                                        alarm.severity
+                                                    }
+                                                    data-acknowledged="true"
+                                                >
+                                                    <div
+                                                        className={
+                                                            styles.alarmIcon
+                                                        }
+                                                        data-severity={
+                                                            alarm.severity
+                                                        }
+                                                    >
+                                                        {getSeverityIcon(
+                                                            alarm.severity,
+                                                        )}
+                                                    </div>
+                                                    <div
+                                                        className={
+                                                            styles.alarmContent
+                                                        }
+                                                    >
+                                                        <span
+                                                            className={
+                                                                styles.alarmMessage
+                                                            }
+                                                        >
+                                                            {alarm.message}
+                                                        </span>
+                                                        <div
+                                                            className={
+                                                                styles.alarmMeta
+                                                            }
+                                                        >
+                                                            <span
+                                                                className={
+                                                                    styles.alarmTime
+                                                                }
+                                                            >
+                                                                {formatDate(
+                                                                    alarm.timestamp,
+                                                                )}{" "}
+                                                                {formatTime(
+                                                                    alarm.timestamp,
+                                                                )}
+                                                            </span>
+                                                            <span
+                                                                className={
+                                                                    styles.alarmAcked
+                                                                }
+                                                            >
+                                                                ACKNOWLEDGED
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ),
+                    },
+                ]}
+            />
         </div>
     );
 }

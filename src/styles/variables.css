@@ -1,56 +1,66 @@
-/* SEMI E95 Color Semantic Variables */
+/* SEMI E95 语义化变量（颜色/布局/字体） */
 :root {
-    /* Panel dimensions - responsive */
+    /* 面板尺寸（响应式） */
     --title-panel-height: 80px;
     --nav-panel-height: 80px;
     --command-panel-width: 160px;
 
-    /* SEMI E95 Status Colors */
-    --color-alarm: #ff0000; /* Bright Red - Alarm */
-    --color-warning: #ffff00; /* Bright Yellow - Warning */
-    --color-processing: #4169e1; /* Medium Blue - Processing/Incomplete */
-    --color-attention: #32cd32; /* Medium Green - Needs Attention */
+    /* SEMI E95 状态色 */
+    --color-alarm: #ff0000; /* 报警（红） */
+    --color-warning: #ffff00; /* 警告（黄） */
+    --color-processing: #4169e1; /* 处理中/未完成（蓝） */
+    --color-attention: #32cd32; /* 关注/就绪（绿） */
 
-    /* Button dimensions - SEMI E95 Touch Requirements */
-    --button-min-size: 70px; /* 1.5cm @ ~47px/cm */
-    --button-nav-size: 47px; /* 1.0cm for navigation */
+    /* 按钮尺寸（SEMI E95 触控尺寸要求） */
+    --button-min-size: 70px; /* 约 1.5cm */
+    --button-nav-size: 47px; /* 约 1.0cm（导航区） */
     --button-spacing: 8px;
 
-    /* Background colors */
+    /* 背景色 */
     --bg-primary: #1a1a2e;
     --bg-secondary: #16213e;
     --bg-tertiary: #0f3460;
     --bg-panel: #1a1a2e;
     --bg-panel-header: #0f3460;
 
-    /* Text colors */
+    /* 文字色 */
     --text-primary: #ffffff;
     --text-secondary: #b0b0b0;
     --text-disabled: #666666;
 
-    /* Border colors */
+    /* 边框色 */
     --border-color: #333355;
     --border-active: #4169e1;
 
-    /* Button colors */
+    /* 按钮色 */
     --button-bg: #2d2d44;
     --button-bg-hover: #3d3d55;
     --button-bg-active: #1d1d33;
     --button-bg-disabled: #1a1a2a;
 
-    /* Font settings - using system fonts for cross-platform compatibility */
+    /* 叠加层：用于标题条/卡片/浮层等需要“分层”的区域 */
+    --overlay-weak: rgba(0, 0, 0, 0.1);
+    --overlay-mid: rgba(0, 0, 0, 0.2);
+    --overlay-strong: rgba(0, 0, 0, 0.3);
+    --overlay-modal: rgba(0, 0, 0, 0.65);
+
+    /* 字体：使用系统字体保证跨平台一致性 */
     --font-family: system-ui, -apple-system, "Noto Sans", "DejaVu Sans", "Liberation Sans", sans-serif;
     --font-size-small: 12px;
     --font-size-normal: 14px;
     --font-size-large: 16px;
     --font-size-title: 18px;
 
-    /* Transitions - minimal for performance */
+    /* 动画：尽量克制，避免影响设备性能 */
     --transition-fast: 100ms ease-out;
     --transition-normal: 200ms ease-out;
 }
 
-/* Dark theme is default for industrial HMI */
+/* 主题切换：通过 data-theme 覆盖变量，避免对各模块 CSS 造成侵入式改动 */
+[data-theme="dark"] {
+    /* 默认暗色主题：保持与 :root 一致，便于显式切换与扩展 */
+}
+
 [data-theme="light"] {
     --bg-primary: #f0f0f0;
     --bg-secondary: #e0e0e0;
@@ -65,4 +75,35 @@
     --button-bg-hover: #cccccc;
     --button-bg-active: #bbbbbb;
     --button-bg-disabled: #eeeeee;
+
+    --overlay-weak: rgba(0, 0, 0, 0.04);
+    --overlay-mid: rgba(0, 0, 0, 0.06);
+    --overlay-strong: rgba(0, 0, 0, 0.08);
+    --overlay-modal: rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="high-contrast"] {
+    /* 高对比主题：用于强光环境/远距离读数，优先保证可读性 */
+    --bg-primary: #000000;
+    --bg-secondary: #0b0b0b;
+    --bg-tertiary: #141414;
+    --bg-panel: #000000;
+    --bg-panel-header: #141414;
+
+    --text-primary: #ffffff;
+    --text-secondary: #e0e0e0;
+    --text-disabled: #9a9a9a;
+
+    --border-color: #5a5a5a;
+    --border-active: #00d4ff;
+
+    --button-bg: #1a1a1a;
+    --button-bg-hover: #262626;
+    --button-bg-active: #111111;
+    --button-bg-disabled: #0a0a0a;
+
+    --overlay-weak: rgba(255, 255, 255, 0.08);
+    --overlay-mid: rgba(255, 255, 255, 0.12);
+    --overlay-strong: rgba(255, 255, 255, 0.16);
+    --overlay-modal: rgba(0, 0, 0, 0.75);
 }

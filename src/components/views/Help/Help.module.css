@@ -1,106 +1,30 @@
-.helpLayout {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 16px;
-    height: 100%;
+/* Tabs 标签内容：图标 + 文本 */
+.tabLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.sidebar {
-    display: flex;
-    flex-direction: column;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    overflow: hidden;
-}
-
-.sidebarHeader {
-    padding: 16px;
-    background: rgba(0, 0, 0, 0.2);
-    border-bottom: 1px solid var(--border-color);
-    text-align: center;
-}
-
-.logo {
-    width: 64px;
-    height: 64px;
-    margin: 0 auto 12px;
-    background: linear-gradient(
-        135deg,
-        var(--color-processing) 0%,
-        #2a4d8e 100%
-    );
-    border-radius: 16px;
-    display: flex;
+.tabIcon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(65, 105, 225, 0.3);
-}
-
-.logo svg {
-    width: 36px;
-    height: 36px;
-    color: white;
-}
-
-.appName {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0 0 4px 0;
-}
-
-.appVersion {
-    font-size: 12px;
-    color: var(--text-secondary);
-}
-
-.navList {
-    flex: 1;
-    padding: 8px;
-    overflow: auto;
-}
-
-.navItem {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px 14px;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    margin-bottom: 4px;
-    color: var(--text-primary);
-    font-size: 13px;
-}
-
-.navItem:hover {
-    background: rgba(65, 105, 225, 0.1);
-    border-color: var(--border-color);
-}
-
-.navItem[data-selected="true"] {
-    background: rgba(65, 105, 225, 0.2);
-    border-color: var(--color-processing);
-}
-
-.navIcon {
-    width: 20px;
-    height: 20px;
     color: var(--color-processing);
 }
 
-.navIcon svg {
-    width: 100%;
-    height: 100%;
+.tabIcon svg {
+    width: 16px;
+    height: 16px;
 }
 
 .mainContent {
     display: flex;
     flex-direction: column;
-    background: rgba(0, 0, 0, 0.2);
+    height: 100%;
+    min-height: 0;
+    background: var(--overlay-mid);
     border-radius: 8px;
     border: 1px solid var(--border-color);
     padding: 20px;
@@ -174,7 +98,7 @@
     align-items: center;
     gap: 12px;
     padding: 12px;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--overlay-mid);
     border-radius: 6px;
 }
 
@@ -233,7 +157,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 14px;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--overlay-mid);
     border-radius: 6px;
 }
 
@@ -319,7 +243,7 @@
 
 .specCard {
     padding: 14px;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--overlay-mid);
     border-radius: 6px;
     border: 1px solid var(--border-color);
 }
@@ -376,10 +300,6 @@
 }
 
 @media (max-width: 768px) {
-    .helpLayout {
-        grid-template-columns: 1fr;
-    }
-
     .colorLegend,
     .specList {
         grid-template-columns: 1fr;

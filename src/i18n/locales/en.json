@@ -16,8 +16,20 @@
         "pause": "Pause",
         "resume": "Resume",
         "reset": "Reset",
+        "theme": "Theme",
+        "tabs": {
+            "overview": "Overview",
+            "details": "Details",
+            "info": "Info",
+            "settings": "Settings"
+        },
         "fullscreen": "Fullscreen",
         "exit": "Exit"
+    },
+    "theme": {
+        "dark": "Dark",
+        "light": "Light",
+        "high-contrast": "High Contrast"
     },
     "nav": {
         "jobs": "Jobs",
@@ -56,10 +68,16 @@
             "alarm": "Alarm",
             "warning": "Warning",
             "info": "Information"
+        },
+        "tabs": {
+            "active": "Active",
+            "history": "History"
         }
     },
     "system": {
         "title": "System Status",
+        "overview": "Overview",
+        "subsystems": "Subsystems",
         "status": "Status",
         "running": "Running",
         "stopped": "Stopped",
@@ -72,7 +90,9 @@
         "runJob": "Run Job",
         "stopJob": "Stop Job",
         "jobList": "Job List",
-        "noJobs": "No Jobs"
+        "noJobs": "No Jobs",
+        "selectJob": "Select a job to view details",
+        "total": "Total"
     },
     "recipes": {
         "title": "Recipe Management",
@@ -99,7 +119,15 @@
         "title": "Help",
         "about": "About",
         "version": "Version",
-        "manual": "User Manual"
+        "manual": "User Manual",
+        "tabs": {
+            "about": "About",
+            "colors": "Color Legend",
+            "shortcuts": "Shortcuts",
+            "semi": "SEMI E95",
+            "faq": "FAQ",
+            "support": "Support"
+        }
     },
     "monitor": {
         "title": "Real-time Monitor",

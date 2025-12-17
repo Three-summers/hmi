@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Tabs } from "@/components/common";
 import styles from "./Help.module.css";
 import sharedStyles from "../shared.module.css";
 
@@ -10,15 +11,6 @@ type HelpSection =
     | "semi"
     | "faq"
     | "support";
-
-const helpSections = [
-    { id: "about" as const, icon: "info", label: "About" },
-    { id: "colors" as const, icon: "palette", label: "Color Legend" },
-    { id: "shortcuts" as const, icon: "keyboard", label: "Shortcuts" },
-    { id: "semi" as const, icon: "standard", label: "SEMI E95" },
-    { id: "faq" as const, icon: "question", label: "FAQ" },
-    { id: "support" as const, icon: "support", label: "Support" },
-];
 
 const icons: Record<string, JSX.Element> = {
     info: (
@@ -53,12 +45,22 @@ const icons: Record<string, JSX.Element> = {
     ),
 };
 
+const helpTabs: { id: HelpSection; icon: keyof typeof icons; labelKey: string }[] =
+    [
+        { id: "about", icon: "info", labelKey: "help.tabs.about" },
+        { id: "colors", icon: "palette", labelKey: "help.tabs.colors" },
+        { id: "shortcuts", icon: "keyboard", labelKey: "help.tabs.shortcuts" },
+        { id: "semi", icon: "standard", labelKey: "help.tabs.semi" },
+        { id: "faq", icon: "question", labelKey: "help.tabs.faq" },
+        { id: "support", icon: "support", labelKey: "help.tabs.support" },
+    ];
+
 export default function HelpView() {
     const { t } = useTranslation();
-    const [activeSection, setActiveSection] = useState<HelpSection>("about");
+    const [activeTab, setActiveTab] = useState<HelpSection>("about");
 
-    const renderSectionContent = () => {
-        switch (activeSection) {
+    const renderSectionContent = (section: HelpSection) => {
+        switch (section) {
             case "about":
                 return (
                     <>
@@ -481,42 +483,26 @@ export default function HelpView() {
 
     return (
         <div className={sharedStyles.view}>
-            <div className={styles.helpLayout}>
-                {/* Sidebar */}
-                <div className={styles.sidebar}>
-                    <div className={styles.sidebarHeader}>
-                        <div className={styles.logo}>
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                            </svg>
-                        </div>
-                        <h3 className={styles.appName}>Industrial HMI</h3>
-                        <span className={styles.appVersion}>
-                            v0.1.0 • SEMI E95
+            <Tabs
+                activeId={activeTab}
+                onChange={setActiveTab}
+                tabs={helpTabs.map((tab) => ({
+                    id: tab.id,
+                    label: (
+                        <span className={styles.tabLabel}>
+                            <span className={styles.tabIcon}>
+                                {icons[tab.icon]}
+                            </span>
+                            {t(tab.labelKey)}
                         </span>
-                    </div>
-                    <div className={styles.navList}>
-                        {helpSections.map((section) => (
-                            <div
-                                key={section.id}
-                                className={styles.navItem}
-                                data-selected={activeSection === section.id}
-                                onClick={() => setActiveSection(section.id)}
-                            >
-                                <span className={styles.navIcon}>
-                                    {icons[section.icon]}
-                                </span>
-                                {section.label}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Main Content */}
-                <div className={styles.mainContent}>
-                    {renderSectionContent()}
-                </div>
-            </div>
+                    ),
+                    content: (
+                        <div className={styles.mainContent}>
+                            {renderSectionContent(tab.id)}
+                        </div>
+                    ),
+                }))}
+            />
         </div>
     );
 }

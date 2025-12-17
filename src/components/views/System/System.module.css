@@ -5,6 +5,10 @@
     height: 100%;
 }
 
+.systemGrid[data-layout="single"] {
+    grid-template-columns: 1fr;
+}
+
 .overviewPanel,
 .subsystemsPanel {
     background: rgba(0, 0, 0, 0.2);

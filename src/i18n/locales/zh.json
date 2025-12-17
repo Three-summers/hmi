@@ -16,8 +16,20 @@
         "pause": "暂停",
         "resume": "恢复",
         "reset": "重置",
+        "theme": "主题",
+        "tabs": {
+            "overview": "概览",
+            "details": "详情",
+            "info": "说明",
+            "settings": "设置"
+        },
         "fullscreen": "全屏",
         "exit": "退出"
+    },
+    "theme": {
+        "dark": "暗色",
+        "light": "亮色",
+        "high-contrast": "高对比"
     },
     "nav": {
         "jobs": "作业",
@@ -56,10 +68,16 @@
             "alarm": "报警",
             "warning": "警告",
             "info": "信息"
+        },
+        "tabs": {
+            "active": "当前报警",
+            "history": "历史记录"
         }
     },
     "system": {
         "title": "系统状态",
+        "overview": "概览",
+        "subsystems": "子系统",
         "status": "状态",
         "running": "运行中",
         "stopped": "已停止",
@@ -72,7 +90,9 @@
         "runJob": "运行作业",
         "stopJob": "停止作业",
         "jobList": "作业列表",
-        "noJobs": "暂无作业"
+        "noJobs": "暂无作业",
+        "selectJob": "请选择一个作业查看详情",
+        "total": "总数"
     },
     "recipes": {
         "title": "配方管理",
@@ -99,7 +119,15 @@
         "title": "帮助",
         "about": "关于",
         "version": "版本",
-        "manual": "操作手册"
+        "manual": "操作手册",
+        "tabs": {
+            "about": "关于",
+            "colors": "色标",
+            "shortcuts": "快捷键",
+            "semi": "SEMI E95",
+            "faq": "常见问题",
+            "support": "支持"
+        }
     },
     "monitor": {
         "title": "实时监控",

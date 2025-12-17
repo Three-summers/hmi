@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { Tabs } from "@/components/common";
+import { useIsViewActive } from "@/components/layout/ViewContext";
 import styles from "../shared.module.css";
 import monitorStyles from "./Monitor.module.css";
 
-// Check if running in Tauri environment
 const isTauri = () => {
     return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 };
@@ -45,20 +47,26 @@ const SPECTRUM_COLORS = {
 };
 
 export default function MonitorView() {
+    const { t } = useTranslation();
+    const isViewActive = useIsViewActive();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const animationRef = useRef<number>(0);
+    const isViewActiveRef = useRef(true);
     const spectrumDataRef = useRef<SpectrumData | null>(null);
     const prevAmplitudesRef = useRef<number[]>([]);
 
     const [isPaused, setIsPaused] = useState(false);
     const [displayMode, setDisplayMode] = useState<"bars" | "fill" | "line">("fill");
+    const [activeTab, setActiveTab] = useState<"overview" | "info">("overview");
     const [stats, setStats] = useState<SpectrumStats>({
         peak_frequency: 0,
         peak_amplitude: -90,
         average_amplitude: -90,
         bandwidth: 0,
     });
+
+    const isSpectrumActive = isViewActive && activeTab === "overview";
 
     // 计算 -3dB 带宽
     const calculateBandwidth = useCallback((frequencies: number[], amplitudes: number[], peakAmp: number): number => {
@@ -85,16 +93,24 @@ export default function MonitorView() {
 
     // 绘制频谱图
     const drawSpectrum = useCallback(() => {
+        // 视图在后台时不重绘，避免占用 CPU；状态仍然保留在内存中
+        if (!isViewActiveRef.current) return;
+
+        const scheduleNextFrame = () => {
+            if (!isViewActiveRef.current) return;
+            animationRef.current = requestAnimationFrame(drawSpectrum);
+        };
+
         const canvas = canvasRef.current;
         const container = containerRef.current;
         if (!canvas || !container) {
-            animationRef.current = requestAnimationFrame(drawSpectrum);
+            scheduleNextFrame();
             return;
         }
 
         const ctx = canvas.getContext("2d");
         if (!ctx) {
-            animationRef.current = requestAnimationFrame(drawSpectrum);
+            scheduleNextFrame();
             return;
         }
 
@@ -102,7 +118,7 @@ export default function MonitorView() {
         const rect = container.getBoundingClientRect();
 
         if (rect.width === 0 || rect.height === 0) {
-            animationRef.current = requestAnimationFrame(drawSpectrum);
+            scheduleNextFrame();
             return;
         }
 
@@ -135,7 +151,7 @@ export default function MonitorView() {
             // 绘制空白网格
             drawGrid(ctx, padding, chartWidth, chartHeight, width, height);
 
-            animationRef.current = requestAnimationFrame(drawSpectrum);
+            scheduleNextFrame();
             return;
         }
 
@@ -361,7 +377,7 @@ export default function MonitorView() {
         ctx.fillText(time, width - padding.right, 20);
 
         // 继续动画循环
-        animationRef.current = requestAnimationFrame(drawSpectrum);
+        scheduleNextFrame();
     }, [displayMode, isPaused]);
 
     // 绘制网格的辅助函数
@@ -426,39 +442,52 @@ export default function MonitorView() {
         }
     }, [isPaused, calculateBandwidth]);
 
-    // Store updateSpectrum in ref
+    // 将回调写入 Ref，避免事件监听闭包拿到旧的函数引用
     const updateSpectrumRef = useRef(updateSpectrum);
     useEffect(() => {
         updateSpectrumRef.current = updateSpectrum;
     }, [updateSpectrum]);
 
-    // 启动动画循环
     useEffect(() => {
+        isViewActiveRef.current = isSpectrumActive;
+
+        if (!isSpectrumActive) {
+            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            return;
+        }
+
         animationRef.current = requestAnimationFrame(drawSpectrum);
         return () => {
             if (animationRef.current) {
                 cancelAnimationFrame(animationRef.current);
             }
         };
-    }, [drawSpectrum]);
+    }, [drawSpectrum, isSpectrumActive]);
 
-    // 监听后端数据
+    // 仅在“监控页可见 + 当前子页为概览”时启动数据订阅，避免后台页面持续消耗资源
     useEffect(() => {
+        if (!isSpectrumActive) return;
+
         if (!isTauri()) {
             console.warn("Not running in Tauri environment - spectrum data will not be available");
             return;
         }
 
         let unlisten: (() => void) | null = null;
-        let mounted = true;
+        let cancelled = false;
 
         const setup = async () => {
             try {
-                unlisten = await listen<SpectrumData>("spectrum-data", (event) => {
-                    if (mounted) {
+                const unlistenFn = await listen<SpectrumData>("spectrum-data", (event) => {
+                    if (!cancelled) {
                         updateSpectrumRef.current(event.payload);
                     }
                 });
+                if (cancelled) {
+                    unlistenFn();
+                    return;
+                }
+                unlisten = unlistenFn;
                 console.log("Spectrum listener setup complete");
 
                 await invoke("start_sensor_simulation");
@@ -471,13 +500,13 @@ export default function MonitorView() {
         setup();
 
         return () => {
-            mounted = false;
+            cancelled = true;
             if (isTauri()) {
                 invoke("stop_sensor_simulation").catch(console.error);
             }
             unlisten?.();
         };
-    }, []);
+    }, [isSpectrumActive]);
 
     const handleClearData = () => {
         spectrumDataRef.current = null;
@@ -499,139 +528,225 @@ export default function MonitorView() {
 
     return (
         <div className={styles.view}>
-            {/* 统计卡片 */}
-            <div className={monitorStyles.statsGrid}>
-                <div className={monitorStyles.statCard} data-type="peak-freq">
-                    <div className={monitorStyles.cardHeader}>
-                        <div className={monitorStyles.cardIcon}>
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
-                            </svg>
-                        </div>
-                        <span className={monitorStyles.statusBadge} data-status="normal">
-                            PEAK
-                        </span>
-                    </div>
-                    <span className={monitorStyles.statLabel}>峰值频率</span>
-                    <span className={monitorStyles.statValue}>
-                        {formatFrequency(stats.peak_frequency)}
-                    </span>
-                    <div className={monitorStyles.statMeta}>
-                        <span>中心频率分析</span>
-                    </div>
-                </div>
+            <Tabs
+                activeId={activeTab}
+                onChange={setActiveTab}
+                tabs={[
+                    {
+                        id: "overview",
+                        label: t("common.tabs.overview"),
+                        content: (
+                            <>
+                                <div className={monitorStyles.statsGrid}>
+                                    <div
+                                        className={monitorStyles.statCard}
+                                        data-type="peak-freq"
+                                    >
+                                        <div className={monitorStyles.cardHeader}>
+                                            <div className={monitorStyles.cardIcon}>
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
+                                                </svg>
+                                            </div>
+                                            <span
+                                                className={monitorStyles.statusBadge}
+                                                data-status="normal"
+                                            >
+                                                PEAK
+                                            </span>
+                                        </div>
+                                        <span className={monitorStyles.statLabel}>
+                                            峰值频率
+                                        </span>
+                                        <span className={monitorStyles.statValue}>
+                                            {formatFrequency(stats.peak_frequency)}
+                                        </span>
+                                        <div className={monitorStyles.statMeta}>
+                                            <span>中心频率分析</span>
+                                        </div>
+                                    </div>
 
-                <div className={monitorStyles.statCard} data-type="peak-amp">
-                    <div className={monitorStyles.cardHeader}>
-                        <div className={monitorStyles.cardIcon}>
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z" />
-                            </svg>
-                        </div>
-                        <span
-                            className={monitorStyles.statusBadge}
-                            data-status={stats.peak_amplitude > -30 ? "warning" : "normal"}
-                        >
-                            {stats.peak_amplitude > -30 ? "HIGH" : "NORMAL"}
-                        </span>
-                    </div>
-                    <span className={monitorStyles.statLabel}>峰值幅值</span>
-                    <span className={monitorStyles.statValue}>
-                        {stats.peak_amplitude.toFixed(1)} dB
-                    </span>
-                    <div className={monitorStyles.statMeta}>
-                        <span>信号强度</span>
-                    </div>
-                </div>
+                                    <div
+                                        className={monitorStyles.statCard}
+                                        data-type="peak-amp"
+                                    >
+                                        <div className={monitorStyles.cardHeader}>
+                                            <div className={monitorStyles.cardIcon}>
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z" />
+                                                </svg>
+                                            </div>
+                                            <span
+                                                className={monitorStyles.statusBadge}
+                                                data-status={
+                                                    stats.peak_amplitude > -30
+                                                        ? "warning"
+                                                        : "normal"
+                                                }
+                                            >
+                                                {stats.peak_amplitude > -30 ? "HIGH" : "NORMAL"}
+                                            </span>
+                                        </div>
+                                        <span className={monitorStyles.statLabel}>
+                                            峰值幅值
+                                        </span>
+                                        <span className={monitorStyles.statValue}>
+                                            {stats.peak_amplitude.toFixed(1)} dB
+                                        </span>
+                                        <div className={monitorStyles.statMeta}>
+                                            <span>信号强度</span>
+                                        </div>
+                                    </div>
 
-                <div className={monitorStyles.statCard} data-type="bandwidth">
-                    <div className={monitorStyles.cardHeader}>
-                        <div className={monitorStyles.cardIcon}>
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M3 5v14h18V5H3zm16 12H5V7h14v10zM7 9h2v6H7zm4 0h2v6h-2zm4 0h2v6h-2z" />
-                            </svg>
-                        </div>
-                        <span className={monitorStyles.statusBadge} data-status="normal">
-                            BW
-                        </span>
-                    </div>
-                    <span className={monitorStyles.statLabel}>信号带宽 (-3dB)</span>
-                    <span className={monitorStyles.statValue}>
-                        {formatFrequency(stats.bandwidth)}
-                    </span>
-                    <div className={monitorStyles.statMeta}>
-                        <span>Avg: {stats.average_amplitude.toFixed(1)} dB</span>
-                    </div>
-                </div>
-            </div>
+                                    <div
+                                        className={monitorStyles.statCard}
+                                        data-type="bandwidth"
+                                    >
+                                        <div className={monitorStyles.cardHeader}>
+                                            <div className={monitorStyles.cardIcon}>
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M3 5v14h18V5H3zm16 12H5V7h14v10zM7 9h2v6H7zm4 0h2v6h-2zm4 0h2v6h-2z" />
+                                                </svg>
+                                            </div>
+                                            <span
+                                                className={monitorStyles.statusBadge}
+                                                data-status="normal"
+                                            >
+                                                BW
+                                            </span>
+                                        </div>
+                                        <span className={monitorStyles.statLabel}>
+                                            信号带宽 (-3dB)
+                                        </span>
+                                        <span className={monitorStyles.statValue}>
+                                            {formatFrequency(stats.bandwidth)}
+                                        </span>
+                                        <div className={monitorStyles.statMeta}>
+                                            <span>
+                                                Avg: {stats.average_amplitude.toFixed(1)} dB
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
 
-            {/* 频谱图 */}
-            <div className={monitorStyles.chartContainer}>
-                <div className={monitorStyles.chartHeader}>
-                    <div className={monitorStyles.chartTitle}>
-                        <svg viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z" />
-                        </svg>
-                        实时频谱分析
-                    </div>
-                    <div className={monitorStyles.chartControls}>
-                        <div className={monitorStyles.timeRangeGroup}>
-                            {(["fill", "bars", "line"] as const).map((mode) => (
-                                <button
-                                    key={mode}
-                                    className={monitorStyles.timeRangeBtn}
-                                    data-active={displayMode === mode}
-                                    onClick={() => setDisplayMode(mode)}
-                                >
-                                    {mode === "fill" ? "填充" : mode === "bars" ? "柱状" : "线条"}
-                                </button>
-                            ))}
-                        </div>
-                        <button
-                            className={monitorStyles.controlBtn}
-                            data-active={isPaused}
-                            onClick={() => setIsPaused(!isPaused)}
-                        >
-                            {isPaused ? (
-                                <svg viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M8 5v14l11-7z" />
-                                </svg>
-                            ) : (
-                                <svg viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                                </svg>
-                            )}
-                            {isPaused ? "继续" : "暂停"}
-                        </button>
-                        <button
-                            className={monitorStyles.controlBtn}
-                            onClick={handleClearData}
-                        >
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                            </svg>
-                            清除
-                        </button>
-                    </div>
-                </div>
-                <div ref={containerRef} className={monitorStyles.chart}>
-                    <canvas ref={canvasRef} className={monitorStyles.spectrumCanvas} />
-                </div>
-                <div className={monitorStyles.chartLegend}>
-                    <div className={monitorStyles.legendItem} data-type="spectrum">
-                        <span className={monitorStyles.legendDot} />
-                        频谱幅值
-                    </div>
-                    <div className={monitorStyles.legendItem} data-type="peak">
-                        <span className={monitorStyles.legendDot} />
-                        峰值标记
-                    </div>
-                    <div className={monitorStyles.legendItem} data-type="noise">
-                        <span className={monitorStyles.legendDot} />
-                        底噪
-                    </div>
-                </div>
-            </div>
+                                <div className={monitorStyles.chartContainer}>
+                                    <div className={monitorStyles.chartHeader}>
+                                        <div className={monitorStyles.chartTitle}>
+                                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z" />
+                                            </svg>
+                                            实时频谱分析
+                                        </div>
+                                        <div className={monitorStyles.chartControls}>
+                                            <div className={monitorStyles.timeRangeGroup}>
+                                                {(["fill", "bars", "line"] as const).map(
+                                                    (mode) => (
+                                                        <button
+                                                            key={mode}
+                                                            className={monitorStyles.timeRangeBtn}
+                                                            data-active={
+                                                                displayMode === mode
+                                                            }
+                                                            onClick={() =>
+                                                                setDisplayMode(mode)
+                                                            }
+                                                        >
+                                                            {mode === "fill"
+                                                                ? "填充"
+                                                                : mode === "bars"
+                                                                  ? "柱状"
+                                                                  : "线条"}
+                                                        </button>
+                                                    ),
+                                                )}
+                                            </div>
+                                            <button
+                                                className={monitorStyles.controlBtn}
+                                                data-active={isPaused}
+                                                onClick={() => setIsPaused(!isPaused)}
+                                            >
+                                                {isPaused ? (
+                                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                                        <path d="M8 5v14l11-7z" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                                                    </svg>
+                                                )}
+                                                {isPaused ? "继续" : "暂停"}
+                                            </button>
+                                            <button
+                                                className={monitorStyles.controlBtn}
+                                                onClick={handleClearData}
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
+                                                </svg>
+                                                清除
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div
+                                        ref={containerRef}
+                                        className={monitorStyles.chart}
+                                    >
+                                        <canvas
+                                            ref={canvasRef}
+                                            className={monitorStyles.spectrumCanvas}
+                                        />
+                                    </div>
+                                    <div className={monitorStyles.chartLegend}>
+                                        <div
+                                            className={monitorStyles.legendItem}
+                                            data-type="spectrum"
+                                        >
+                                            <span className={monitorStyles.legendDot} />
+                                            频谱幅值
+                                        </div>
+                                        <div
+                                            className={monitorStyles.legendItem}
+                                            data-type="peak"
+                                        >
+                                            <span className={monitorStyles.legendDot} />
+                                            峰值标记
+                                        </div>
+                                        <div
+                                            className={monitorStyles.legendItem}
+                                            data-type="noise"
+                                        >
+                                            <span className={monitorStyles.legendDot} />
+                                            底噪
+                                        </div>
+                                    </div>
+                                </div>
+                            </>
+                        ),
+                    },
+                    {
+                        id: "info",
+                        label: t("common.tabs.info"),
+                        content: (
+                            <div className={monitorStyles.monitorInfo}>
+                                <h3 className={monitorStyles.monitorInfoTitle}>
+                                    {t("nav.monitor")}
+                                </h3>
+                                <ul className={monitorStyles.monitorInfoList}>
+                                    <li>
+                                        “概览”子页会订阅频谱数据并实时绘制；切到其它子页或切换主页面时会自动暂停订阅与绘制。
+                                    </li>
+                                    <li>
+                                        点击上方“填充/柱状/线条”可切换显示模式；“暂停”会冻结统计值与曲线平滑。
+                                    </li>
+                                    <li>
+                                        若当前不在 Tauri 环境（浏览器开发模式），此页不会收到后端频谱事件。
+                                    </li>
+                                </ul>
+                            </div>
+                        ),
+                    },
+                ]}
+            />
         </div>
     );
 }

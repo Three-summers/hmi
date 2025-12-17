@@ -27,7 +27,7 @@
     font-weight: 600;
     color: var(--text-primary);
     border-bottom: 1px solid var(--border-color);
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--overlay-weak);
 }
 
 .treeContent {
@@ -187,7 +187,7 @@
     height: 16px;
 }
 
-/* Text preview */
+/* 文本预览 */
 .textPreview {
     flex: 1;
     display: flex;
@@ -202,7 +202,7 @@
     font-weight: 600;
     color: var(--text-primary);
     border-bottom: 1px solid var(--border-color);
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--overlay-weak);
 }
 
 .textContent {
@@ -216,10 +216,10 @@
     overflow: auto;
     white-space: pre-wrap;
     word-break: break-all;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--overlay-mid);
 }
 
-/* CSV preview */
+/* CSV 预览 */
 .csvPreview {
     flex: 1;
     display: flex;
@@ -234,7 +234,7 @@
     gap: 12px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border-color);
-    background: rgba(0, 0, 0, 0.1);
+    background: var(--overlay-weak);
     flex-wrap: wrap;
 }
 
@@ -310,7 +310,7 @@
 }
 
 .chartWrapper {
-    background: rgba(8, 15, 30, 0.6);
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
     border-radius: 8px;
     border: 1px solid var(--border-color);
     overflow: hidden;
@@ -331,7 +331,7 @@
     font-size: 12px;
     font-weight: 600;
     color: var(--text-primary);
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--overlay-mid);
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -358,12 +358,41 @@
     cursor: crosshair;
 }
 
-/* Enlarged chart modal */
+/* 文件页说明（说明子页） */
+.filesInfo {
+    height: 100%;
+    min-height: 160px;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--overlay-mid);
+    color: var(--text-secondary);
+    overflow: auto;
+}
+
+.filesInfoTitle {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.filesInfoList {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+/* 放大图表弹窗 */
 .chartModal {
     position: fixed;
     inset: 0;
     z-index: 1000;
-    background: rgba(0, 0, 0, 0.65);
+    background: var(--overlay-modal);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -389,7 +418,7 @@
     gap: 12px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border-color);
-    background: rgba(0, 0, 0, 0.15);
+    background: var(--overlay-mid);
 }
 
 .chartModalTitle {
@@ -431,7 +460,7 @@
     font-size: 12px;
     color: var(--text-secondary);
     border-top: 1px solid var(--border-color);
-    background: rgba(0, 0, 0, 0.12);
+    background: var(--overlay-weak);
 }
 
 @media (max-width: 768px) {

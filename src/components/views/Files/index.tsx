@@ -4,10 +4,12 @@ import { readTextFile, readDir } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
+import { Tabs } from "@/components/common";
+import { useIsViewActive } from "@/components/layout/ViewContext";
 import styles from "../shared.module.css";
 import filesStyles from "./Files.module.css";
 
-// Check if running in Tauri environment
+// 判断是否运行在 Tauri 环境（浏览器开发模式下不具备本地文件访问能力）
 const isTauri = () => {
     return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 };
@@ -28,6 +30,7 @@ const DEFAULT_VISIBLE_CHARTS = 4;
 
 export default function FilesView() {
     const { t } = useTranslation();
+    const isViewActive = useIsViewActive();
     const [fileTree, setFileTree] = useState<FileEntry[]>([]);
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [fileContent, setFileContent] = useState<string>("");
@@ -42,6 +45,7 @@ export default function FilesView() {
     const [expandedDirectories, setExpandedDirectories] = useState<Set<string>>(
         new Set(),
     );
+    const [activeTab, setActiveTab] = useState<"overview" | "info">("overview");
     const [enlargedColumn, setEnlargedColumn] = useState<number | null>(null);
     const chartRefs = useRef<Map<number, HTMLDivElement>>(new Map());
     const uplotInstances = useRef<Map<number, uPlot>>(new Map());
@@ -49,7 +53,7 @@ export default function FilesView() {
     const enlargedUplotInstance = useRef<uPlot | null>(null);
     const enlargedFullXRange = useRef<{ min: number; max: number } | null>(null);
 
-    // Get Log directory path
+    // 获取日志目录路径（由后端提供，避免前端硬编码）
     useEffect(() => {
         const initPath = async () => {
             if (!isTauri()) {
@@ -67,7 +71,7 @@ export default function FilesView() {
         initPath();
     }, [t]);
 
-    // Load file tree
+    // 加载文件树（目录默认收起，点击展开/收起）
     const loadFileTree = useCallback(async () => {
         if (!logBasePath || !isTauri()) return;
 
@@ -101,7 +105,7 @@ export default function FilesView() {
                 tree.push(fileEntry);
             }
 
-            // Sort: directories first, then files
+            // 排序：目录优先，其次文件
             tree.sort((a, b) => {
                 if (a.isDirectory && !b.isDirectory) return -1;
                 if (!a.isDirectory && b.isDirectory) return 1;
@@ -148,7 +152,7 @@ export default function FilesView() {
         return { min, max };
     };
 
-    // Parse CSV content
+    // 解析 CSV 内容：支持“时间列 + 多数值列”的通用数据日志格式
     const parseCsv = (content: string): CsvData | null => {
         const lines = content.trim().split(/\r?\n/);
         if (lines.length < 2) return null;
@@ -193,7 +197,7 @@ export default function FilesView() {
                 return NaN;
             });
 
-            // Only include rows with valid data
+            // 仅保留包含有效数值的行，避免空行/无效行污染曲线
             if (values.some((v) => !isNaN(v))) {
                 rows.push(values);
             }
@@ -202,7 +206,7 @@ export default function FilesView() {
         return { headers, rows };
     };
 
-    // Load file content
+    // 加载选中文件内容；CSV 将自动解析并渲染多图表预览
     const handleFileSelect = async (file: FileEntry) => {
         if (file.isDirectory) return;
 
@@ -220,7 +224,7 @@ export default function FilesView() {
                 const parsed = parseCsv(content);
                 if (parsed) {
                     setCsvData(parsed);
-                    // Initialize enabled columns (default to first 4 data columns)
+                    // 初始化显示列：默认启用前 4 个数据列
                     const dataColumns = parsed.headers.length - 1;
                     const initialEnabled = new Set<number>();
                     for (let i = 1; i <= Math.min(DEFAULT_VISIBLE_CHARTS, dataColumns); i++) {
@@ -238,7 +242,7 @@ export default function FilesView() {
         }
     };
 
-    // Cleanup uPlot instances
+    // 组件卸载时清理 uPlot 实例，释放事件监听与 Canvas 资源
     useEffect(() => {
         return () => {
             uplotInstances.current.forEach((instance) => instance.destroy());
@@ -246,25 +250,25 @@ export default function FilesView() {
         };
     }, []);
 
-    // Render charts
+    // 渲染小图：每个启用列一个 uPlot 实例（默认禁用拖拽交互，避免与滚动冲突）
     useEffect(() => {
         if (!csvData) {
-            // Cleanup existing charts
+            // CSV 被清空时销毁图表
             uplotInstances.current.forEach((instance) => instance.destroy());
             uplotInstances.current.clear();
             return;
         }
 
-        // Cleanup previous instances
+        // 每次重新渲染前都清理旧实例，避免重复挂载导致事件与 DOM 堆积
         uplotInstances.current.forEach((instance) => instance.destroy());
         uplotInstances.current.clear();
 
-        // Prepare X axis data (first column as time)
+        // X 轴：默认取第一列为时间
         const xData = csvData.rows.map((row) => row[0]);
 
-        // Use requestAnimationFrame to ensure container is rendered
+        // 等待容器完成布局后再创建图表，否则 clientWidth 可能为 0
         requestAnimationFrame(() => {
-            // Render chart for each enabled column
+            // 每个启用列渲染一张图
             enabledColumns.forEach((colIndex) => {
                 const container = chartRefs.current.get(colIndex);
                 if (!container || colIndex >= csvData.headers.length) return;
@@ -318,7 +322,7 @@ export default function FilesView() {
         });
     }, [csvData, enabledColumns]);
 
-    // Enlarged chart (click-to-zoom modal)
+    // 放大图表：点击小图打开弹窗，并支持“拖拽选择区域缩放”
     useEffect(() => {
         const cleanup = () => {
             if (enlargedUplotInstance.current) {
@@ -424,20 +428,43 @@ export default function FilesView() {
         chart.setScale("x", { min: range.min, max: range.max });
     };
 
-    // Handle window resize
-    useEffect(() => {
-        const handleResize = () => {
+    const resizeCharts = useCallback(() => {
+        // 视图缓存 + 标签页模式下，隐藏面板的容器宽度可能为 0；此时不能把图表缩放到 0，否则切回会显示为空白。
+        if (!isViewActive) return;
+
+        if (activeTab === "overview") {
             uplotInstances.current.forEach((instance, colIndex) => {
                 const container = chartRefs.current.get(colIndex);
-                if (container) {
-                    instance.setSize({ width: container.clientWidth, height: 200 });
-                }
+                const width = container?.clientWidth ?? 0;
+                if (width <= 0) return;
+                instance.setSize({ width, height: 200 });
             });
-        };
+        }
 
+        const enlarged = enlargedUplotInstance.current;
+        const enlargedContainer = enlargedChartRef.current;
+        if (enlarged && enlargedContainer) {
+            const width = enlargedContainer.clientWidth;
+            const height = enlargedContainer.clientHeight;
+            if (width > 0 && height > 0) {
+                enlarged.setSize({ width, height });
+            }
+        }
+    }, [activeTab, isViewActive]);
+
+    useEffect(() => {
+        const handleResize = () => {
+            resizeCharts();
+        };
         window.addEventListener("resize", handleResize);
         return () => window.removeEventListener("resize", handleResize);
-    }, []);
+    }, [resizeCharts]);
+
+    useEffect(() => {
+        if (!isViewActive) return;
+        const raf = requestAnimationFrame(resizeCharts);
+        return () => cancelAnimationFrame(raf);
+    }, [activeTab, isViewActive, resizeCharts]);
 
     const getSeriesColor = (index: number): string => {
         const colors = [
@@ -483,7 +510,7 @@ export default function FilesView() {
         if (csvData) {
             const maxCharts = csvData.headers.length - 1;
             setVisibleCharts(maxCharts);
-            // Enable all columns
+            // 启用全部列
             const allEnabled = new Set<number>();
             for (let i = 1; i <= maxCharts; i++) {
                 allEnabled.add(i);
@@ -515,7 +542,7 @@ export default function FilesView() {
         });
     };
 
-    // Render file tree item
+    // 渲染文件树节点（支持键盘 Enter/Space 操作）
     const renderFileItem = (file: FileEntry, level: number = 0) => {
         const isSelected = selectedFile === file.path;
         const isExpanded = file.isDirectory && expandedDirectories.has(file.path);
@@ -595,131 +622,263 @@ export default function FilesView() {
                 </button>
             </div>
 
-            <div className={filesStyles.container}>
-                {/* File tree panel */}
-                <div className={filesStyles.fileTree}>
-                    <div className={filesStyles.treeHeader}>
-                        <span>{t("files.logFolder")}</span>
-                    </div>
-                    <div className={filesStyles.treeContent}>
-                        {treeLoading && !fileTree.length ? (
-                            <div className={filesStyles.loading}>{t("files.loading")}</div>
-                        ) : treeError && !fileTree.length ? (
-                            <div className={filesStyles.error}>{treeError}</div>
-                        ) : fileTree.length === 0 ? (
-                            <div className={filesStyles.empty}>{t("files.empty")}</div>
-                        ) : (
-                            fileTree.map((file) => renderFileItem(file))
-                        )}
-                    </div>
-                </div>
+            <Tabs
+                activeId={activeTab}
+                onChange={setActiveTab}
+                tabs={[
+                    {
+                        id: "overview",
+                        label: t("common.tabs.overview"),
+                        content: (
+                            <>
+                                <div className={filesStyles.container}>
+                                    <div className={filesStyles.fileTree}>
+                                        <div className={filesStyles.treeHeader}>
+                                            <span>
+                                                {t("files.logFolder")}
+                                            </span>
+                                        </div>
+                                        <div className={filesStyles.treeContent}>
+                                            {treeLoading && !fileTree.length ? (
+                                                <div className={filesStyles.loading}>
+                                                    {t("files.loading")}
+                                                </div>
+                                            ) : treeError && !fileTree.length ? (
+                                                <div className={filesStyles.error}>
+                                                    {treeError}
+                                                </div>
+                                            ) : fileTree.length === 0 ? (
+                                                <div className={filesStyles.empty}>
+                                                    {t("files.empty")}
+                                                </div>
+                                            ) : (
+                                                fileTree.map((file) =>
+                                                    renderFileItem(file),
+                                                )
+                                            )}
+                                        </div>
+                                    </div>
 
-                {/* Preview panel */}
-                <div className={filesStyles.preview}>
-                    {!selectedFile ? (
-                        <div className={filesStyles.placeholder}>
-                            <svg viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z" />
-                            </svg>
-                            <span>{t("files.selectFile")}</span>
-                        </div>
-                    ) : previewLoading ? (
-                        <div className={filesStyles.loading}>{t("files.loading")}</div>
-                    ) : previewError ? (
-                        <div className={filesStyles.error}>{previewError}</div>
-                    ) : isCsvFile && csvData ? (
-                        <div className={filesStyles.csvPreview}>
-                            <div className={filesStyles.csvHeader}>
-                                <span className={filesStyles.csvTitle}>
-                                    {selectedFile.split("/").pop()}
-                                </span>
-                                <div className={filesStyles.columnToggle}>
-                                    {csvData.headers.slice(1, visibleCharts + 1).map((header, idx) => (
-                                        <button
-                                            key={idx + 1}
-                                            className={filesStyles.columnBtn}
-                                            data-active={enabledColumns.has(idx + 1)}
-                                            onClick={() => toggleColumn(idx + 1)}
-                                            style={{ borderColor: getSeriesColor(idx + 1) }}
-                                        >
-                                            {header}
-                                        </button>
-                                    ))}
+                                    <div className={filesStyles.preview}>
+                                        {!selectedFile ? (
+                                            <div className={filesStyles.placeholder}>
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    fill="currentColor"
+                                                >
+                                                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z" />
+                                                </svg>
+                                                <span>
+                                                    {t("files.selectFile")}
+                                                </span>
+                                            </div>
+                                        ) : previewLoading ? (
+                                            <div className={filesStyles.loading}>
+                                                {t("files.loading")}
+                                            </div>
+                                        ) : previewError ? (
+                                            <div className={filesStyles.error}>
+                                                {previewError}
+                                            </div>
+                                        ) : isCsvFile && csvData ? (
+                                            <div className={filesStyles.csvPreview}>
+                                                <div className={filesStyles.csvHeader}>
+                                                    <span className={filesStyles.csvTitle}>
+                                                        {selectedFile
+                                                            .split("/")
+                                                            .pop()}
+                                                    </span>
+                                                    <div className={filesStyles.columnToggle}>
+                                                        {csvData.headers
+                                                            .slice(
+                                                                1,
+                                                                visibleCharts +
+                                                                    1,
+                                                            )
+                                                            .map(
+                                                                (
+                                                                    header,
+                                                                    idx,
+                                                                ) => (
+                                                                    <button
+                                                                        key={
+                                                                            idx +
+                                                                            1
+                                                                        }
+                                                                        className={filesStyles.columnBtn}
+                                                                        data-active={enabledColumns.has(
+                                                                            idx +
+                                                                                1,
+                                                                        )}
+                                                                        onClick={() =>
+                                                                            toggleColumn(
+                                                                                idx +
+                                                                                    1,
+                                                                            )
+                                                                        }
+                                                                        style={{
+                                                                            borderColor:
+                                                                                getSeriesColor(
+                                                                                    idx +
+                                                                                        1,
+                                                                                ),
+                                                                        }}
+                                                                    >
+                                                                        {header}
+                                                                    </button>
+                                                                ),
+                                                            )}
+                                                    </div>
+                                                    {hasMoreCharts && (
+                                                        <button
+                                                            className={filesStyles.moreBtn}
+                                                            onClick={
+                                                                visibleCharts >
+                                                                DEFAULT_VISIBLE_CHARTS
+                                                                    ? showLessCharts
+                                                                    : showMoreCharts
+                                                            }
+                                                        >
+                                                            {visibleCharts >
+                                                            DEFAULT_VISIBLE_CHARTS
+                                                                ? t("files.showLess")
+                                                                : t("files.showMore", {
+                                                                      count: csvData.headers.length -
+                                                                          1 -
+                                                                          DEFAULT_VISIBLE_CHARTS,
+                                                                  })}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className={filesStyles.chartsContainer}>
+                                                    {Array.from(enabledColumns)
+                                                        .sort((a, b) => a - b)
+                                                        .map((colIndex) => (
+                                                            <div
+                                                                key={colIndex}
+                                                                className={filesStyles.chartWrapper}
+                                                                onClick={() =>
+                                                                    setEnlargedColumn(
+                                                                        colIndex,
+                                                                    )
+                                                                }
+                                                                role="button"
+                                                                tabIndex={0}
+                                                            >
+                                                                <div className={filesStyles.chartLabel}>
+                                                                    <span
+                                                                        className={filesStyles.colorDot}
+                                                                        style={{
+                                                                            background:
+                                                                                getSeriesColor(
+                                                                                    colIndex,
+                                                                                ),
+                                                                        }}
+                                                                    />
+                                                                    {csvData.headers[
+                                                                        colIndex
+                                                                    ]}
+                                                                </div>
+                                                                <div
+                                                                    ref={(el) => {
+                                                                        if (el)
+                                                                            chartRefs.current.set(
+                                                                                colIndex,
+                                                                                el,
+                                                                            );
+                                                                        else
+                                                                            chartRefs.current.delete(
+                                                                                colIndex,
+                                                                            );
+                                                                    }}
+                                                                    className={filesStyles.chart}
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className={filesStyles.textPreview}>
+                                                <div className={filesStyles.textHeader}>
+                                                    {selectedFile
+                                                        .split("/")
+                                                        .pop()}
+                                                </div>
+                                                <pre className={filesStyles.textContent}>
+                                                    {fileContent}
+                                                </pre>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                {hasMoreCharts && (
-                                    <button
-                                        className={filesStyles.moreBtn}
-                                        onClick={visibleCharts > DEFAULT_VISIBLE_CHARTS ? showLessCharts : showMoreCharts}
+
+                                {csvData && enlargedColumn !== null && (
+                                    <div
+                                        className={filesStyles.chartModal}
+                                        onClick={closeEnlargedChart}
+                                        role="dialog"
+                                        aria-modal="true"
                                     >
-                                        {visibleCharts > DEFAULT_VISIBLE_CHARTS
-                                            ? t("files.showLess")
-                                            : t("files.showMore", { count: csvData.headers.length - 1 - DEFAULT_VISIBLE_CHARTS })}
-                                    </button>
-                                )}
-                            </div>
-                            <div className={filesStyles.chartsContainer}>
-                                {Array.from(enabledColumns)
-                                    .sort((a, b) => a - b)
-                                    .map((colIndex) => (
                                         <div
-                                            key={colIndex}
-                                            className={filesStyles.chartWrapper}
-                                            onClick={() => setEnlargedColumn(colIndex)}
-                                            role="button"
-                                            tabIndex={0}
+                                            className={filesStyles.chartModalContent}
+                                            onClick={(e) => e.stopPropagation()}
                                         >
-                                            <div className={filesStyles.chartLabel}>
-                                                <span
-                                                    className={filesStyles.colorDot}
-                                                    style={{ background: getSeriesColor(colIndex) }}
-                                                />
-                                                {csvData.headers[colIndex]}
+                                            <div className={filesStyles.chartModalHeader}>
+                                                <div className={filesStyles.chartModalTitle}>
+                                                    {csvData.headers[
+                                                        enlargedColumn
+                                                    ]}
+                                                </div>
+                                                <div className={filesStyles.chartModalActions}>
+                                                    <button
+                                                        className={filesStyles.chartModalBtn}
+                                                        onClick={resetEnlargedZoom}
+                                                    >
+                                                        重置
+                                                    </button>
+                                                    <button
+                                                        className={filesStyles.chartModalBtn}
+                                                        onClick={closeEnlargedChart}
+                                                    >
+                                                        关闭
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div
-                                                ref={(el) => {
-                                                    if (el) chartRefs.current.set(colIndex, el);
-                                                    else chartRefs.current.delete(colIndex);
-                                                }}
-                                                className={filesStyles.chart}
+                                                ref={enlargedChartRef}
+                                                className={filesStyles.chartModalBody}
                                             />
+                                            <div className={filesStyles.chartModalHint}>
+                                                拖拽横向选择区域可缩放（小图模式已禁用拖拽）
+                                            </div>
                                         </div>
-                                    ))}
+                                    </div>
+                                )}
+                            </>
+                        ),
+                    },
+                    {
+                        id: "info",
+                        label: t("common.tabs.info"),
+                        content: (
+                            <div className={filesStyles.filesInfo}>
+                                <h3 className={filesStyles.filesInfoTitle}>
+                                    {t("files.title")}
+                                </h3>
+                                <ul className={filesStyles.filesInfoList}>
+                                    <li>{t("files.selectFile")}</li>
+                                    <li>
+                                        点击任意图表可放大；放大后可拖拽横向选择区域缩放。
+                                    </li>
+                                    <li>
+                                        点击“刷新”只会更新文件列表，不会清空当前预览状态。
+                                    </li>
+                                </ul>
                             </div>
-                        </div>
-                    ) : (
-                        <div className={filesStyles.textPreview}>
-                            <div className={filesStyles.textHeader}>
-                                {selectedFile.split("/").pop()}
-                            </div>
-                            <pre className={filesStyles.textContent}>{fileContent}</pre>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {csvData && enlargedColumn !== null && (
-                <div className={filesStyles.chartModal} onClick={closeEnlargedChart} role="dialog" aria-modal="true">
-                    <div className={filesStyles.chartModalContent} onClick={(e) => e.stopPropagation()}>
-                        <div className={filesStyles.chartModalHeader}>
-                            <div className={filesStyles.chartModalTitle}>
-                                {csvData.headers[enlargedColumn]}
-                            </div>
-                            <div className={filesStyles.chartModalActions}>
-                                <button className={filesStyles.chartModalBtn} onClick={resetEnlargedZoom}>
-                                    重置
-                                </button>
-                                <button className={filesStyles.chartModalBtn} onClick={closeEnlargedChart}>
-                                    关闭
-                                </button>
-                            </div>
-                        </div>
-                        <div ref={enlargedChartRef} className={filesStyles.chartModalBody} />
-                        <div className={filesStyles.chartModalHint}>
-                            拖拽横向选择区域可缩放（小图模式已禁用拖拽）
-                        </div>
-                    </div>
-                </div>
-            )}
+                        ),
+                    },
+                ]}
+            />
         </div>
     );
 }

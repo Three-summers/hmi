@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Tabs } from "@/components/common";
 import styles from "./Jobs.module.css";
 import sharedStyles from "../shared.module.css";
 
@@ -15,7 +16,6 @@ interface Job {
     completedWafers: number;
 }
 
-// Demo data
 const demoJobs: Job[] = [
     {
         id: "1",
@@ -96,8 +96,12 @@ const StatusIcons: Record<Job["status"], JSX.Element> = {
 
 export default function JobsView() {
     const { t } = useTranslation();
+    const [activeTab, setActiveTab] = useState<"overview" | "details">(
+        "overview",
+    );
     const [selectedJob, setSelectedJob] = useState<string | null>(null);
     const [jobs] = useState<Job[]>(demoJobs);
+    const selectedJobData = jobs.find((job) => job.id === selectedJob) || null;
 
     const formatTime = (date?: Date) => {
         if (!date) return "--:--";
@@ -128,99 +132,338 @@ export default function JobsView() {
 
     return (
         <div className={sharedStyles.view}>
-            <div className={styles.statsBar}>
-                <div className={styles.statItem}>
-                    <span className={styles.statValue}>{jobs.length}</span>
-                    <span className={styles.statLabel}>{t("jobs.total")}</span>
-                </div>
-                <div className={styles.statItem} data-status="processing">
-                    <span className={styles.statValue}>{runningJobs}</span>
-                    <span className={styles.statLabel}>
-                        {t("jobs.running")}
-                    </span>
-                </div>
-                <div className={styles.statItem} data-status="attention">
-                    <span className={styles.statValue}>{completedJobs}</span>
-                    <span className={styles.statLabel}>
-                        {t("jobs.completed")}
-                    </span>
-                </div>
-                <div className={styles.statItem} data-status="alarm">
-                    <span className={styles.statValue}>{errorJobs}</span>
-                    <span className={styles.statLabel}>{t("jobs.errors")}</span>
-                </div>
-            </div>
+            <Tabs
+                activeId={activeTab}
+                onChange={setActiveTab}
+                tabs={[
+                    {
+                        id: "overview",
+                        label: t("common.tabs.overview"),
+                        content: (
+                            <>
+                                <div className={styles.statsBar}>
+                                    <div className={styles.statItem}>
+                                        <span className={styles.statValue}>
+                                            {jobs.length}
+                                        </span>
+                                        <span className={styles.statLabel}>
+                                            {t("jobs.total")}
+                                        </span>
+                                    </div>
+                                    <div
+                                        className={styles.statItem}
+                                        data-status="processing"
+                                    >
+                                        <span className={styles.statValue}>
+                                            {runningJobs}
+                                        </span>
+                                        <span className={styles.statLabel}>
+                                            {t("jobs.running")}
+                                        </span>
+                                    </div>
+                                    <div
+                                        className={styles.statItem}
+                                        data-status="attention"
+                                    >
+                                        <span className={styles.statValue}>
+                                            {completedJobs}
+                                        </span>
+                                        <span className={styles.statLabel}>
+                                            {t("jobs.completed")}
+                                        </span>
+                                    </div>
+                                    <div
+                                        className={styles.statItem}
+                                        data-status="alarm"
+                                    >
+                                        <span className={styles.statValue}>
+                                            {errorJobs}
+                                        </span>
+                                        <span className={styles.statLabel}>
+                                            {t("jobs.errors")}
+                                        </span>
+                                    </div>
+                                </div>
 
-            <div className={styles.jobsContent}>
-                <div className={styles.jobsList}>
-                    {jobs.map((job) => (
-                        <div
-                            key={job.id}
-                            className={styles.jobCard}
-                            data-status={getStatusColor(job.status)}
-                            data-selected={selectedJob === job.id}
-                            onClick={() => setSelectedJob(job.id)}
-                        >
-                            <div className={styles.jobHeader}>
-                                <div
-                                    className={styles.jobStatus}
-                                    data-status={getStatusColor(job.status)}
-                                >
-                                    {StatusIcons[job.status]}
-                                </div>
-                                <div className={styles.jobTitle}>
-                                    <span className={styles.jobName}>
-                                        {job.name}
-                                    </span>
-                                    <span className={styles.jobRecipe}>
-                                        {job.recipe}
-                                    </span>
-                                </div>
-                                <div className={styles.jobProgress}>
-                                    <span className={styles.progressValue}>
-                                        {job.progress}%
-                                    </span>
-                                </div>
-                            </div>
+                                <div className={styles.jobsContent}>
+                                    <div className={styles.jobsList}>
+                                        {jobs.map((job) => (
+                                            <div
+                                                key={job.id}
+                                                className={styles.jobCard}
+                                                data-status={getStatusColor(
+                                                    job.status,
+                                                )}
+                                                data-selected={
+                                                    selectedJob === job.id
+                                                }
+                                                onClick={() =>
+                                                    setSelectedJob(job.id)
+                                                }
+                                            >
+                                                <div
+                                                    className={styles.jobHeader}
+                                                >
+                                                    <div
+                                                        className={
+                                                            styles.jobStatus
+                                                        }
+                                                        data-status={getStatusColor(
+                                                            job.status,
+                                                        )}
+                                                    >
+                                                        {StatusIcons[job.status]}
+                                                    </div>
+                                                    <div
+                                                        className={
+                                                            styles.jobTitle
+                                                        }
+                                                    >
+                                                        <span
+                                                            className={
+                                                                styles.jobName
+                                                            }
+                                                        >
+                                                            {job.name}
+                                                        </span>
+                                                        <span
+                                                            className={
+                                                                styles.jobRecipe
+                                                            }
+                                                        >
+                                                            {job.recipe}
+                                                        </span>
+                                                    </div>
+                                                    <div
+                                                        className={
+                                                            styles.jobProgress
+                                                        }
+                                                    >
+                                                        <span
+                                                            className={
+                                                                styles.progressValue
+                                                            }
+                                                        >
+                                                            {job.progress}%
+                                                        </span>
+                                                    </div>
+                                                </div>
 
-                            <div className={styles.progressBar}>
-                                <div
-                                    className={styles.progressFill}
-                                    style={{ width: `${job.progress}%` }}
-                                    data-status={getStatusColor(job.status)}
-                                />
-                            </div>
+                                                <div
+                                                    className={styles.progressBar}
+                                                >
+                                                    <div
+                                                        className={
+                                                            styles.progressFill
+                                                        }
+                                                        style={{
+                                                            width: `${job.progress}%`,
+                                                        }}
+                                                        data-status={getStatusColor(
+                                                            job.status,
+                                                        )}
+                                                    />
+                                                </div>
 
-                            <div className={styles.jobDetails}>
-                                <div className={styles.detailItem}>
-                                    <span className={styles.detailLabel}>
-                                        Wafers
-                                    </span>
-                                    <span className={styles.detailValue}>
-                                        {job.completedWafers}/{job.waferCount}
-                                    </span>
+                                                <div
+                                                    className={styles.jobDetails}
+                                                >
+                                                    <div
+                                                        className={
+                                                            styles.detailItem
+                                                        }
+                                                    >
+                                                        <span
+                                                            className={
+                                                                styles.detailLabel
+                                                            }
+                                                        >
+                                                            Wafers
+                                                        </span>
+                                                        <span
+                                                            className={
+                                                                styles.detailValue
+                                                            }
+                                                        >
+                                                            {
+                                                                job.completedWafers
+                                                            }
+                                                            /{job.waferCount}
+                                                        </span>
+                                                    </div>
+                                                    <div
+                                                        className={
+                                                            styles.detailItem
+                                                        }
+                                                    >
+                                                        <span
+                                                            className={
+                                                                styles.detailLabel
+                                                            }
+                                                        >
+                                                            Start
+                                                        </span>
+                                                        <span
+                                                            className={
+                                                                styles.detailValue
+                                                            }
+                                                        >
+                                                            {formatTime(
+                                                                job.startTime,
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                    <div
+                                                        className={
+                                                            styles.detailItem
+                                                        }
+                                                    >
+                                                        <span
+                                                            className={
+                                                                styles.detailLabel
+                                                            }
+                                                        >
+                                                            ETA
+                                                        </span>
+                                                        <span
+                                                            className={
+                                                                styles.detailValue
+                                                            }
+                                                        >
+                                                            {formatTime(
+                                                                job.estimatedEnd,
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className={styles.detailItem}>
-                                    <span className={styles.detailLabel}>
-                                        Start
-                                    </span>
-                                    <span className={styles.detailValue}>
-                                        {formatTime(job.startTime)}
-                                    </span>
-                                </div>
-                                <div className={styles.detailItem}>
-                                    <span className={styles.detailLabel}>
-                                        ETA
-                                    </span>
-                                    <span className={styles.detailValue}>
-                                        {formatTime(job.estimatedEnd)}
-                                    </span>
-                                </div>
+                            </>
+                        ),
+                    },
+                    {
+                        id: "details",
+                        label: t("common.tabs.details"),
+                        content: (
+                            <div className={styles.detailsPanel}>
+                                {!selectedJobData ? (
+                                    <div className={styles.detailsEmpty}>
+                                        {t("jobs.selectJob")}
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className={styles.detailsHeader}>
+                                            <div className={styles.detailsTitle}>
+                                                {selectedJobData.name}
+                                            </div>
+                                            <div
+                                                className={styles.detailsBadge}
+                                                data-status={getStatusColor(
+                                                    selectedJobData.status,
+                                                )}
+                                            >
+                                                {selectedJobData.status.toUpperCase()}
+                                            </div>
+                                        </div>
+
+                                        <div className={styles.detailsGrid}>
+                                            <div className={styles.detailsRow}>
+                                                <span
+                                                    className={
+                                                        styles.detailsLabel
+                                                    }
+                                                >
+                                                    Recipe
+                                                </span>
+                                                <span
+                                                    className={
+                                                        styles.detailsValue
+                                                    }
+                                                >
+                                                    {selectedJobData.recipe}
+                                                </span>
+                                            </div>
+                                            <div className={styles.detailsRow}>
+                                                <span
+                                                    className={
+                                                        styles.detailsLabel
+                                                    }
+                                                >
+                                                    Progress
+                                                </span>
+                                                <span
+                                                    className={
+                                                        styles.detailsValue
+                                                    }
+                                                >
+                                                    {selectedJobData.progress}%
+                                                </span>
+                                            </div>
+                                            <div className={styles.detailsRow}>
+                                                <span
+                                                    className={
+                                                        styles.detailsLabel
+                                                    }
+                                                >
+                                                    Wafers
+                                                </span>
+                                                <span
+                                                    className={
+                                                        styles.detailsValue
+                                                    }
+                                                >
+                                                    {
+                                                        selectedJobData.completedWafers
+                                                    }
+                                                    /{selectedJobData.waferCount}
+                                                </span>
+                                            </div>
+                                            <div className={styles.detailsRow}>
+                                                <span
+                                                    className={
+                                                        styles.detailsLabel
+                                                    }
+                                                >
+                                                    Start
+                                                </span>
+                                                <span
+                                                    className={
+                                                        styles.detailsValue
+                                                    }
+                                                >
+                                                    {formatTime(
+                                                        selectedJobData.startTime,
+                                                    )}
+                                                </span>
+                                            </div>
+                                            <div className={styles.detailsRow}>
+                                                <span
+                                                    className={
+                                                        styles.detailsLabel
+                                                    }
+                                                >
+                                                    ETA
+                                                </span>
+                                                <span
+                                                    className={
+                                                        styles.detailsValue
+                                                    }
+                                                >
+                                                    {formatTime(
+                                                        selectedJobData.estimatedEnd,
+                                                    )}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
                             </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
+                        ),
+                    },
+                ]}
+            />
         </div>
     );
 }

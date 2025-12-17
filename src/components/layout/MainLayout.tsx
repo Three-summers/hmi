@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { TitlePanel } from "./TitlePanel";
 import { InfoPanel } from "./InfoPanel";
 import { NavPanel } from "./NavPanel";
@@ -9,10 +10,14 @@ import styles from "./MainLayout.module.css";
 
 export function MainLayout() {
     const { currentView, setCurrentView } = useNavigationStore();
-    const { commandPanelPosition } = useAppStore();
+    const { commandPanelPosition, theme } = useAppStore();
 
-    // 启动键盘快捷键监听
     useKeyboardShortcuts();
+
+    useEffect(() => {
+        // 统一通过 data-theme 切换主题，保持 CSS 变量方案的可扩展性与低侵入性
+        document.documentElement.dataset.theme = theme;
+    }, [theme]);
 
     return (
         <>

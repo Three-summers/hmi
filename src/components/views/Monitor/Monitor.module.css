@@ -247,7 +247,7 @@
 
 .timeRangeGroup {
     display: flex;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--overlay-mid);
     border-radius: 6px;
     padding: 2px;
 }
@@ -362,7 +362,7 @@
     background: rgba(100, 150, 200, 0.5);
 }
 
-/* 频谱图 Canvas 样式 */
+/* 频谱图画布样式 */
 .spectrumCanvas {
     width: 100%;
     height: 100%;
@@ -370,13 +370,42 @@
     border-radius: 6px;
 }
 
-/* Override uPlot styles for dark theme */
+/* uPlot 样式覆盖（适配暗色视觉） */
 .chart :global(.u-legend) {
     display: none !important;
 }
 
 .chart :global(.u-wrap) {
     background: transparent !important;
+}
+
+/* 监控说明（说明子页） */
+.monitorInfo {
+    height: 100%;
+    min-height: 160px;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--overlay-mid);
+    color: var(--text-secondary);
+    overflow: auto;
+}
+
+.monitorInfoTitle {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.monitorInfoList {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 13px;
+    line-height: 1.6;
 }
 
 @media (max-width: 768px) {

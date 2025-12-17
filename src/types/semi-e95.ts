@@ -1,6 +1,6 @@
-/** SEMI E95 UI Type Definitions */
+/** SEMI E95 UI 类型定义 */
 
-/** Navigation view IDs */
+/** 主导航视图 ID */
 export type ViewId =
     | "jobs"
     | "system"
@@ -11,10 +11,10 @@ export type ViewId =
     | "alarms"
     | "help";
 
-/** Button behavior types per SEMI E95 */
+/** 按钮行为类型（SEMI E95） */
 export type ButtonBehavior = "momentary" | "toggle";
 
-/** Button highlight status colors */
+/** 按钮高亮状态（语义色） */
 export type HighlightStatus =
     | "none"
     | "alarm"
@@ -22,17 +22,17 @@ export type HighlightStatus =
     | "processing"
     | "attention";
 
-/** Dialog types per SEMI E95 */
+/** 对话框类型（SEMI E95） */
 export type DialogType = "info" | "input" | "message";
 
-/** Message dialog icon types */
+/** 消息对话框图标类型 */
 export type MessageIconType =
     | "information"
     | "progress"
     | "attention"
     | "error";
 
-/** Dialog button configurations */
+/** 对话框按钮配置 */
 export interface DialogButtons {
     ok?: boolean;
     cancel?: boolean;
@@ -42,7 +42,7 @@ export interface DialogButtons {
     apply?: boolean;
 }
 
-/** Navigation button configuration */
+/** 主导航按钮配置 */
 export interface NavButtonConfig {
     id: ViewId;
     labelKey: string;
@@ -51,7 +51,7 @@ export interface NavButtonConfig {
     hasUnfinishedTask?: boolean;
 }
 
-/** Command button configuration */
+/** 命令按钮配置 */
 export interface CommandButtonConfig {
     id: string;
     labelKey: string;
@@ -62,7 +62,7 @@ export interface CommandButtonConfig {
     onClick?: () => void;
 }
 
-/** Dialog configuration */
+/** 对话框配置 */
 export interface DialogConfig {
     id: string;
     type: DialogType;
@@ -79,7 +79,7 @@ export interface DialogConfig {
     onApply?: () => void;
 }
 
-/** Alarm item */
+/** 报警项 */
 export interface AlarmItem {
     id: string;
     severity: "alarm" | "warning" | "info";
@@ -88,19 +88,22 @@ export interface AlarmItem {
     acknowledged: boolean;
 }
 
-/** Communication status */
+/** 通信状态 */
 export interface CommStatus {
     connected: boolean;
     mode: "local" | "remote";
     protocol?: string;
 }
 
-/** User session */
+/** 用户会话 */
 export interface UserSession {
     id: string;
     name: string;
     role: "operator" | "engineer" | "admin";
 }
 
-/** Layout position for command panel */
+/** 命令面板布局位置 */
 export type CommandPanelPosition = "left" | "right";
+
+/** UI 主题标识（通过 `data-theme` 切换 CSS 变量） */
+export type ThemeId = "dark" | "light" | "high-contrast";
