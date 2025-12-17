@@ -24,6 +24,7 @@
         "monitor": "Monitor",
         "recipes": "Recipes",
         "datalog": "Datalog",
+        "files": "Files",
         "setup": "Setup",
         "alarms": "Alarms",
         "help": "Help"
@@ -105,5 +106,16 @@
         "temperature": "Temperature",
         "pressure": "Pressure",
         "humidity": "Humidity"
+    },
+    "files": {
+        "title": "File Browser",
+        "logFolder": "Log Folder",
+        "noLogFolder": "Log folder does not exist or is not accessible",
+        "loading": "Loading...",
+        "empty": "Folder is empty",
+        "selectFile": "Select a file to preview",
+        "readError": "Failed to read file",
+        "showMore": "Show more (+{{count}})",
+        "showLess": "Show less"
     }
 }

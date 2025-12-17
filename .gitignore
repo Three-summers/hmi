@@ -30,3 +30,5 @@ npm-debug.log*
 # Tauri generated files (keep gen/schemas but ignore platform-specific)
 src-tauri/gen/android/
 src-tauri/gen/apple/
+
+.*

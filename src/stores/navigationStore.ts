@@ -46,6 +46,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
         monitor: false,
         recipes: false,
         datalog: false,
+        files: false,
         setup: false,
         alarms: false,
         help: false,

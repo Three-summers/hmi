@@ -386,6 +386,14 @@ export function CommandPanel({ currentView }: CommandPanelProps) {
                 onClick: () => notify("success", "Saved", "Datalog saved"),
             },
         ],
+        files: [
+            {
+                id: "refresh",
+                labelKey: "common.refresh",
+                onClick: () =>
+                    notify("info", "Refreshed", "File list refreshed"),
+            },
+        ],
         setup: [
             {
                 id: "connect",

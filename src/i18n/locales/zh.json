@@ -24,6 +24,7 @@
         "monitor": "监控",
         "recipes": "配方",
         "datalog": "数据日志",
+        "files": "文件浏览",
         "setup": "设置",
         "alarms": "报警",
         "help": "帮助"
@@ -105,5 +106,16 @@
         "temperature": "温度",
         "pressure": "压力",
         "humidity": "湿度"
+    },
+    "files": {
+        "title": "文件浏览",
+        "logFolder": "日志文件夹",
+        "noLogFolder": "Log 文件夹不存在或无法访问",
+        "loading": "加载中...",
+        "empty": "文件夹为空",
+        "selectFile": "请选择一个文件进行预览",
+        "readError": "读取文件失败",
+        "showMore": "显示更多 (+{{count}})",
+        "showLess": "收起"
     }
 }

@@ -1,6 +1,30 @@
 use crate::comm::{serial, tcp, CommState};
 use crate::sensor::SensorSimulator;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
+use std::path::PathBuf;
+
+/// Get the Log directory path
+#[tauri::command]
+pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
+    // Get the path to the executable directory
+    let exe_dir = app.path().resource_dir()
+        .map_err(|e| e.to_string())?;
+
+    // Log folder is at the same level as the resource directory
+    let log_dir: PathBuf = exe_dir.parent()
+        .map(|p| p.join("Log"))
+        .unwrap_or_else(|| exe_dir.join("Log"));
+
+    // Create the directory if it doesn't exist
+    if !log_dir.exists() {
+        std::fs::create_dir_all(&log_dir)
+            .map_err(|e| format!("Failed to create Log directory: {}", e))?;
+    }
+
+    log_dir.to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| "Invalid path encoding".to_string())
+}
 
 /// Get list of available serial ports
 #[tauri::command]

@@ -1,0 +1,477 @@
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslation } from "react-i18next";
+import { readTextFile, readDir } from "@tauri-apps/plugin-fs";
+import { invoke } from "@tauri-apps/api/core";
+import uPlot from "uplot";
+import styles from "../shared.module.css";
+import filesStyles from "./Files.module.css";
+
+// Check if running in Tauri environment
+const isTauri = () => {
+    return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+};
+
+interface FileEntry {
+    name: string;
+    path: string;
+    isDirectory: boolean;
+    children?: FileEntry[];
+}
+
+interface CsvData {
+    headers: string[];
+    rows: number[][];
+}
+
+const DEFAULT_VISIBLE_CHARTS = 4;
+
+export default function FilesView() {
+    const { t } = useTranslation();
+    const [fileTree, setFileTree] = useState<FileEntry[]>([]);
+    const [selectedFile, setSelectedFile] = useState<string | null>(null);
+    const [fileContent, setFileContent] = useState<string>("");
+    const [csvData, setCsvData] = useState<CsvData | null>(null);
+    const [visibleCharts, setVisibleCharts] = useState<number>(DEFAULT_VISIBLE_CHARTS);
+    const [enabledColumns, setEnabledColumns] = useState<Set<number>>(new Set());
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [logBasePath, setLogBasePath] = useState<string>("");
+    const chartRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+    const uplotInstances = useRef<Map<number, uPlot>>(new Map());
+
+    // Get Log directory path
+    useEffect(() => {
+        const initPath = async () => {
+            if (!isTauri()) {
+                setError("Not running in Tauri environment");
+                return;
+            }
+            try {
+                const logPath = await invoke<string>("get_log_dir");
+                setLogBasePath(logPath);
+            } catch (err) {
+                console.error("Failed to get Log directory:", err);
+                setError(t("files.noLogFolder"));
+            }
+        };
+        initPath();
+    }, [t]);
+
+    // Load file tree
+    const loadFileTree = useCallback(async () => {
+        if (!logBasePath || !isTauri()) return;
+
+        try {
+            setLoading(true);
+            setError(null);
+
+            const entries = await readDir(logBasePath);
+            const tree: FileEntry[] = [];
+
+            for (const entry of entries) {
+                const fileEntry: FileEntry = {
+                    name: entry.name,
+                    path: `${logBasePath}/${entry.name}`,
+                    isDirectory: entry.isDirectory,
+                };
+
+                if (entry.isDirectory) {
+                    try {
+                        const subEntries = await readDir(fileEntry.path);
+                        fileEntry.children = subEntries.map((sub) => ({
+                            name: sub.name,
+                            path: `${fileEntry.path}/${sub.name}`,
+                            isDirectory: sub.isDirectory,
+                        }));
+                    } catch {
+                        fileEntry.children = [];
+                    }
+                }
+
+                tree.push(fileEntry);
+            }
+
+            // Sort: directories first, then files
+            tree.sort((a, b) => {
+                if (a.isDirectory && !b.isDirectory) return -1;
+                if (!a.isDirectory && b.isDirectory) return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            setFileTree(tree);
+        } catch (err) {
+            console.error("Failed to load file tree:", err);
+            setError(t("files.noLogFolder"));
+            setFileTree([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [logBasePath, t]);
+
+    useEffect(() => {
+        if (logBasePath) {
+            loadFileTree();
+        }
+    }, [logBasePath, loadFileTree]);
+
+    // Parse CSV content
+    const parseCsv = (content: string): CsvData | null => {
+        const lines = content.trim().split("\n");
+        if (lines.length < 2) return null;
+
+        const headers = lines[0].split(",").map((h) => h.trim());
+        const rows: number[][] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(",").map((v) => {
+                const trimmed = v.trim();
+                // Try to parse as number, handle date/time strings
+                const num = parseFloat(trimmed);
+                if (!isNaN(num)) return num;
+                // Try to parse as date
+                const date = new Date(trimmed);
+                if (!isNaN(date.getTime())) return date.getTime() / 1000;
+                return NaN;
+            });
+
+            // Only include rows with valid data
+            if (values.some((v) => !isNaN(v))) {
+                rows.push(values);
+            }
+        }
+
+        return { headers, rows };
+    };
+
+    // Load file content
+    const handleFileSelect = async (file: FileEntry) => {
+        if (file.isDirectory) return;
+
+        setSelectedFile(file.path);
+        setFileContent("");
+        setCsvData(null);
+        setLoading(true);
+        setError(null);
+
+        try {
+            const content = await readTextFile(file.path);
+            setFileContent(content);
+
+            if (file.name.toLowerCase().endsWith(".csv")) {
+                const parsed = parseCsv(content);
+                if (parsed) {
+                    setCsvData(parsed);
+                    // Initialize enabled columns (default to first 4 data columns)
+                    const dataColumns = parsed.headers.length - 1;
+                    const initialEnabled = new Set<number>();
+                    for (let i = 1; i <= Math.min(DEFAULT_VISIBLE_CHARTS, dataColumns); i++) {
+                        initialEnabled.add(i);
+                    }
+                    setEnabledColumns(initialEnabled);
+                    setVisibleCharts(Math.min(DEFAULT_VISIBLE_CHARTS, dataColumns));
+                }
+            }
+        } catch (err) {
+            console.error("Failed to read file:", err);
+            setError(t("files.readError"));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Cleanup uPlot instances
+    useEffect(() => {
+        return () => {
+            uplotInstances.current.forEach((instance) => instance.destroy());
+            uplotInstances.current.clear();
+        };
+    }, []);
+
+    // Render charts
+    useEffect(() => {
+        if (!csvData) {
+            // Cleanup existing charts
+            uplotInstances.current.forEach((instance) => instance.destroy());
+            uplotInstances.current.clear();
+            return;
+        }
+
+        // Cleanup previous instances
+        uplotInstances.current.forEach((instance) => instance.destroy());
+        uplotInstances.current.clear();
+
+        // Prepare X axis data (first column as time)
+        const xData = csvData.rows.map((row) => row[0]);
+
+        // Render chart for each enabled column
+        enabledColumns.forEach((colIndex) => {
+            const container = chartRefs.current.get(colIndex);
+            if (!container || colIndex >= csvData.headers.length) return;
+
+            const yData = csvData.rows.map((row) => row[colIndex]);
+            const data: uPlot.AlignedData = [xData, yData];
+
+            const opts: uPlot.Options = {
+                width: container.clientWidth,
+                height: 200,
+                scales: {
+                    x: { time: true },
+                    y: { auto: true },
+                },
+                series: [
+                    {},
+                    {
+                        label: csvData.headers[colIndex],
+                        stroke: getSeriesColor(colIndex),
+                        width: 2,
+                        fill: getSeriesFill(colIndex),
+                    },
+                ],
+                axes: [
+                    {
+                        stroke: "rgba(180, 200, 230, 0.9)",
+                        grid: { stroke: "rgba(100, 150, 200, 0.2)" },
+                        ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
+                    },
+                    {
+                        stroke: "rgba(180, 200, 230, 0.9)",
+                        grid: { stroke: "rgba(100, 150, 200, 0.2)" },
+                        ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
+                    },
+                ],
+                cursor: {
+                    drag: { x: true, y: false },
+                },
+            };
+
+            const chart = new uPlot(opts, data, container);
+            uplotInstances.current.set(colIndex, chart);
+        });
+    }, [csvData, enabledColumns]);
+
+    // Handle window resize
+    useEffect(() => {
+        const handleResize = () => {
+            uplotInstances.current.forEach((instance, colIndex) => {
+                const container = chartRefs.current.get(colIndex);
+                if (container) {
+                    instance.setSize({ width: container.clientWidth, height: 200 });
+                }
+            });
+        };
+
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    const getSeriesColor = (index: number): string => {
+        const colors = [
+            "#00d4ff",
+            "#ff6b6b",
+            "#00ff88",
+            "#ffaa00",
+            "#aa66ff",
+            "#ff66aa",
+            "#66ffaa",
+            "#ff8800",
+        ];
+        return colors[(index - 1) % colors.length];
+    };
+
+    const getSeriesFill = (index: number): string => {
+        const colors: Record<string, string> = {
+            "#00d4ff": "rgba(0, 212, 255, 0.1)",
+            "#ff6b6b": "rgba(255, 107, 107, 0.1)",
+            "#00ff88": "rgba(0, 255, 136, 0.1)",
+            "#ffaa00": "rgba(255, 170, 0, 0.1)",
+            "#aa66ff": "rgba(170, 102, 255, 0.1)",
+            "#ff66aa": "rgba(255, 102, 170, 0.1)",
+            "#66ffaa": "rgba(102, 255, 170, 0.1)",
+            "#ff8800": "rgba(255, 136, 0, 0.1)",
+        };
+        return colors[getSeriesColor(index)] || "rgba(0, 212, 255, 0.1)";
+    };
+
+    const toggleColumn = (colIndex: number) => {
+        setEnabledColumns((prev) => {
+            const next = new Set(prev);
+            if (next.has(colIndex)) {
+                next.delete(colIndex);
+            } else {
+                next.add(colIndex);
+            }
+            return next;
+        });
+    };
+
+    const showMoreCharts = () => {
+        if (csvData) {
+            const maxCharts = csvData.headers.length - 1;
+            setVisibleCharts(maxCharts);
+            // Enable all columns
+            const allEnabled = new Set<number>();
+            for (let i = 1; i <= maxCharts; i++) {
+                allEnabled.add(i);
+            }
+            setEnabledColumns(allEnabled);
+        }
+    };
+
+    const showLessCharts = () => {
+        setVisibleCharts(DEFAULT_VISIBLE_CHARTS);
+        if (csvData) {
+            const initialEnabled = new Set<number>();
+            for (let i = 1; i <= Math.min(DEFAULT_VISIBLE_CHARTS, csvData.headers.length - 1); i++) {
+                initialEnabled.add(i);
+            }
+            setEnabledColumns(initialEnabled);
+        }
+    };
+
+    const isCsvFile = selectedFile?.toLowerCase().endsWith(".csv");
+    const hasMoreCharts = csvData && csvData.headers.length - 1 > DEFAULT_VISIBLE_CHARTS;
+
+    // Render file tree item
+    const renderFileItem = (file: FileEntry, level: number = 0) => {
+        const isSelected = selectedFile === file.path;
+        const icon = file.isDirectory ? (
+            <svg viewBox="0 0 24 24" fill="currentColor" className={filesStyles.fileIcon}>
+                <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+            </svg>
+        ) : file.name.endsWith(".csv") ? (
+            <svg viewBox="0 0 24 24" fill="currentColor" className={filesStyles.fileIcon} data-type="csv">
+                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+            </svg>
+        ) : (
+            <svg viewBox="0 0 24 24" fill="currentColor" className={filesStyles.fileIcon}>
+                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+            </svg>
+        );
+
+        return (
+            <div key={file.path}>
+                <div
+                    className={filesStyles.fileItem}
+                    style={{ paddingLeft: `${12 + level * 16}px` }}
+                    data-selected={isSelected}
+                    data-directory={file.isDirectory}
+                    onClick={() => handleFileSelect(file)}
+                >
+                    {icon}
+                    <span className={filesStyles.fileName}>{file.name}</span>
+                </div>
+                {file.isDirectory && file.children?.map((child) => renderFileItem(child, level + 1))}
+            </div>
+        );
+    };
+
+    return (
+        <div className={styles.view}>
+            <div className={styles.header}>
+                <h2 className={styles.title}>{t("nav.files")}</h2>
+                <button className={filesStyles.refreshBtn} onClick={loadFileTree} disabled={loading}>
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+                    </svg>
+                    {t("common.refresh")}
+                </button>
+            </div>
+
+            <div className={filesStyles.container}>
+                {/* File tree panel */}
+                <div className={filesStyles.fileTree}>
+                    <div className={filesStyles.treeHeader}>
+                        <span>{t("files.logFolder")}</span>
+                    </div>
+                    <div className={filesStyles.treeContent}>
+                        {loading && !fileTree.length ? (
+                            <div className={filesStyles.loading}>{t("files.loading")}</div>
+                        ) : error && !fileTree.length ? (
+                            <div className={filesStyles.error}>{error}</div>
+                        ) : fileTree.length === 0 ? (
+                            <div className={filesStyles.empty}>{t("files.empty")}</div>
+                        ) : (
+                            fileTree.map((file) => renderFileItem(file))
+                        )}
+                    </div>
+                </div>
+
+                {/* Preview panel */}
+                <div className={filesStyles.preview}>
+                    {!selectedFile ? (
+                        <div className={filesStyles.placeholder}>
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z" />
+                            </svg>
+                            <span>{t("files.selectFile")}</span>
+                        </div>
+                    ) : loading ? (
+                        <div className={filesStyles.loading}>{t("files.loading")}</div>
+                    ) : error ? (
+                        <div className={filesStyles.error}>{error}</div>
+                    ) : isCsvFile && csvData ? (
+                        <div className={filesStyles.csvPreview}>
+                            <div className={filesStyles.csvHeader}>
+                                <span className={filesStyles.csvTitle}>
+                                    {selectedFile.split("/").pop()}
+                                </span>
+                                <div className={filesStyles.columnToggle}>
+                                    {csvData.headers.slice(1, visibleCharts + 1).map((header, idx) => (
+                                        <button
+                                            key={idx + 1}
+                                            className={filesStyles.columnBtn}
+                                            data-active={enabledColumns.has(idx + 1)}
+                                            onClick={() => toggleColumn(idx + 1)}
+                                            style={{ borderColor: getSeriesColor(idx + 1) }}
+                                        >
+                                            {header}
+                                        </button>
+                                    ))}
+                                </div>
+                                {hasMoreCharts && (
+                                    <button
+                                        className={filesStyles.moreBtn}
+                                        onClick={visibleCharts > DEFAULT_VISIBLE_CHARTS ? showLessCharts : showMoreCharts}
+                                    >
+                                        {visibleCharts > DEFAULT_VISIBLE_CHARTS
+                                            ? t("files.showLess")
+                                            : t("files.showMore", { count: csvData.headers.length - 1 - DEFAULT_VISIBLE_CHARTS })}
+                                    </button>
+                                )}
+                            </div>
+                            <div className={filesStyles.chartsContainer}>
+                                {Array.from(enabledColumns)
+                                    .sort((a, b) => a - b)
+                                    .map((colIndex) => (
+                                        <div key={colIndex} className={filesStyles.chartWrapper}>
+                                            <div className={filesStyles.chartLabel}>
+                                                <span
+                                                    className={filesStyles.colorDot}
+                                                    style={{ background: getSeriesColor(colIndex) }}
+                                                />
+                                                {csvData.headers[colIndex]}
+                                            </div>
+                                            <div
+                                                ref={(el) => {
+                                                    if (el) chartRefs.current.set(colIndex, el);
+                                                    else chartRefs.current.delete(colIndex);
+                                                }}
+                                                className={filesStyles.chart}
+                                            />
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className={filesStyles.textPreview}>
+                            <div className={filesStyles.textHeader}>
+                                {selectedFile.split("/").pop()}
+                            </div>
+                            <pre className={filesStyles.textContent}>{fileContent}</pre>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
