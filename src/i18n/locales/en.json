@@ -16,6 +16,7 @@
         "pause": "Pause",
         "resume": "Resume",
         "reset": "Reset",
+        "fullscreen": "Fullscreen",
         "exit": "Exit"
     },
     "nav": {
@@ -23,7 +24,6 @@
         "system": "System",
         "monitor": "Monitor",
         "recipes": "Recipes",
-        "datalog": "Datalog",
         "files": "Files",
         "setup": "Setup",
         "alarms": "Alarms",

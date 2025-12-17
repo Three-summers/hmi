@@ -16,6 +16,7 @@
         "pause": "暂停",
         "resume": "恢复",
         "reset": "重置",
+        "fullscreen": "全屏",
         "exit": "退出"
     },
     "nav": {
@@ -23,7 +24,6 @@
         "system": "系统",
         "monitor": "监控",
         "recipes": "配方",
-        "datalog": "数据日志",
         "files": "文件浏览",
         "setup": "设置",
         "alarms": "报警",

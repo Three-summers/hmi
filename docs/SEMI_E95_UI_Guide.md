@@ -518,7 +518,6 @@
 | **Jobs**    | Jobs    | Lot, Operations, Run, Processing, Main |
 | **System**  | System  | Overview, Status, Service, Maintenance |
 | **Recipes** | Recipes | （无推荐替代）                                |
-| **Datalog** | Datalog | History, Logs, Data, Analysis          |
 | **Setup**   | Setup   | Configuration, Options                 |
 | **Alarms**  | Alarms  | （固定位置，见 5）                             |
 | **Help**    | Help    | （固定位置，见 5）                             |
@@ -740,4 +739,3 @@
     - **鲜黄色**：**警告 (Warning)**
     - **中蓝色**：**正在处理 / 未完成**
     - **中绿色**：**需要或请求用户注意**
-

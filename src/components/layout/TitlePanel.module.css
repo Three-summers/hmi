@@ -420,3 +420,29 @@
     width: 20px;
     height: 20px;
 }
+
+/* Fullscreen Button */
+.fullscreenButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    background: rgba(0, 212, 255, 0.12);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 212, 255, 0.45);
+    color: rgba(0, 212, 255, 0.95);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.fullscreenButton:hover {
+    background: rgba(0, 212, 255, 0.22);
+    transform: scale(1.05);
+}
+
+.fullscreenButton svg {
+    width: 20px;
+    height: 20px;
+}

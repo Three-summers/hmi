@@ -368,24 +368,6 @@ export function CommandPanel({ currentView }: CommandPanelProps) {
                     ),
             },
         ],
-        datalog: [
-            {
-                id: "refresh",
-                labelKey: "common.refresh",
-                onClick: () => notify("info", "Refreshed", "Datalog refreshed"),
-            },
-            {
-                id: "export",
-                labelKey: "Export",
-                onClick: () =>
-                    notify("success", "Exported", "Data exported successfully"),
-            },
-            {
-                id: "save",
-                labelKey: "common.save",
-                onClick: () => notify("success", "Saved", "Datalog saved"),
-            },
-        ],
         files: [
             {
                 id: "refresh",

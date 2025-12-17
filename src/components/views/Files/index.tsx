@@ -39,6 +39,9 @@ export default function FilesView() {
     const [treeError, setTreeError] = useState<string | null>(null);
     const [previewError, setPreviewError] = useState<string | null>(null);
     const [logBasePath, setLogBasePath] = useState<string>("");
+    const [expandedDirectories, setExpandedDirectories] = useState<Set<string>>(
+        new Set(),
+    );
     const [enlargedColumn, setEnlargedColumn] = useState<number | null>(null);
     const chartRefs = useRef<Map<number, HTMLDivElement>>(new Map());
     const uplotInstances = useRef<Map<number, uPlot>>(new Map());
@@ -503,9 +506,19 @@ export default function FilesView() {
     const isCsvFile = selectedFile?.toLowerCase().endsWith(".csv");
     const hasMoreCharts = csvData && csvData.headers.length - 1 > DEFAULT_VISIBLE_CHARTS;
 
+    const toggleDirectory = (path: string) => {
+        setExpandedDirectories((prev) => {
+            const next = new Set(prev);
+            if (next.has(path)) next.delete(path);
+            else next.add(path);
+            return next;
+        });
+    };
+
     // Render file tree item
     const renderFileItem = (file: FileEntry, level: number = 0) => {
         const isSelected = selectedFile === file.path;
+        const isExpanded = file.isDirectory && expandedDirectories.has(file.path);
         const icon = file.isDirectory ? (
             <svg viewBox="0 0 24 24" fill="currentColor" className={filesStyles.fileIcon}>
                 <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
@@ -527,12 +540,45 @@ export default function FilesView() {
                     style={{ paddingLeft: `${12 + level * 16}px` }}
                     data-selected={isSelected}
                     data-directory={file.isDirectory}
-                    onClick={() => handleFileSelect(file)}
+                    data-expanded={file.isDirectory ? isExpanded : undefined}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() =>
+                        file.isDirectory
+                            ? toggleDirectory(file.path)
+                            : handleFileSelect(file)
+                    }
+                    onKeyDown={(e) => {
+                        if (e.key !== "Enter" && e.key !== " ") return;
+                        e.preventDefault();
+                        if (file.isDirectory) toggleDirectory(file.path);
+                        else handleFileSelect(file);
+                    }}
                 >
+                    {file.isDirectory ? (
+                        <span
+                            className={filesStyles.expandIcon}
+                            data-expanded={isExpanded}
+                            aria-hidden="true"
+                        >
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                            >
+                                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" />
+                            </svg>
+                        </span>
+                    ) : (
+                        <span className={filesStyles.expandSpacer} aria-hidden="true" />
+                    )}
                     {icon}
                     <span className={filesStyles.fileName}>{file.name}</span>
                 </div>
-                {file.isDirectory && file.children?.map((child) => renderFileItem(child, level + 1))}
+                {file.isDirectory &&
+                    isExpanded &&
+                    file.children?.map((child) =>
+                        renderFileItem(child, level + 1),
+                    )}
             </div>
         );
     };

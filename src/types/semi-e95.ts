@@ -6,7 +6,6 @@ export type ViewId =
     | "system"
     | "monitor"
     | "recipes"
-    | "datalog"
     | "files"
     | "setup"
     | "alarms"

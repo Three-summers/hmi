@@ -68,6 +68,13 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
         setShowLoginModal(false);
     };
 
+    const handleToggleFullscreen = () => {
+        const window = getCurrentWindow();
+        window.isFullscreen().then((isFullscreen) => {
+            window.setFullscreen(!isFullscreen);
+        });
+    };
+
     const getConnectionType = () => {
         if (serialConnected && tcpConnected) return "Serial + TCP";
         if (serialConnected) return "Serial";
@@ -166,6 +173,16 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
                                 </span>
                             )}
                         </div>
+                    </button>
+
+                    <button
+                        className={styles.fullscreenButton}
+                        onClick={handleToggleFullscreen}
+                        title={t("common.fullscreen")}
+                    >
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M7 14H5v5h5v-2H7v-3zm0-4h2V7h3V5H5v5zm10 7h-3v2h5v-5h-2v3zm-3-12v2h3v3h2V5h-5z" />
+                        </svg>
                     </button>
 
                     <button

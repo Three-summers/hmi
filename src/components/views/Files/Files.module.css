@@ -46,6 +46,33 @@
     color: var(--text-secondary);
 }
 
+.expandIcon {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(180, 200, 230, 0.7);
+    transition: transform var(--transition-fast), color var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.expandIcon svg {
+    width: 14px;
+    height: 14px;
+}
+
+.expandIcon[data-expanded="true"] {
+    transform: rotate(90deg);
+    color: rgba(0, 212, 255, 0.9);
+}
+
+.expandSpacer {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+
 .fileItem:hover {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary);

@@ -7,7 +7,6 @@ const JobsView = lazy(() => import("@/components/views/Jobs"));
 const SystemView = lazy(() => import("@/components/views/System"));
 const MonitorView = lazy(() => import("@/components/views/Monitor"));
 const RecipesView = lazy(() => import("@/components/views/Recipes"));
-const DatalogView = lazy(() => import("@/components/views/Datalog"));
 const FilesView = lazy(() => import("@/components/views/Files"));
 const SetupView = lazy(() => import("@/components/views/Setup"));
 const AlarmsView = lazy(() => import("@/components/views/Alarms"));
@@ -25,7 +24,6 @@ const viewComponents: Record<
     system: SystemView,
     monitor: MonitorView,
     recipes: RecipesView,
-    datalog: DatalogView,
     files: FilesView,
     setup: SetupView,
     alarms: AlarmsView,
