@@ -11,7 +11,7 @@ export function MainLayout() {
     const { currentView, setCurrentView } = useNavigationStore();
     const { commandPanelPosition } = useAppStore();
 
-    // Enable keyboard shortcuts
+    // 启动键盘快捷键监听
     useKeyboardShortcuts();
 
     return (

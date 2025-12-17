@@ -2,35 +2,33 @@ import { create } from "zustand";
 import type { ViewId } from "@/types";
 
 interface NavigationState {
-    // Current view
     currentView: ViewId;
     setCurrentView: (view: ViewId) => void;
 
-    // View history for back navigation
     viewHistory: ViewId[];
     goBack: () => void;
 
-    // Unfinished tasks per view (for blue highlight per SEMI E95)
     unfinishedTasks: Record<ViewId, boolean>;
     setUnfinishedTask: (view: ViewId, hasTask: boolean) => void;
 
-    // Dialog state per view (dialogs should persist when navigating away)
+    // 每个视图的对话框状态（导航时对话框应保持不变）
     viewDialogStates: Record<ViewId, unknown>;
     setViewDialogState: (view: ViewId, state: unknown) => void;
     getViewDialogState: (view: ViewId) => unknown;
 }
 
 export const useNavigationStore = create<NavigationState>((set, get) => ({
-    // Current view - default to jobs per SEMI E95 (most frequently used first)
+    // 当前视图
     currentView: "jobs",
     setCurrentView: (view) =>
         set((state) => ({
+            // 这里是直接替换
             currentView: view,
             viewHistory: [...state.viewHistory, state.currentView].slice(-10),
         })),
 
-    // View history
     viewHistory: [],
+    // 返回到上一个视图
     goBack: () =>
         set((state) => {
             const history = [...state.viewHistory];
@@ -41,7 +39,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
             };
         }),
 
-    // Unfinished tasks
+    // 未完成任务，当有对话框存在时，对应视图会显示蓝色高亮，表示未完成任务
     unfinishedTasks: {
         jobs: false,
         system: false,
@@ -60,7 +58,6 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
             },
         })),
 
-    // Dialog states
     viewDialogStates: {} as Record<ViewId, unknown>,
     setViewDialogState: (view, dialogState) =>
         set((state) => ({

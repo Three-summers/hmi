@@ -2,7 +2,6 @@ import { create } from "zustand";
 import type { AlarmItem } from "@/types";
 
 interface AlarmState {
-    // Alarms list
     alarms: AlarmItem[];
 
     // Counts for nav button highlights

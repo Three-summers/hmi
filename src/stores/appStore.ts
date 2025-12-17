@@ -4,20 +4,18 @@ import i18n from "@/i18n";
 import type { CommandPanelPosition, UserSession } from "@/types";
 
 interface AppState {
-    // User session
     user: UserSession | null;
     login: (user: UserSession) => void;
     logout: () => void;
 
-    // Language
     language: "zh" | "en";
     setLanguage: (lang: "zh" | "en") => void;
 
-    // Layout
+    // 命令面板位置
     commandPanelPosition: CommandPanelPosition;
     setCommandPanelPosition: (position: CommandPanelPosition) => void;
 
-    // System message
+    // 系统信息
     message: string;
     messageType: "info" | "warning" | "alarm" | null;
     setMessage: (msg: string, type?: "info" | "warning" | "alarm") => void;
@@ -27,24 +25,20 @@ interface AppState {
 export const useAppStore = create<AppState>()(
     persist(
         (set) => ({
-            // User session
             user: null,
             login: (user) => set({ user }),
             logout: () => set({ user: null }),
 
-            // Language
             language: "zh",
             setLanguage: (lang) => {
                 i18n.changeLanguage(lang);
                 set({ language: lang });
             },
 
-            // Layout
             commandPanelPosition: "right",
             setCommandPanelPosition: (position) =>
                 set({ commandPanelPosition: position }),
 
-            // System message
             message: "",
             messageType: null,
             setMessage: (msg, type = "info") =>
@@ -52,14 +46,14 @@ export const useAppStore = create<AppState>()(
             clearMessage: () => set({ message: "", messageType: null }),
         }),
         {
+            // 默认保存在 localStorage
             name: "hmi-app-storage",
+            // 部分持久化，只保存 language 和 layout 设置，为安全起见不保存用户会话
             partialize: (state) => ({
                 language: state.language,
                 commandPanelPosition: state.commandPanelPosition,
-                // Don't persist user session for security
             }),
             onRehydrateStorage: () => (state) => {
-                // Sync language with i18n after rehydration
                 if (state?.language) {
                     i18n.changeLanguage(state.language);
                 }

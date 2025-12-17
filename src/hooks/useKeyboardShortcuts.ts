@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from "react";
 import { useNavigationStore, useAlarmStore } from "@/stores";
 import type { ViewId } from "@/types/semi-e95";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const VIEW_KEYS: Record<string, ViewId> = {
     F1: "jobs",
@@ -18,7 +19,7 @@ export function useKeyboardShortcuts() {
 
     const handleKeyDown = useCallback(
         (event: KeyboardEvent) => {
-            // Don't handle shortcuts if user is typing in an input
+            // 如果用户正在输入，则不处理快捷键
             if (
                 event.target instanceof HTMLInputElement ||
                 event.target instanceof HTMLTextAreaElement ||
@@ -29,14 +30,14 @@ export function useKeyboardShortcuts() {
 
             const key = event.key;
 
-            // F1-F7: Navigate between views
+            // F1-F7: 在视图间切换
             if (VIEW_KEYS[key]) {
                 event.preventDefault();
                 setCurrentView(VIEW_KEYS[key]);
                 return;
             }
 
-            // ESC: Emergency stop (for now just shows alert)
+            // ESC: 紧急停止，目前只显示日志
             if (key === "Escape") {
                 event.preventDefault();
                 // TODO: Implement actual emergency stop via Tauri command
@@ -44,18 +45,17 @@ export function useKeyboardShortcuts() {
                 return;
             }
 
-            // F11: Toggle fullscreen
+            // F11: 切换全屏
             if (key === "F11") {
                 event.preventDefault();
-                if (document.fullscreenElement) {
-                    document.exitFullscreen();
-                } else {
-                    document.documentElement.requestFullscreen();
-                }
+                let window = getCurrentWindow();
+                window.isFullscreen().then((isFullscreen) => {
+                    window.setFullscreen(!isFullscreen);
+                });
                 return;
             }
 
-            // Ctrl+A: Acknowledge all alarms
+            // Ctrl+A: 确定所有警报
             if (event.ctrlKey && key.toLowerCase() === "a") {
                 event.preventDefault();
                 acknowledgeAll();
