@@ -98,9 +98,9 @@ export default function SystemView() {
     const [systemError, setSystemError] = useState<string | null>(null);
 
     const refreshSystemInfo = useCallback(
-        async () => {
+        async (isInitial = false) => {
             try {
-                if (!systemInfo) {
+                if (isInitial) {
                     setSystemStatus("loading");
                 }
                 setSystemError(null);
@@ -142,11 +142,11 @@ export default function SystemView() {
                 setSystemError(message);
             }
         },
-        [systemInfo],
+        [],
     );
 
     useEffect(() => {
-        void refreshSystemInfo();
+        void refreshSystemInfo(true);
     }, [refreshSystemInfo]);
 
     useEffect(() => {
@@ -205,8 +205,7 @@ export default function SystemView() {
     ).length;
 
     const handleRetry = () => {
-        setSystemStatus("loading");
-        void refreshSystemInfo();
+        void refreshSystemInfo(true);
     };
 
     const renderStatusPlaceholder = () => {

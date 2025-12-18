@@ -148,14 +148,18 @@ export const useAppStore = create<AppState>()(
         {
             // 默认保存在 localStorage
             name: "hmi-app-storage",
-            // 部分持久化，只保存 language 和 layout 设置，为安全起见不保存用户会话
+            // 部分持久化：只保存 UI 设置，不保存用户会话和调试开关
+            // debugLogBridgeEnabled 作为调试功能，每次启动默认关闭，需要时手动开启
             partialize: (state) => ({
                 language: state.language,
                 theme: state.theme,
                 commandPanelPosition: state.commandPanelPosition,
-                debugLogBridgeEnabled: state.debugLogBridgeEnabled,
             }),
-            onRehydrateStorage: () => (state) => {
+            onRehydrateStorage: () => (state, error) => {
+                if (error) {
+                    console.warn("Failed to rehydrate app storage:", error);
+                    return;
+                }
                 if (state?.language) {
                     i18n.changeLanguage(state.language);
                 }
