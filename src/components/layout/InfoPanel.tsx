@@ -1,16 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { memo, Suspense, useEffect, useMemo, useState } from "react";
 import type { ViewId } from "@/types";
+import { HMI_VIEW_COMPONENTS } from "@/hmi/viewRegistry";
 import styles from "./InfoPanel.module.css";
 import { ViewContextProvider } from "./ViewContext";
-
-const JobsView = lazy(() => import("@/components/views/Jobs"));
-const SystemView = lazy(() => import("@/components/views/System"));
-const MonitorView = lazy(() => import("@/components/views/Monitor"));
-const RecipesView = lazy(() => import("@/components/views/Recipes"));
-const FilesView = lazy(() => import("@/components/views/Files"));
-const SetupView = lazy(() => import("@/components/views/Setup"));
-const AlarmsView = lazy(() => import("@/components/views/Alarms"));
-const HelpView = lazy(() => import("@/components/views/Help"));
 
 interface InfoPanelProps {
     currentView: ViewId;
@@ -27,20 +19,6 @@ interface InfoPanelProps {
  * - 每个视图外包一层 `ViewContextProvider`，让视图内部可通过 `useIsViewActive()` 判断是否可见；
  * - 建议在不可见时暂停动画/轮询/定时器，避免后台消耗资源。
  */
-const viewComponents: Record<
-    ViewId,
-    React.LazyExoticComponent<() => JSX.Element>
-> = {
-    jobs: JobsView,
-    system: SystemView,
-    monitor: MonitorView,
-    recipes: RecipesView,
-    files: FilesView,
-    setup: SetupView,
-    alarms: AlarmsView,
-    help: HelpView,
-};
-
 export function InfoPanel({ currentView }: InfoPanelProps) {
     const [mountedViews, setMountedViews] = useState<Set<ViewId>>(
         () => new Set([currentView]),
@@ -62,33 +40,40 @@ export function InfoPanel({ currentView }: InfoPanelProps) {
     return (
         <div className={styles.infoPanel}>
             <div className={styles.viewContainer}>
-                {mountedViewList.map((viewId) => {
-                    const ViewComponent = viewComponents[viewId];
-                    const isActive = viewId === currentView;
-
-                    return (
-                        <div
-                            key={viewId}
-                            className={styles.viewWrapper}
-                            hidden={!isActive}
-                        >
-                            <ViewContextProvider
-                                value={{ viewId, isActive }}
-                            >
-                                <Suspense
-                                    fallback={
-                                        <div className={styles.placeholder}>
-                                            Loading...
-                                        </div>
-                                    }
-                                >
-                                    <ViewComponent />
-                                </Suspense>
-                            </ViewContextProvider>
-                        </div>
-                    );
-                })}
+                {mountedViewList.map((viewId) => (
+                    <KeptAliveView
+                        key={viewId}
+                        viewId={viewId}
+                        isActive={viewId === currentView}
+                    />
+                ))}
             </div>
         </div>
     );
 }
+
+const KeptAliveView = memo(function KeptAliveView({
+    viewId,
+    isActive,
+}: {
+    viewId: ViewId;
+    isActive: boolean;
+}) {
+    // 性能优化：InfoPanel 切换视图时，只有“刚切出/刚切入”的两个视图需要更新可见性；
+    // 其它隐藏视图不应因父组件重渲染而重复执行渲染逻辑。
+    const ViewComponent = HMI_VIEW_COMPONENTS[viewId];
+
+    return (
+        <div className={styles.viewWrapper} hidden={!isActive}>
+            <ViewContextProvider value={{ viewId, isActive }}>
+                <Suspense
+                    fallback={
+                        <div className={styles.placeholder}>Loading...</div>
+                    }
+                >
+                    <ViewComponent />
+                </Suspense>
+            </ViewContextProvider>
+        </div>
+    );
+});

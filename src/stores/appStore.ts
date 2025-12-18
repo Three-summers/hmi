@@ -16,6 +16,11 @@ interface AppState {
     setTheme: (theme: ThemeId) => void;
     cycleTheme: () => void;
 
+    // 调试：前端日志桥接到后端（终端输出）
+    // 默认关闭，避免影响正常使用时的性能与噪音
+    debugLogBridgeEnabled: boolean;
+    setDebugLogBridgeEnabled: (enabled: boolean) => void;
+
     // 命令面板位置
     commandPanelPosition: CommandPanelPosition;
     setCommandPanelPosition: (position: CommandPanelPosition) => void;
@@ -50,6 +55,10 @@ export const useAppStore = create<AppState>()(
                     return { theme: next };
                 }),
 
+            debugLogBridgeEnabled: false,
+            setDebugLogBridgeEnabled: (enabled) =>
+                set({ debugLogBridgeEnabled: enabled }),
+
             commandPanelPosition: "right",
             setCommandPanelPosition: (position) =>
                 set({ commandPanelPosition: position }),
@@ -68,6 +77,7 @@ export const useAppStore = create<AppState>()(
                 language: state.language,
                 theme: state.theme,
                 commandPanelPosition: state.commandPanelPosition,
+                debugLogBridgeEnabled: state.debugLogBridgeEnabled,
             }),
             onRehydrateStorage: () => (state) => {
                 if (state?.language) {

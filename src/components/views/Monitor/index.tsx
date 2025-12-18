@@ -4,12 +4,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Tabs } from "@/components/common";
 import { useIsViewActive } from "@/components/layout/ViewContext";
+import { isTauri } from "@/platform/tauri";
 import styles from "../shared.module.css";
 import monitorStyles from "./Monitor.module.css";
-
-const isTauri = () => {
-    return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-};
 
 interface SpectrumData {
     timestamp: number;
@@ -414,14 +411,6 @@ export default function MonitorView() {
 
     // 更新数据回调
     const updateSpectrum = useCallback((data: SpectrumData) => {
-        // 调试日志
-        console.log("Received spectrum data:", {
-            timestamp: data.timestamp,
-            peakFreq: data.peak_frequency,
-            peakAmp: data.peak_amplitude,
-            dataPoints: data.amplitudes?.length
-        });
-
         // 始终更新数据引用，这样动画循环可以显示最新数据
         spectrumDataRef.current = data;
 

@@ -23,6 +23,7 @@ function ConfirmModal({
     onConfirm,
     onCancel,
 }: ConfirmModalProps) {
+    const { t } = useTranslation();
     if (!isOpen) return null;
 
     return (
@@ -39,10 +40,10 @@ function ConfirmModal({
                 <p className={styles.modalMessage}>{message}</p>
                 <div className={styles.modalActions}>
                     <button className={styles.cancelBtn} onClick={onCancel}>
-                        Cancel
+                        {t("common.cancel")}
                     </button>
                     <button className={styles.confirmBtn} onClick={onConfirm}>
-                        Confirm
+                        {t("dialog.confirm")}
                     </button>
                 </div>
             </div>
@@ -50,7 +51,7 @@ function ConfirmModal({
     );
 }
 
-// SVG Icons for command buttons
+// 命令按钮图标
 const CommandIcons: Record<string, JSX.Element> = {
     newJob: (
         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -202,7 +203,7 @@ export function CommandPanel({ currentView }: CommandPanelProps) {
 
     const unackedCount = alarms.filter((a) => !a.acknowledged).length;
 
-    // Command configurations for each view with actual handlers
+    // 各页面的命令按钮配置（含实际处理逻辑）
     const viewCommands: Record<ViewId, CommandButtonConfig[]> = {
         jobs: [
             {

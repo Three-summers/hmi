@@ -40,7 +40,7 @@ export function useKeyboardShortcuts() {
             // ESC: 紧急停止，目前只显示日志
             if (key === "Escape") {
                 event.preventDefault();
-                // TODO: Implement actual emergency stop via Tauri command
+                // TODO：后续可通过 Tauri 命令接入真实的急停逻辑
                 console.log("Emergency stop triggered");
                 return;
             }
@@ -62,7 +62,7 @@ export function useKeyboardShortcuts() {
                 return;
             }
 
-            // Ctrl+Shift+D: Toggle dev tools (handled by Tauri)
+            // Ctrl+Shift+D：开发工具开关（由 Tauri 侧处理）
         },
         [setCurrentView, acknowledgeAll],
     );

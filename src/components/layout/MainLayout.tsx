@@ -5,7 +5,7 @@ import { NavPanel } from "./NavPanel";
 import { CommandPanel } from "./CommandPanel";
 import { NotificationToast } from "./NotificationToast";
 import { useNavigationStore, useAppStore } from "@/stores";
-import { useKeyboardShortcuts } from "@/hooks";
+import { useKeyboardShortcuts, useFrontendLogBridge } from "@/hooks";
 import styles from "./MainLayout.module.css";
 
 export function MainLayout() {
@@ -13,6 +13,7 @@ export function MainLayout() {
     const { commandPanelPosition, theme } = useAppStore();
 
     useKeyboardShortcuts();
+    useFrontendLogBridge();
 
     useEffect(() => {
         // 统一通过 data-theme 切换主题，保持 CSS 变量方案的可扩展性与低侵入性

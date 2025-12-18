@@ -6,13 +6,9 @@ import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import { Tabs } from "@/components/common";
 import { useIsViewActive } from "@/components/layout/ViewContext";
+import { isTauri } from "@/platform/tauri";
 import styles from "../shared.module.css";
 import filesStyles from "./Files.module.css";
-
-// 判断是否运行在 Tauri 环境（浏览器开发模式下不具备本地文件访问能力）
-const isTauri = () => {
-    return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-};
 
 interface FileEntry {
     name: string;

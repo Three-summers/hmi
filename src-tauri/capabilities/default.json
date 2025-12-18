@@ -11,6 +11,7 @@
     "core:window:allow-is-fullscreen",
     "core:path:default",
     "shell:allow-open",
+    "log:default",
     "fs:default",
     "fs:read-all",
     "fs:allow-read-dir",

@@ -14,6 +14,8 @@ export default function SetupView() {
         setTheme,
         commandPanelPosition,
         setCommandPanelPosition,
+        debugLogBridgeEnabled,
+        setDebugLogBridgeEnabled,
     } = useAppStore();
     const {
         serialConnected,
@@ -219,6 +221,53 @@ export default function SetupView() {
                                                 <path d="M3 5v14h18V5H3zm4 12H5v-2h2v2zm0-4H5v-2h2v2zm0-4H5V7h2v2zm12 8H9V7h10v10z" />
                                             </svg>
                                             Left
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className={styles.section}>
+                                    <div className={styles.sectionHeader}>
+                                        <div className={styles.sectionIcon}>
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="currentColor"
+                                            >
+                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm0-12h2v10h-2V5z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h3
+                                                className={styles.sectionTitle}
+                                            >
+                                                {t("setup.debug")}
+                                            </h3>
+                                            <p className={styles.sectionDesc}>
+                                                {t("setup.debugDesc")}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className={styles.optionRow}>
+                                        <button
+                                            className={styles.optionButton}
+                                            data-selected={debugLogBridgeEnabled}
+                                            onClick={() =>
+                                                setDebugLogBridgeEnabled(
+                                                    !debugLogBridgeEnabled,
+                                                )
+                                            }
+                                        >
+                                            <svg
+                                                className={styles.optionIcon}
+                                                viewBox="0 0 24 24"
+                                                fill="currentColor"
+                                            >
+                                                <path d="M7 6h10v2H7V6zm0 4h10v2H7v-2zm0 4h7v2H7v-2z" />
+                                            </svg>
+                                            {t("setup.logBridge")}：
+                                            {debugLogBridgeEnabled
+                                                ? t("setup.enabled")
+                                                : t("setup.disabled")}
                                         </button>
                                     </div>
                                 </div>

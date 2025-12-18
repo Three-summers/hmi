@@ -4,23 +4,23 @@ import type { DialogType, MessageIconType, DialogButtons } from "@/types";
 import styles from "./Dialog.module.css";
 
 interface DialogProps {
-    /** Whether the dialog is open */
+    /** 是否打开 */
     open: boolean;
-    /** Dialog type per SEMI E95 */
+    /** 对话框类型（SEMI E95） */
     type: DialogType;
-    /** Dialog title */
+    /** 标题 */
     title: string;
-    /** Dialog content (for input type) */
+    /** 内容（input 类型） */
     children?: React.ReactNode;
-    /** Message text (for info/message type) */
+    /** 文本（info/message 类型） */
     message?: string;
-    /** Icon type (for message type) */
+    /** 图标（message 类型） */
     icon?: MessageIconType;
-    /** Button configuration */
+    /** 按钮配置 */
     buttons?: DialogButtons;
-    /** OK button disabled state (e.g., when required fields not filled) */
+    /** OK 是否禁用（例如：必填项未填写） */
     okDisabled?: boolean;
-    /** Callbacks */
+    /** 回调 */
     onOk?: () => void;
     onCancel?: () => void;
     onClose?: () => void;
@@ -37,17 +37,16 @@ const iconMap: Record<MessageIconType, string> = {
 };
 
 /**
- * SEMI E95 compliant dialog component
+ * SEMI E95 对话框组件
  *
- * Types:
- * - info: Information display only, must use Close button
- * - input: Data input/selection, must use OK/Cancel buttons
- * - message: Status/notification with icon, buttons depend on content
+ * 类型约定：
+ * - info：信息展示，只允许 Close
+ * - input：输入/选择，只允许 OK/Cancel
+ * - message：带图标的消息，根据业务配置按钮（Yes/No/Apply 等）
  *
- * Rules:
- * - Fixed position and size (not movable/resizable)
- * - Does not cover title panel or navigation panel
- * - X button in title bar equals Cancel behavior
+ * 交互约定：
+ * - 固定位置与尺寸（不拖拽/不缩放）
+ * - 右上角 X 的语义等同 Cancel（若无 Cancel 则视为 Close）
  */
 export function Dialog({
     open,
@@ -67,16 +66,16 @@ export function Dialog({
 }: DialogProps) {
     const { t } = useTranslation();
 
-    // Default button configuration based on dialog type
+    // 根据对话框类型补齐默认按钮策略，避免调用方遗漏导致不符合规范
     const resolvedButtons: DialogButtons = {
         ...buttons,
-        // Info dialog must use Close
+        // info 必须是 Close
         ...(type === "info" && { close: true, ok: false }),
-        // Input dialog must use OK/Cancel
+        // input 必须是 OK/Cancel
         ...(type === "input" && { ok: true, cancel: true }),
     };
 
-    // Handle Escape key to close/cancel
+    // Escape：优先走 Cancel/Close/No（按 SEMI E95 语义尽量“安全退出”）
     useEffect(() => {
         if (!open) return;
 
@@ -96,7 +95,7 @@ export function Dialog({
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [open, resolvedButtons, onCancel, onClose, onNo]);
 
-    // X button handler (equals Cancel per SEMI E95)
+    // X：等同 Cancel（若无 Cancel 则走 Close）
     const handleCloseButton = useCallback(() => {
         if (resolvedButtons.cancel) {
             onCancel?.();
@@ -110,7 +109,7 @@ export function Dialog({
     return (
         <div className={styles.overlay}>
             <div className={styles.dialog} role="dialog" aria-modal="true">
-                {/* Title Bar */}
+                {/* 标题栏 */}
                 <div className={styles.titleBar}>
                     <span className={styles.title}>{title}</span>
                     <button
@@ -122,7 +121,7 @@ export function Dialog({
                     </button>
                 </div>
 
-                {/* Content Area */}
+                {/* 内容区 */}
                 <div className={styles.content}>
                     {type === "message" && message ? (
                         <div className={styles.messageContent}>
@@ -145,7 +144,7 @@ export function Dialog({
                     )}
                 </div>
 
-                {/* Button Area - Per SEMI E95: primary buttons centered */}
+                {/* 按钮区（SEMI E95：主按钮居中） */}
                 <div className={styles.buttonArea}>
                     <div className={styles.primaryButtons}>
                         {resolvedButtons.yes && (
@@ -193,7 +192,7 @@ export function Dialog({
                         )}
                     </div>
 
-                    {/* Auxiliary buttons right-aligned per SEMI E95 */}
+                    {/* 辅助按钮（SEMI E95：右侧对齐） */}
                     {resolvedButtons.apply && (
                         <div className={styles.auxiliaryButtons}>
                             <button
