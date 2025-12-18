@@ -89,7 +89,11 @@
     font-size: var(--font-size-small);
     font-weight: var(--font-weight-medium);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition:
+        background var(--transition-fast),
+        color var(--transition-fast),
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast);
     overflow: hidden;
 }
 
@@ -123,7 +127,6 @@
 
 /* Active/pressed state */
 .navButton:active {
-    transform: translateY(0);
     box-shadow: var(--shadow-inner);
 }
 

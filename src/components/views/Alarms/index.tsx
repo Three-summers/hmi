@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";
 import { useAlarmStore } from "@/stores";
@@ -10,35 +10,9 @@ export default function AlarmsView() {
     const {
         alarms,
         acknowledgeAlarm,
-        addAlarm,
         unacknowledgedAlarmCount,
         unacknowledgedWarningCount,
     } = useAlarmStore();
-
-    useEffect(() => {
-        if (alarms.length === 0) {
-            addAlarm({
-                severity: "alarm",
-                message: "Chamber pressure exceeds limit (>100 mTorr)",
-            });
-            addAlarm({
-                severity: "warning",
-                message: "Cooling water temperature high (42°C)",
-            });
-            addAlarm({
-                severity: "info",
-                message: "Recipe ETCH-001 completed successfully",
-            });
-            addAlarm({
-                severity: "warning",
-                message: "Gas flow deviation detected on MFC-3",
-            });
-            addAlarm({
-                severity: "alarm",
-                message: "RF power reflected >10% - check matching network",
-            });
-        }
-    }, []);
 
     const getSeverityIcon = (severity: "alarm" | "warning" | "info") => {
         switch (severity) {

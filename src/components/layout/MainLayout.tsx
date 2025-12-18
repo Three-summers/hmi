@@ -4,7 +4,7 @@ import { InfoPanel } from "./InfoPanel";
 import { NavPanel } from "./NavPanel";
 import { CommandPanel } from "./CommandPanel";
 import { NotificationToast } from "./NotificationToast";
-import { useNavigationStore, useAppStore } from "@/stores";
+import { useAlarmStore, useNavigationStore, useAppStore } from "@/stores";
 import { useKeyboardShortcuts, useFrontendLogBridge } from "@/hooks";
 import styles from "./MainLayout.module.css";
 
@@ -14,6 +14,45 @@ export function MainLayout() {
 
     useKeyboardShortcuts();
     useFrontendLogBridge();
+
+    useEffect(() => {
+        const seedDemoAlarmsIfEmpty = () => {
+            const { alarms, addAlarm } = useAlarmStore.getState();
+            if (alarms.length > 0) return;
+
+            addAlarm({
+                severity: "alarm",
+                message: "Chamber pressure exceeds limit (>100 mTorr)",
+            });
+            addAlarm({
+                severity: "warning",
+                message: "Cooling water temperature high (42°C)",
+            });
+            addAlarm({
+                severity: "info",
+                message: "Recipe ETCH-001 completed successfully",
+            });
+            addAlarm({
+                severity: "warning",
+                message: "Gas flow deviation detected on MFC-3",
+            });
+            addAlarm({
+                severity: "alarm",
+                message: "RF power reflected >10% - check matching network",
+            });
+        };
+
+        if (useAlarmStore.persist.hasHydrated()) {
+            seedDemoAlarmsIfEmpty();
+            return;
+        }
+
+        const unsubscribe = useAlarmStore.persist.onFinishHydration(() => {
+            seedDemoAlarmsIfEmpty();
+        });
+
+        return unsubscribe;
+    }, []);
 
     useEffect(() => {
         // 统一通过 data-theme 切换主题，保持 CSS 变量方案的可扩展性与低侵入性
