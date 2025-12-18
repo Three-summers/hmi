@@ -1,115 +1,320 @@
-/* SEMI E95 语义化变量（颜色/布局/字体） */
+/* ═══════════════════════════════════════════════════════════════════════════
+   HMI Design System - Industrial Futurism Theme
+   Based on SEMI E95 standards with modern glass morphism aesthetics
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 :root {
-    /* 面板尺寸（响应式） */
+    /* ─────────────────────────────────────────────────────────────────────────
+       Panel Dimensions (Responsive)
+       ───────────────────────────────────────────────────────────────────────── */
     --title-panel-height: 80px;
     --nav-panel-height: 80px;
     --command-panel-width: 160px;
 
-    /* SEMI E95 状态色 */
-    --color-alarm: #ff0000; /* 报警（红） */
-    --color-warning: #ffff00; /* 警告（黄） */
-    --color-processing: #4169e1; /* 处理中/未完成（蓝） */
-    --color-attention: #32cd32; /* 关注/就绪（绿） */
+    /* ─────────────────────────────────────────────────────────────────────────
+       SEMI E95 Status Colors - Enhanced with Glow Effects
+       ───────────────────────────────────────────────────────────────────────── */
+    --color-alarm: #ff3b3b;           /* Alarm (Red) - Vibrant */
+    --color-alarm-glow: rgba(255, 59, 59, 0.6);
+    --color-warning: #ffc107;         /* Warning (Amber/Gold) */
+    --color-warning-glow: rgba(255, 193, 7, 0.5);
+    --color-processing: #0ea5e9;      /* Processing (Cyan Blue) */
+    --color-processing-glow: rgba(14, 165, 233, 0.5);
+    --color-attention: #22c55e;       /* Ready/Attention (Green) */
+    --color-attention-glow: rgba(34, 197, 94, 0.5);
 
-    /* 状态色高亮阴影（用于按钮等组件的 data-highlight 样式） */
-    --highlight-alarm: 0 0 0 3px var(--color-alarm);
-    --highlight-warning: 0 0 0 3px var(--color-warning);
-    --highlight-processing: 0 0 0 3px var(--color-processing);
-    --highlight-attention: 0 0 0 3px var(--color-attention);
+    /* Status Highlight Shadows - Enhanced with Multi-layer Glow */
+    --highlight-alarm:
+        0 0 0 2px var(--color-alarm),
+        0 0 20px var(--color-alarm-glow),
+        inset 0 0 15px rgba(255, 59, 59, 0.1);
+    --highlight-warning:
+        0 0 0 2px var(--color-warning),
+        0 0 20px var(--color-warning-glow),
+        inset 0 0 15px rgba(255, 193, 7, 0.1);
+    --highlight-processing:
+        0 0 0 2px var(--color-processing),
+        0 0 20px var(--color-processing-glow),
+        inset 0 0 15px rgba(14, 165, 233, 0.1);
+    --highlight-attention:
+        0 0 0 2px var(--color-attention),
+        0 0 20px var(--color-attention-glow),
+        inset 0 0 15px rgba(34, 197, 94, 0.1);
 
-    /* 按钮尺寸（SEMI E95 触控尺寸要求） */
-    --button-min-size: 70px; /* 约 1.5cm */
-    --button-nav-size: 47px; /* 约 1.0cm（导航区） */
+    /* ─────────────────────────────────────────────────────────────────────────
+       Button Dimensions (SEMI E95 Touch Requirements)
+       ───────────────────────────────────────────────────────────────────────── */
+    --button-min-size: 70px;
+    --button-nav-size: 47px;
     --button-spacing: 8px;
+    --button-radius: 10px;
+    --button-radius-lg: 14px;
 
-    /* 背景色 */
-    --bg-primary: #1a1a2e;
-    --bg-secondary: #16213e;
-    --bg-tertiary: #0f3460;
-    --bg-panel: #1a1a2e;
-    --bg-panel-header: #0f3460;
+    /* ─────────────────────────────────────────────────────────────────────────
+       DARK THEME (Default) - Deep Space Industrial
+       ───────────────────────────────────────────────────────────────────────── */
 
-    /* 文字色 */
-    --text-primary: #ffffff;
-    --text-secondary: #b0b0b0;
-    --text-disabled: #666666;
+    /* Background Gradient Palette */
+    --bg-primary: #0a0e1a;
+    --bg-secondary: #0f1629;
+    --bg-tertiary: #151d35;
+    --bg-panel: #0d1220;
+    --bg-panel-header: #141e33;
+    --bg-elevated: #1a2540;
 
-    /* 边框色 */
-    --border-color: #333355;
-    --border-active: #4169e1;
+    /* Accent Colors */
+    --accent-primary: #0ea5e9;
+    --accent-secondary: #6366f1;
+    --accent-tertiary: #8b5cf6;
 
-    /* 按钮色 */
-    --button-bg: #2d2d44;
-    --button-bg-hover: #3d3d55;
-    --button-bg-active: #1d1d33;
-    --button-bg-disabled: #1a1a2a;
+    /* Text Colors */
+    --text-primary: #f0f4fc;
+    --text-secondary: #94a3b8;
+    --text-disabled: #475569;
+    --text-accent: #38bdf8;
 
-    /* 叠加层：用于标题条/卡片/浮层等需要“分层”的区域 */
-    --overlay-weak: rgba(0, 0, 0, 0.1);
-    --overlay-mid: rgba(0, 0, 0, 0.2);
-    --overlay-strong: rgba(0, 0, 0, 0.3);
-    --overlay-modal: rgba(0, 0, 0, 0.65);
+    /* Border Colors */
+    --border-color: rgba(99, 102, 241, 0.25);
+    --border-subtle: rgba(148, 163, 184, 0.1);
+    --border-active: var(--accent-primary);
+    --border-glow: rgba(14, 165, 233, 0.4);
 
-    /* 字体：使用系统字体保证跨平台一致性 */
-    --font-family: system-ui, -apple-system, "Noto Sans", "DejaVu Sans", "Liberation Sans", sans-serif;
+    /* Button Colors - Glass Morphism */
+    --button-bg: rgba(30, 41, 70, 0.8);
+    --button-bg-hover: rgba(45, 60, 100, 0.9);
+    --button-bg-active: rgba(20, 30, 55, 0.95);
+    --button-bg-disabled: rgba(20, 30, 50, 0.5);
+    --button-border: rgba(99, 102, 241, 0.3);
+    --button-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    --button-shadow-hover: 0 8px 30px rgba(14, 165, 233, 0.25);
+
+    /* Glass Effect Overlays */
+    --glass-bg: rgba(15, 22, 41, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+
+    /* Overlays */
+    --overlay-weak: rgba(0, 0, 0, 0.2);
+    --overlay-mid: rgba(0, 0, 0, 0.4);
+    --overlay-strong: rgba(0, 0, 0, 0.6);
+    --overlay-modal: rgba(5, 10, 20, 0.85);
+
+    /* Gradients */
+    --gradient-panel: linear-gradient(180deg, var(--bg-panel-header) 0%, var(--bg-panel) 100%);
+    --gradient-button: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
+    --gradient-accent: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    --gradient-glow: radial-gradient(ellipse at center, var(--accent-primary) 0%, transparent 70%);
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       Typography - Industrial Display Fonts
+       ───────────────────────────────────────────────────────────────────────── */
+    --font-display: 'Orbitron', 'Rajdhani', system-ui, sans-serif;
+    --font-family: 'Rajdhani', 'Noto Sans', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+
+    --font-size-xs: 10px;
     --font-size-small: 12px;
     --font-size-normal: 14px;
     --font-size-large: 16px;
-    --font-size-title: 18px;
+    --font-size-title: 20px;
+    --font-size-display: 24px;
 
-    /* 动画：尽量克制，避免影响设备性能 */
-    --transition-fast: 100ms ease-out;
-    --transition-normal: 200ms ease-out;
+    --font-weight-normal: 500;
+    --font-weight-medium: 600;
+    --font-weight-bold: 700;
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       Animation & Transitions
+       ───────────────────────────────────────────────────────────────────────── */
+    --transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: 400ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       Shadows & Depth
+       ───────────────────────────────────────────────────────────────────────── */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
+    --shadow-glow: 0 0 30px var(--accent-primary);
+    --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* 主题切换：通过 data-theme 覆盖变量，避免对各模块 CSS 造成侵入式改动 */
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK THEME - Explicit Override
+   ═══════════════════════════════════════════════════════════════════════════ */
 [data-theme="dark"] {
-    /* 默认暗色主题：保持与 :root 一致，便于显式切换与扩展 */
+    /* Inherits all :root values - explicitly defined for clarity */
+    --bg-primary: #0a0e1a;
+    --bg-secondary: #0f1629;
+    --bg-tertiary: #151d35;
+    --bg-panel: #0d1220;
+    --bg-panel-header: #141e33;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIGHT THEME - Clean Industrial White
+   ═══════════════════════════════════════════════════════════════════════════ */
 [data-theme="light"] {
-    --bg-primary: #f0f0f0;
-    --bg-secondary: #e0e0e0;
-    --bg-tertiary: #d0d0d0;
-    --bg-panel: #f5f5f5;
-    --bg-panel-header: #e0e0e0;
-    --text-primary: #1a1a1a;
-    --text-secondary: #555555;
-    --text-disabled: #999999;
-    --border-color: #cccccc;
-    --button-bg: #dddddd;
-    --button-bg-hover: #cccccc;
-    --button-bg-active: #bbbbbb;
-    --button-bg-disabled: #eeeeee;
+    /* Background - Soft Blue-Gray Gradient */
+    --bg-primary: #f1f5f9;
+    --bg-secondary: #e2e8f0;
+    --bg-tertiary: #cbd5e1;
+    --bg-panel: #ffffff;
+    --bg-panel-header: #f8fafc;
+    --bg-elevated: #ffffff;
 
-    --overlay-weak: rgba(0, 0, 0, 0.04);
+    /* Accent Colors - Deeper for contrast */
+    --accent-primary: #0284c7;
+    --accent-secondary: #4f46e5;
+    --accent-tertiary: #7c3aed;
+
+    /* Text Colors - High contrast */
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-disabled: #94a3b8;
+    --text-accent: #0369a1;
+
+    /* Border Colors */
+    --border-color: rgba(71, 85, 105, 0.2);
+    --border-subtle: rgba(148, 163, 184, 0.15);
+    --border-active: var(--accent-primary);
+    --border-glow: rgba(2, 132, 199, 0.3);
+
+    /* Button Colors - Subtle Glass */
+    --button-bg: rgba(255, 255, 255, 0.9);
+    --button-bg-hover: rgba(248, 250, 252, 1);
+    --button-bg-active: rgba(226, 232, 240, 1);
+    --button-bg-disabled: rgba(241, 245, 249, 0.7);
+    --button-border: rgba(71, 85, 105, 0.2);
+    --button-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --button-shadow-hover: 0 4px 16px rgba(2, 132, 199, 0.15);
+
+    /* Glass Effect */
+    --glass-bg: rgba(255, 255, 255, 0.8);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    --glass-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, transparent 50%);
+
+    /* Overlays */
+    --overlay-weak: rgba(0, 0, 0, 0.03);
     --overlay-mid: rgba(0, 0, 0, 0.06);
-    --overlay-strong: rgba(0, 0, 0, 0.08);
-    --overlay-modal: rgba(0, 0, 0, 0.45);
+    --overlay-strong: rgba(0, 0, 0, 0.1);
+    --overlay-modal: rgba(15, 23, 42, 0.6);
+
+    /* Gradients */
+    --gradient-panel: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-secondary) 100%);
+    --gradient-button: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    --gradient-accent: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+
+    /* Shadows - Softer */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+    --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.15);
+    --shadow-inner: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+
+    /* Status Colors - Slightly adjusted for light bg */
+    --color-alarm: #dc2626;
+    --color-alarm-glow: rgba(220, 38, 38, 0.4);
+    --color-warning: #d97706;
+    --color-warning-glow: rgba(217, 119, 6, 0.35);
+    --color-processing: #0284c7;
+    --color-processing-glow: rgba(2, 132, 199, 0.35);
+    --color-attention: #16a34a;
+    --color-attention-glow: rgba(22, 163, 74, 0.35);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   HIGH CONTRAST THEME - Maximum Visibility
+   For bright environments and distance viewing
+   ═══════════════════════════════════════════════════════════════════════════ */
 [data-theme="high-contrast"] {
-    /* 高对比主题：用于强光环境/远距离读数，优先保证可读性 */
+    /* Pure Black Background */
     --bg-primary: #000000;
-    --bg-secondary: #0b0b0b;
-    --bg-tertiary: #141414;
+    --bg-secondary: #080808;
+    --bg-tertiary: #101010;
     --bg-panel: #000000;
-    --bg-panel-header: #141414;
+    --bg-panel-header: #0a0a0a;
+    --bg-elevated: #141414;
 
+    /* Accent Colors - Maximum Brightness */
+    --accent-primary: #00e5ff;
+    --accent-secondary: #7c4dff;
+    --accent-tertiary: #e040fb;
+
+    /* Text Colors - Pure White */
     --text-primary: #ffffff;
     --text-secondary: #e0e0e0;
-    --text-disabled: #9a9a9a;
+    --text-disabled: #808080;
+    --text-accent: #00e5ff;
 
-    --border-color: #5a5a5a;
-    --border-active: #00d4ff;
+    /* Border Colors - High Visibility */
+    --border-color: rgba(255, 255, 255, 0.25);
+    --border-subtle: rgba(255, 255, 255, 0.1);
+    --border-active: #00e5ff;
+    --border-glow: rgba(0, 229, 255, 0.6);
 
-    --button-bg: #1a1a1a;
-    --button-bg-hover: #262626;
-    --button-bg-active: #111111;
-    --button-bg-disabled: #0a0a0a;
+    /* Button Colors */
+    --button-bg: rgba(20, 20, 20, 0.95);
+    --button-bg-hover: rgba(35, 35, 35, 1);
+    --button-bg-active: rgba(10, 10, 10, 1);
+    --button-bg-disabled: rgba(15, 15, 15, 0.6);
+    --button-border: rgba(255, 255, 255, 0.3);
+    --button-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+    --button-shadow-hover: 0 0 25px rgba(0, 229, 255, 0.4);
 
-    --overlay-weak: rgba(255, 255, 255, 0.08);
-    --overlay-mid: rgba(255, 255, 255, 0.12);
-    --overlay-strong: rgba(255, 255, 255, 0.16);
-    --overlay-modal: rgba(0, 0, 0, 0.75);
+    /* Glass Effect - Subtle on pure black */
+    --glass-bg: rgba(10, 10, 10, 0.9);
+    --glass-border: rgba(255, 255, 255, 0.15);
+    --glass-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+
+    /* Overlays */
+    --overlay-weak: rgba(255, 255, 255, 0.05);
+    --overlay-mid: rgba(255, 255, 255, 0.08);
+    --overlay-strong: rgba(255, 255, 255, 0.12);
+    --overlay-modal: rgba(0, 0, 0, 0.9);
+
+    /* Gradients */
+    --gradient-panel: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
+    --gradient-button: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
+    --gradient-accent: linear-gradient(135deg, #00e5ff 0%, #7c4dff 100%);
+
+    /* Shadows - Emphasized Glow */
+    --shadow-sm: 0 0 8px rgba(0, 229, 255, 0.2);
+    --shadow-md: 0 0 16px rgba(0, 229, 255, 0.25);
+    --shadow-lg: 0 0 32px rgba(0, 229, 255, 0.3);
+    --shadow-xl: 0 0 48px rgba(0, 229, 255, 0.35);
+    --shadow-inner: inset 0 0 10px rgba(0, 0, 0, 0.5);
+
+    /* Status Colors - Maximum Saturation */
+    --color-alarm: #ff1744;
+    --color-alarm-glow: rgba(255, 23, 68, 0.7);
+    --color-warning: #ffea00;
+    --color-warning-glow: rgba(255, 234, 0, 0.6);
+    --color-processing: #00e5ff;
+    --color-processing-glow: rgba(0, 229, 255, 0.6);
+    --color-attention: #00e676;
+    --color-attention-glow: rgba(0, 230, 118, 0.6);
+
+    /* Enhanced Highlights for High Contrast */
+    --highlight-alarm:
+        0 0 0 3px var(--color-alarm),
+        0 0 30px var(--color-alarm-glow),
+        inset 0 0 20px rgba(255, 23, 68, 0.15);
+    --highlight-warning:
+        0 0 0 3px var(--color-warning),
+        0 0 30px var(--color-warning-glow),
+        inset 0 0 20px rgba(255, 234, 0, 0.1);
+    --highlight-processing:
+        0 0 0 3px var(--color-processing),
+        0 0 30px var(--color-processing-glow),
+        inset 0 0 20px rgba(0, 229, 255, 0.15);
+    --highlight-attention:
+        0 0 0 3px var(--color-attention),
+        0 0 30px var(--color-attention-glow),
+        inset 0 0 20px rgba(0, 230, 118, 0.15);
 }

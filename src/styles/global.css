@@ -1,3 +1,7 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   HMI Global Styles - Industrial Futurism
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 /* Global Reset and Base Styles */
 *,
 *::before,
@@ -14,31 +18,96 @@ body {
     overflow: hidden;
     font-family: var(--font-family);
     font-size: var(--font-size-normal);
+    font-weight: var(--font-weight-normal);
     background-color: var(--bg-primary);
     color: var(--text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     /* Disable text selection for HMI */
     user-select: none;
     -webkit-user-select: none;
     /* Disable touch callout */
     -webkit-touch-callout: none;
+    /* Smooth color transitions for theme switching */
+    transition: background-color var(--transition-slow), color var(--transition-slow);
+}
+
+/* Background Grid Pattern for Industrial Feel */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image:
+        linear-gradient(var(--border-subtle) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.3;
+}
+
+/* Subtle Vignette Effect */
+body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(ellipse at center, transparent 50%, var(--bg-primary) 150%);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
 }
 
 #root {
+    position: relative;
     width: 100%;
     height: 100%;
+    z-index: 1;
 }
 
-/* Remove default button styles */
+/* ─────────────────────────────────────────────────────────────────────────
+   Typography Enhancements
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Display headings use Orbitron */
+h1, h2, h3, .display-text {
+    font-family: var(--font-display);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+/* Monospace for data values */
+.mono, code, pre, [data-type="value"], [data-type="number"] {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Button Base Styles
+   ───────────────────────────────────────────────────────────────────────── */
+
 button {
     font-family: inherit;
     font-size: inherit;
+    font-weight: var(--font-weight-medium);
     border: none;
     background: none;
     cursor: pointer;
     outline: none;
     -webkit-tap-highlight-color: transparent;
+    transition: all var(--transition-fast);
+}
+
+button:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
 }
 
 /* Touch-friendly defaults */
@@ -50,26 +119,69 @@ textarea {
     touch-action: manipulation;
 }
 
-/* Scrollbar styling for industrial look */
+/* ─────────────────────────────────────────────────────────────────────────
+   Custom Scrollbar - Industrial Style
+   ───────────────────────────────────────────────────────────────────────── */
+
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
 }
 
 ::-webkit-scrollbar-track {
     background: var(--bg-secondary);
+    border-left: 1px solid var(--border-subtle);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 4px;
+    background: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    transition: background var(--transition-fast);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-secondary);
+    background: linear-gradient(180deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    border-color: var(--accent-primary);
 }
 
-/* Utility classes */
+::-webkit-scrollbar-corner {
+    background: var(--bg-secondary);
+}
+
+/* Firefox Scrollbar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--button-bg) var(--bg-secondary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Selection Styles
+   ───────────────────────────────────────────────────────────────────────── */
+
+::selection {
+    background: var(--accent-primary);
+    color: white;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Focus Styles for Accessibility
+   ───────────────────────────────────────────────────────────────────────── */
+
+:focus {
+    outline: none;
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Utility Classes
+   ───────────────────────────────────────────────────────────────────────── */
+
 .visually-hidden {
     position: absolute;
     width: 1px;
@@ -82,19 +194,423 @@ textarea {
     border: 0;
 }
 
-/* Status highlight classes based on SEMI E95 */
+/* Glass Card Effect */
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--button-radius-lg);
+    box-shadow: var(--shadow-md);
+}
+
+.glass-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--glass-shine);
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Status Highlight Classes - SEMI E95 Enhanced
+   ───────────────────────────────────────────────────────────────────────── */
+
 .highlight-alarm {
-    box-shadow: var(--highlight-alarm);
+    box-shadow: var(--highlight-alarm) !important;
+    animation: pulse-alarm 1.5s ease-in-out infinite;
 }
 
 .highlight-warning {
-    box-shadow: var(--highlight-warning);
+    box-shadow: var(--highlight-warning) !important;
+    animation: pulse-warning 2s ease-in-out infinite;
 }
 
 .highlight-processing {
-    box-shadow: var(--highlight-processing);
+    box-shadow: var(--highlight-processing) !important;
+    animation: pulse-processing 2.5s ease-in-out infinite;
 }
 
 .highlight-attention {
-    box-shadow: var(--highlight-attention);
+    box-shadow: var(--highlight-attention) !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Status Animations
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes pulse-alarm {
+    0%, 100% {
+        box-shadow:
+            0 0 0 2px var(--color-alarm),
+            0 0 20px var(--color-alarm-glow),
+            inset 0 0 15px rgba(255, 59, 59, 0.1);
+    }
+    50% {
+        box-shadow:
+            0 0 0 4px var(--color-alarm),
+            0 0 40px var(--color-alarm-glow),
+            inset 0 0 25px rgba(255, 59, 59, 0.2);
+    }
+}
+
+@keyframes pulse-warning {
+    0%, 100% {
+        box-shadow:
+            0 0 0 2px var(--color-warning),
+            0 0 15px var(--color-warning-glow),
+            inset 0 0 10px rgba(255, 193, 7, 0.1);
+    }
+    50% {
+        box-shadow:
+            0 0 0 3px var(--color-warning),
+            0 0 30px var(--color-warning-glow),
+            inset 0 0 20px rgba(255, 193, 7, 0.15);
+    }
+}
+
+@keyframes pulse-processing {
+    0%, 100% {
+        box-shadow:
+            0 0 0 2px var(--color-processing),
+            0 0 15px var(--color-processing-glow),
+            inset 0 0 10px rgba(14, 165, 233, 0.1);
+    }
+    50% {
+        box-shadow:
+            0 0 0 2px var(--color-processing),
+            0 0 25px var(--color-processing-glow),
+            inset 0 0 15px rgba(14, 165, 233, 0.15);
+    }
+}
+
+@keyframes glow-breathe {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+@keyframes slide-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slide-in-down {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Loading States
+   ───────────────────────────────────────────────────────────────────────── */
+
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--bg-secondary) 25%,
+        var(--bg-tertiary) 50%,
+        var(--bg-secondary) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+    border-radius: 4px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Tooltip Styles
+   ───────────────────────────────────────────────────────────────────────── */
+
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    padding: 6px 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: var(--font-size-small);
+    color: var(--text-primary);
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all var(--transition-fast);
+    z-index: 1000;
+    box-shadow: var(--shadow-md);
+}
+
+[data-tooltip]:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Input Styles
+   ───────────────────────────────────────────────────────────────────────── */
+
+input, select, textarea {
+    font-family: var(--font-family);
+    font-size: var(--font-size-normal);
+    color: var(--text-primary);
+    background: var(--button-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--button-radius);
+    padding: 10px 14px;
+    transition: all var(--transition-fast);
+}
+
+input:hover, select:hover, textarea:hover {
+    border-color: var(--accent-primary);
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px var(--border-glow);
+    outline: none;
+}
+
+input::placeholder, textarea::placeholder {
+    color: var(--text-disabled);
+}
+
+/* Number inputs - monospace */
+input[type="number"] {
+    font-family: var(--font-mono);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Table Styles
+   ───────────────────────────────────────────────────────────────────────── */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-normal);
+}
+
+th {
+    font-family: var(--font-display);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: var(--font-size-small);
+    color: var(--text-secondary);
+    background: var(--overlay-weak);
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 2px solid var(--border-color);
+}
+
+td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    transition: background var(--transition-fast);
+}
+
+tr:hover td {
+    background: var(--overlay-weak);
+}
+
+/* Numeric data cells */
+td[data-type="number"] {
+    font-family: var(--font-mono);
+    text-align: right;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Badge Styles
+   ───────────────────────────────────────────────────────────────────────── */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+    border-radius: 10px;
+    background: var(--accent-primary);
+    color: white;
+    box-shadow: 0 2px 8px var(--color-processing-glow);
+}
+
+.badge[data-status="alarm"] {
+    background: var(--color-alarm);
+    box-shadow: 0 2px 8px var(--color-alarm-glow);
+    animation: pulse-alarm 1.5s ease-in-out infinite;
+}
+
+.badge[data-status="warning"] {
+    background: var(--color-warning);
+    color: #1a1a1a;
+    box-shadow: 0 2px 8px var(--color-warning-glow);
+}
+
+.badge[data-status="attention"] {
+    background: var(--color-attention);
+    box-shadow: 0 2px 8px var(--color-attention-glow);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Progress Bar
+   ───────────────────────────────────────────────────────────────────────── */
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border-subtle);
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 4px;
+    transition: width var(--transition-normal);
+    position: relative;
+}
+
+.progress-bar-fill::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 2s ease-in-out infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Responsive Adjustments
+   ───────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1200px) {
+    :root {
+        --command-panel-width: 140px;
+    }
+}
+
+@media (max-width: 900px) {
+    :root {
+        --title-panel-height: 70px;
+        --nav-panel-height: 70px;
+        --command-panel-width: 120px;
+        --button-min-size: 60px;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   High Contrast Mode Enhancements
+   ───────────────────────────────────────────────────────────────────────── */
+
+[data-theme="high-contrast"] {
+    /* Stronger grid visibility */
+    body::before {
+        opacity: 0.15;
+    }
+
+    /* Enhanced focus states */
+    :focus-visible {
+        outline: 3px solid var(--accent-primary);
+        outline-offset: 3px;
+    }
+
+    /* Stronger scrollbar */
+    ::-webkit-scrollbar-thumb {
+        border: 2px solid var(--border-color);
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Light Theme Adjustments
+   ───────────────────────────────────────────────────────────────────────── */
+
+[data-theme="light"] {
+    /* Lighter grid for light theme */
+    body::before {
+        opacity: 0.15;
+    }
+
+    /* No vignette on light theme */
+    body::after {
+        opacity: 0;
+    }
+
+    /* Scrollbar adjustments */
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
+        border-color: rgba(0, 0, 0, 0.1);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary));
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Print Styles
+   ───────────────────────────────────────────────────────────────────────── */
+
+@media print {
+    body::before,
+    body::after {
+        display: none;
+    }
+
+    * {
+        background: white !important;
+        color: black !important;
+        box-shadow: none !important;
+    }
 }

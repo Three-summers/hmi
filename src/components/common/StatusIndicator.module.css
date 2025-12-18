@@ -1,76 +1,288 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   StatusIndicator Component - SEMI E95 Status Lights
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .indicator {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 4px 8px;
-    border-radius: 4px;
+    gap: 10px;
+    padding: 6px 12px;
+    border-radius: var(--button-radius);
+    font-family: var(--font-family);
     font-size: var(--font-size-small);
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
+    backdrop-filter: blur(4px);
+    transition: all var(--transition-fast);
 }
 
 .dot {
-    width: 10px;
-    height: 10px;
+    position: relative;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
     flex-shrink: 0;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-/* Status colors per SEMI E95 */
+/* Inner highlight for 3D effect */
+.dot::before {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Outer glow ring */
+.dot::after {
+    content: "";
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border-radius: 50%;
+    transition: all var(--transition-fast);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Status: Alarm (Red - Highest Priority)
+   ───────────────────────────────────────────────────────────────────────── */
+
 .indicator[data-status="alarm"] {
-    background-color: rgba(255, 0, 0, 0.15);
+    background: rgba(255, 59, 59, 0.12);
+    border: 1px solid var(--color-alarm);
     color: var(--color-alarm);
+    animation: indicatorAlarmPulse 1.2s ease-in-out infinite;
 }
 
 .indicator[data-status="alarm"] .dot {
-    background-color: var(--color-alarm);
-    animation: pulse 1s ease-in-out infinite;
+    background: radial-gradient(
+        circle at 30% 30%,
+        #ff6b6b 0%,
+        var(--color-alarm) 70%
+    );
+    box-shadow:
+        0 0 10px var(--color-alarm-glow),
+        inset 0 1px 2px rgba(255, 255, 255, 0.3);
+    animation: dotAlarmBlink 0.8s ease-in-out infinite;
 }
 
+.indicator[data-status="alarm"] .dot::after {
+    box-shadow: 0 0 0 2px var(--color-alarm-glow);
+}
+
+@keyframes indicatorAlarmPulse {
+    0%, 100% {
+        box-shadow: 0 0 10px var(--color-alarm-glow);
+    }
+    50% {
+        box-shadow: 0 0 20px var(--color-alarm-glow);
+    }
+}
+
+@keyframes dotAlarmBlink {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(0.92);
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Status: Warning (Amber/Yellow)
+   ───────────────────────────────────────────────────────────────────────── */
+
 .indicator[data-status="warning"] {
-    background-color: rgba(255, 255, 0, 0.15);
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid var(--color-warning);
     color: var(--color-warning);
 }
 
 .indicator[data-status="warning"] .dot {
-    background-color: var(--color-warning);
+    background: radial-gradient(
+        circle at 30% 30%,
+        #ffe066 0%,
+        var(--color-warning) 70%
+    );
+    box-shadow:
+        0 0 8px var(--color-warning-glow),
+        inset 0 1px 2px rgba(255, 255, 255, 0.4);
+    animation: dotWarningPulse 2s ease-in-out infinite;
 }
 
+.indicator[data-status="warning"] .dot::after {
+    box-shadow: 0 0 0 2px var(--color-warning-glow);
+}
+
+@keyframes dotWarningPulse {
+    0%, 100% {
+        box-shadow:
+            0 0 8px var(--color-warning-glow),
+            inset 0 1px 2px rgba(255, 255, 255, 0.4);
+    }
+    50% {
+        box-shadow:
+            0 0 14px var(--color-warning-glow),
+            inset 0 1px 2px rgba(255, 255, 255, 0.4);
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Status: Processing (Blue - In Progress)
+   ───────────────────────────────────────────────────────────────────────── */
+
 .indicator[data-status="processing"] {
-    background-color: rgba(65, 105, 225, 0.15);
+    background: rgba(14, 165, 233, 0.1);
+    border: 1px solid var(--color-processing);
     color: var(--color-processing);
 }
 
 .indicator[data-status="processing"] .dot {
-    background-color: var(--color-processing);
-    animation: pulse 1.5s ease-in-out infinite;
+    background: radial-gradient(
+        circle at 30% 30%,
+        #5ebbff 0%,
+        var(--color-processing) 70%
+    );
+    box-shadow:
+        0 0 8px var(--color-processing-glow),
+        inset 0 1px 2px rgba(255, 255, 255, 0.3);
+    animation: dotProcessingPulse 1.5s ease-in-out infinite;
 }
 
-.indicator[data-status="attention"] {
-    background-color: rgba(50, 205, 50, 0.15);
+.indicator[data-status="processing"] .dot::after {
+    box-shadow: 0 0 0 2px var(--color-processing-glow);
+}
+
+@keyframes dotProcessingPulse {
+    0%, 100% {
+        box-shadow:
+            0 0 6px var(--color-processing-glow),
+            inset 0 1px 2px rgba(255, 255, 255, 0.3);
+        opacity: 1;
+    }
+    50% {
+        box-shadow:
+            0 0 12px var(--color-processing-glow),
+            inset 0 1px 2px rgba(255, 255, 255, 0.3);
+        opacity: 0.85;
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Status: Attention/Ready (Green)
+   ───────────────────────────────────────────────────────────────────────── */
+
+.indicator[data-status="attention"],
+.indicator[data-status="ready"],
+.indicator[data-status="ok"] {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid var(--color-attention);
     color: var(--color-attention);
 }
 
-.indicator[data-status="attention"] .dot {
-    background-color: var(--color-attention);
+.indicator[data-status="attention"] .dot,
+.indicator[data-status="ready"] .dot,
+.indicator[data-status="ok"] .dot {
+    background: radial-gradient(
+        circle at 30% 30%,
+        #6ee7a0 0%,
+        var(--color-attention) 70%
+    );
+    box-shadow:
+        0 0 8px var(--color-attention-glow),
+        inset 0 1px 2px rgba(255, 255, 255, 0.3);
 }
 
+.indicator[data-status="attention"] .dot::after,
+.indicator[data-status="ready"] .dot::after,
+.indicator[data-status="ok"] .dot::after {
+    box-shadow: 0 0 0 2px var(--color-attention-glow);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Status: None/Idle (Gray)
+   ───────────────────────────────────────────────────────────────────────── */
+
 .indicator[data-status="none"],
-.indicator[data-status="idle"] {
-    background-color: var(--bg-secondary);
+.indicator[data-status="idle"],
+.indicator[data-status="offline"] {
+    background: var(--overlay-weak);
+    border: 1px solid var(--border-color);
     color: var(--text-secondary);
 }
 
 .indicator[data-status="none"] .dot,
-.indicator[data-status="idle"] .dot {
-    background-color: var(--text-disabled);
+.indicator[data-status="idle"] .dot,
+.indicator[data-status="offline"] .dot {
+    background: radial-gradient(
+        circle at 30% 30%,
+        #6b7280 0%,
+        #4b5563 70%
+    );
+    box-shadow:
+        0 0 4px rgba(107, 114, 128, 0.3),
+        inset 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-@keyframes pulse {
-    0%,
-    100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.4;
-    }
+/* ─────────────────────────────────────────────────────────────────────────
+   Size Variants
+   ───────────────────────────────────────────────────────────────────────── */
+
+.indicator[data-size="small"] {
+    padding: 4px 8px;
+    font-size: var(--font-size-xs);
+    gap: 6px;
+}
+
+.indicator[data-size="small"] .dot {
+    width: 8px;
+    height: 8px;
+}
+
+.indicator[data-size="small"] .dot::before {
+    width: 2px;
+    height: 2px;
+    top: 1px;
+    left: 1px;
+}
+
+.indicator[data-size="large"] {
+    padding: 8px 16px;
+    font-size: var(--font-size-normal);
+    gap: 12px;
+}
+
+.indicator[data-size="large"] .dot {
+    width: 16px;
+    height: 16px;
+}
+
+.indicator[data-size="large"] .dot::before {
+    width: 5px;
+    height: 5px;
+    top: 3px;
+    left: 3px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Dot Only Variant (No Label/Background)
+   ───────────────────────────────────────────────────────────────────────── */
+
+.dotOnly {
+    display: inline-block;
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+
+.dotOnly .dot {
+    width: 14px;
+    height: 14px;
 }

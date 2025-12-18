@@ -282,12 +282,11 @@
 }
 
 .ackButton:hover {
-    transform: scale(1.05);
     box-shadow: 0 4px 12px rgba(50, 205, 50, 0.4);
 }
 
 .ackButton:active {
-    transform: scale(0.98);
+    box-shadow: var(--shadow-inner);
 }
 
 .ackButton svg {

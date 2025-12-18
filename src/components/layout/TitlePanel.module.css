@@ -1,14 +1,56 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   TitlePanel - Industrial Futurism Header
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .titlePanel {
     display: flex;
     flex-direction: column;
     background: linear-gradient(
         180deg,
         var(--bg-panel-header) 0%,
-        var(--bg-tertiary) 100%
+        var(--bg-tertiary) 50%,
+        var(--bg-secondary) 100%
     );
-    border-bottom: 2px solid var(--border-color);
-    padding: 6px 16px;
+    border-bottom: 1px solid var(--border-color);
+    padding: 8px 20px;
     gap: 6px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Decorative top edge glow */
+.titlePanel::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--accent-primary) 20%,
+        var(--accent-secondary) 50%,
+        var(--accent-primary) 80%,
+        transparent 100%
+    );
+    opacity: 0.8;
+}
+
+/* Subtle shine effect */
+.titlePanel::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.03) 0%,
+        transparent 100%
+    );
+    pointer-events: none;
 }
 
 .topRow {
@@ -16,12 +58,14 @@
     align-items: center;
     justify-content: space-between;
     height: 40px;
+    position: relative;
+    z-index: 1;
 }
 
 .leftSection {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
 }
 
 .centerSection {
@@ -31,59 +75,87 @@
 }
 
 .viewName {
-    font-size: 22px;
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-size: var(--font-size-display);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     text-transform: uppercase;
-    letter-spacing: 2px;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    letter-spacing: 4px;
+    text-shadow:
+        0 0 20px var(--accent-primary),
+        0 2px 4px rgba(0, 0, 0, 0.5);
     margin: 0;
+    background: linear-gradient(
+        180deg,
+        var(--text-primary) 0%,
+        var(--text-secondary) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .rightSection {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
-/* 通信状态 */
+/* ─────────────────────────────────────────────────────────────────────────
+   Communication Status Widget
+   ───────────────────────────────────────────────────────────────────────── */
+
 .commStatus {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 12px;
-    background: var(--overlay-strong);
-    border-radius: 8px;
+    padding: 8px 14px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: var(--button-radius);
     border: 1px solid var(--border-color);
+    transition: all var(--transition-fast);
 }
 
 .commStatus[data-connected="true"] {
     border-color: var(--color-attention);
-    box-shadow: 0 0 8px rgba(50, 205, 50, 0.3);
+    box-shadow:
+        0 0 15px var(--color-attention-glow),
+        inset 0 0 10px rgba(34, 197, 94, 0.05);
+}
+
+.commStatus[data-connected="false"] {
+    border-color: var(--color-alarm);
+    animation: pulse-alarm 2s ease-in-out infinite;
 }
 
 .commIcon {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     color: var(--text-secondary);
+    transition: color var(--transition-fast);
 }
 
 .commStatus[data-connected="true"] .commIcon {
     color: var(--color-attention);
+    filter: drop-shadow(0 0 4px var(--color-attention-glow));
 }
 
 .commInfo {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
 }
 
 .commLabel {
-    font-size: 11px;
-    font-weight: 600;
+    font-family: var(--font-display);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
+    transition: color var(--transition-fast);
 }
 
 .commStatus[data-connected="true"] .commLabel {
@@ -91,9 +163,9 @@
 }
 
 .commType {
-    font-size: 10px;
-    color: var(--text-secondary);
-    opacity: 0.8;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--text-disabled);
 }
 
 .commIndicator {
@@ -101,199 +173,243 @@
     height: 10px;
     border-radius: 50%;
     background-color: var(--color-alarm);
-    box-shadow: 0 0 6px var(--color-alarm);
-    animation: pulse 2s infinite;
+    box-shadow: 0 0 8px var(--color-alarm-glow);
+    animation: pulse 1.5s infinite;
+    transition: all var(--transition-fast);
 }
 
 .commIndicator[data-connected="true"] {
     background-color: var(--color-attention);
-    box-shadow: 0 0 6px var(--color-attention);
+    box-shadow: 0 0 8px var(--color-attention-glow);
     animation: none;
 }
 
 @keyframes pulse {
-    0%,
-    100% {
+    0%, 100% {
         opacity: 1;
+        transform: scale(1);
     }
     50% {
         opacity: 0.5;
+        transform: scale(0.9);
     }
 }
 
-/* 日期与时间 */
+/* ─────────────────────────────────────────────────────────────────────────
+   Date & Time Display
+   ───────────────────────────────────────────────────────────────────────── */
+
 .dateTimeContainer {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 12px;
-    background: var(--overlay-strong);
-    border-radius: 8px;
+    padding: 8px 14px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-radius: var(--button-radius);
     border: 1px solid var(--border-color);
 }
 
 .dateIcon {
     width: 20px;
     height: 20px;
-    color: var(--color-processing);
+    color: var(--accent-primary);
+    filter: drop-shadow(0 0 4px var(--color-processing-glow));
 }
 
 .dateTimeInfo {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
 }
 
 .date {
-    font-size: 11px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
 }
 
 .time {
-    font-size: 14px;
-    font-weight: 600;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-large);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
 }
 
-/* 报警角标 */
+/* ─────────────────────────────────────────────────────────────────────────
+   Alarm Badge
+   ───────────────────────────────────────────────────────────────────────── */
+
 .alarmBadge {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    background: rgba(255, 0, 0, 0.2);
-    border-radius: 8px;
+    gap: 8px;
+    padding: 8px 14px;
+    background: rgba(255, 59, 59, 0.15);
+    backdrop-filter: blur(8px);
+    border-radius: var(--button-radius);
     border: 1px solid var(--color-alarm);
     color: var(--color-alarm);
-    font-weight: 600;
-    font-size: 14px;
-    animation: alarmPulse 1s infinite;
+    font-family: var(--font-display);
+    font-weight: var(--font-weight-bold);
+    font-size: var(--font-size-normal);
+    letter-spacing: 0.5px;
+    animation: pulse-alarm 1.5s ease-in-out infinite;
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+}
+
+.alarmBadge:hover {
+    opacity: 0.9;
 }
 
 .alarmBadge[data-severity="warning"] {
-    background: rgba(255, 255, 0, 0.15);
+    background: rgba(255, 193, 7, 0.12);
     border-color: var(--color-warning);
     color: var(--color-warning);
+    animation: pulse-warning 2s ease-in-out infinite;
 }
 
 .alarmBadge svg {
     width: 18px;
     height: 18px;
+    filter: drop-shadow(0 0 4px currentColor);
 }
 
-@keyframes alarmPulse {
-    0%,
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-    50% {
-        opacity: 0.8;
-        transform: scale(1.02);
-    }
-}
+/* ─────────────────────────────────────────────────────────────────────────
+   Login Button
+   ───────────────────────────────────────────────────────────────────────── */
 
-/* 登录按钮 */
 .loginButton {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 14px;
-    background: linear-gradient(
-        180deg,
-        var(--button-bg) 0%,
-        var(--button-bg-active) 100%
-    );
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-}
-
-.loginButton:hover {
+    padding: 8px 16px;
     background: linear-gradient(
         180deg,
         var(--button-bg-hover) 0%,
         var(--button-bg) 100%
     );
-    border-color: var(--color-processing);
+    border-radius: var(--button-radius);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+.loginButton::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        transparent 100%
+    );
+    pointer-events: none;
+}
+
+.loginButton:hover {
+    background: var(--button-bg-hover);
+    border-color: var(--accent-primary);
 }
 
 .loginButton[data-logged-in="true"] {
     border-color: var(--color-attention);
+    box-shadow: 0 0 12px var(--color-attention-glow);
 }
 
 .userIcon {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     color: var(--text-secondary);
+    transition: all var(--transition-fast);
 }
 
 .loginButton[data-logged-in="true"] .userIcon {
     color: var(--color-attention);
+    filter: drop-shadow(0 0 4px var(--color-attention-glow));
 }
 
 .loginInfo {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: 2px;
     text-align: left;
 }
 
 .loginLabel {
-    font-size: 12px;
-    font-weight: 600;
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
 }
 
 .loginRole {
-    font-size: 10px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
-    text-transform: capitalize;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-/* 消息区域 */
+/* ─────────────────────────────────────────────────────────────────────────
+   Message Area
+   ───────────────────────────────────────────────────────────────────────── */
+
 .messageArea {
-    height: 28px;
+    height: 30px;
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 0 12px;
-    background: var(--overlay-strong);
+    padding: 0 14px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(8px);
     border-radius: 6px;
     border: 1px solid var(--border-color);
-    font-size: 13px;
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
     color: var(--color-attention);
+    position: relative;
+    z-index: 1;
+    transition: all var(--transition-fast);
 }
 
 .messageArea[data-severity="alarm"] {
-    background: rgba(255, 0, 0, 0.15);
+    background: rgba(255, 59, 59, 0.12);
     border-color: var(--color-alarm);
     color: var(--color-alarm);
-    animation: alarmBlink 0.5s infinite;
+    animation: alarmBlink 0.8s infinite;
 }
 
 .messageArea[data-severity="warning"] {
-    background: rgba(255, 255, 0, 0.1);
+    background: rgba(255, 193, 7, 0.1);
     border-color: var(--color-warning);
     color: var(--color-warning);
 }
 
 .messageArea[data-severity="info"] {
-    background: rgba(65, 105, 225, 0.1);
+    background: rgba(14, 165, 233, 0.1);
     border-color: var(--color-processing);
     color: var(--color-processing);
 }
 
 @keyframes alarmBlink {
-    0%,
-    100% {
+    0%, 100% {
         opacity: 1;
+        background: rgba(255, 59, 59, 0.15);
     }
     50% {
-        opacity: 0.7;
+        opacity: 0.85;
+        background: rgba(255, 59, 59, 0.08);
     }
 }
 
@@ -301,6 +417,7 @@
     width: 18px;
     height: 18px;
     flex-shrink: 0;
+    filter: drop-shadow(0 0 3px currentColor);
 }
 
 .messageText {
@@ -308,16 +425,21 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.3px;
 }
 
 .messageTime {
-    font-size: 11px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
 }
 
-/* 登录弹窗 */
+/* ─────────────────────────────────────────────────────────────────────────
+   Login Modal
+   ───────────────────────────────────────────────────────────────────────── */
+
 .modalOverlay {
     position: fixed;
     top: 0;
@@ -325,122 +447,189 @@
     right: 0;
     bottom: 0;
     background: var(--overlay-modal);
+    backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
+    animation: fade-in 0.2s ease-out;
 }
 
 .loginModal {
-    background: var(--bg-secondary);
-    border-radius: 12px;
-    border: 2px solid var(--border-color);
-    padding: 24px;
-    min-width: 300px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    background: linear-gradient(
+        180deg,
+        var(--bg-secondary) 0%,
+        var(--bg-tertiary) 100%
+    );
+    border-radius: var(--button-radius-lg);
+    border: 1px solid var(--border-color);
+    padding: 28px;
+    min-width: 320px;
+    box-shadow:
+        var(--shadow-xl),
+        0 0 40px rgba(14, 165, 233, 0.15);
+    animation: scale-in 0.25s ease-out;
+    position: relative;
+    overflow: hidden;
+}
+
+.loginModal::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-accent);
 }
 
 .modalTitle {
-    margin: 0 0 20px 0;
-    font-size: 18px;
+    margin: 0 0 24px 0;
+    font-family: var(--font-display);
+    font-size: var(--font-size-title);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 2px;
 }
 
 .loginOptions {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 }
 
 .loginOption {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 18px;
+    gap: 14px;
+    padding: 16px 20px;
     background: var(--button-bg);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--button-radius);
     color: var(--text-primary);
-    font-size: 16px;
+    font-family: var(--font-family);
+    font-size: var(--font-size-large);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
     transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+.loginOption::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--accent-primary);
+    transform: scaleY(0);
+    transition: transform var(--transition-fast);
 }
 
 .loginOption:hover {
     background: var(--button-bg-hover);
-    border-color: var(--color-processing);
-    transform: translateX(4px);
+    border-color: var(--accent-primary);
+}
+
+.loginOption:hover::before {
+    transform: scaleY(1);
 }
 
 .optionIcon {
-    font-size: 24px;
+    font-size: 26px;
+    filter: grayscale(0.2);
 }
 
 .cancelButton {
     width: 100%;
-    padding: 12px;
+    padding: 14px;
     background: transparent;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--button-radius);
     color: var(--text-secondary);
-    font-size: 14px;
+    font-family: var(--font-family);
+    font-size: var(--font-size-normal);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
     transition: all var(--transition-fast);
 }
 
 .cancelButton:hover {
     background: var(--button-bg);
+    border-color: var(--text-secondary);
     color: var(--text-primary);
 }
 
-/* 退出按钮 */
-.exitButton {
+/* ─────────────────────────────────────────────────────────────────────────
+   Action Buttons (Exit, Theme, Fullscreen)
+   ───────────────────────────────────────────────────────────────────────── */
+
+.exitButton,
+.themeButton,
+.fullscreenButton {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     padding: 0;
-    background: rgba(255, 0, 0, 0.15);
-    border-radius: 8px;
-    border: 1px solid var(--color-alarm);
-    color: var(--color-alarm);
+    border-radius: var(--button-radius);
+    border: 1px solid;
     cursor: pointer;
     transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+.exitButton::before,
+.themeButton::before,
+.fullscreenButton::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        transparent 100%
+    );
+    pointer-events: none;
+}
+
+/* Exit Button - Danger Style */
+.exitButton {
+    background: rgba(255, 59, 59, 0.12);
+    border-color: var(--color-alarm);
+    color: var(--color-alarm);
 }
 
 .exitButton:hover {
-    background: rgba(255, 0, 0, 0.3);
-    transform: scale(1.05);
+    background: rgba(255, 59, 59, 0.25);
 }
 
 .exitButton svg {
     width: 20px;
     height: 20px;
+    filter: drop-shadow(0 0 3px var(--color-alarm-glow));
 }
 
-/* 主题按钮 */
+/* Theme Button */
 .themeButton {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    background: rgba(255, 255, 255, 0.06);
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
+    background: var(--glass-bg);
+    border-color: var(--border-color);
     color: var(--text-primary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
 }
 
 .themeButton:hover {
-    border-color: var(--color-processing);
-    background: rgba(255, 255, 255, 0.12);
-    transform: scale(1.05);
+    border-color: var(--accent-primary);
+    background: var(--button-bg-hover);
 }
 
 .themeButton svg {
@@ -448,28 +637,65 @@
     height: 20px;
 }
 
-/* 全屏按钮 */
+/* Fullscreen Button - Accent Style */
 .fullscreenButton {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    background: rgba(0, 212, 255, 0.12);
-    border-radius: 8px;
-    border: 1px solid rgba(0, 212, 255, 0.45);
-    color: rgba(0, 212, 255, 0.95);
-    cursor: pointer;
-    transition: all var(--transition-fast);
+    background: rgba(14, 165, 233, 0.1);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
 }
 
 .fullscreenButton:hover {
-    background: rgba(0, 212, 255, 0.22);
-    transform: scale(1.05);
+    background: rgba(14, 165, 233, 0.2);
 }
 
 .fullscreenButton svg {
     width: 20px;
     height: 20px;
+    filter: drop-shadow(0 0 3px var(--color-processing-glow));
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Animation Keyframes
+   ───────────────────────────────────────────────────────────────────────── */
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scale-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes pulse-alarm {
+    0%, 100% {
+        box-shadow:
+            0 0 0 2px var(--color-alarm),
+            0 0 15px var(--color-alarm-glow);
+    }
+    50% {
+        box-shadow:
+            0 0 0 3px var(--color-alarm),
+            0 0 25px var(--color-alarm-glow);
+    }
+}
+
+@keyframes pulse-warning {
+    0%, 100% {
+        box-shadow:
+            0 0 0 2px var(--color-warning),
+            0 0 12px var(--color-warning-glow);
+    }
+    50% {
+        box-shadow:
+            0 0 0 2px var(--color-warning),
+            0 0 20px var(--color-warning-glow);
+    }
 }

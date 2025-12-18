@@ -315,12 +315,12 @@
     border: 1px solid var(--border-color);
     overflow: hidden;
     cursor: zoom-in;
-    transition: border-color var(--transition-fast), transform var(--transition-fast);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .chartWrapper:hover {
     border-color: rgba(0, 212, 255, 0.5);
-    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
 }
 
 .chartLabel {

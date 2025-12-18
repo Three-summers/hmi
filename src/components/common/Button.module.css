@@ -1,102 +1,305 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Button Component - Industrial Futurism Style
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .button {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background-color: var(--button-bg);
-    border-radius: 4px;
+    gap: 10px;
+    padding: 10px 20px;
+    background: linear-gradient(
+        180deg,
+        var(--button-bg-hover) 0%,
+        var(--button-bg) 50%,
+        var(--button-bg-active) 100%
+    );
+    border-radius: var(--button-radius);
+    border: 1px solid var(--border-color);
     color: var(--text-primary);
+    font-family: var(--font-family);
     font-size: var(--font-size-normal);
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
     text-transform: capitalize;
-    transition: background-color var(--transition-fast);
+    letter-spacing: 0.5px;
+    transition: all var(--transition-fast);
     min-height: var(--button-min-size);
     min-width: var(--button-min-size);
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
 }
 
+/* Glass shine effect */
+.button::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        transparent 100%
+    );
+    pointer-events: none;
+    transition: opacity var(--transition-fast);
+}
+
+/* Hover state - subtle for touch screens */
 .button:hover:not(:disabled) {
-    background-color: var(--button-bg-hover);
+    background: var(--button-bg-hover);
+    border-color: var(--accent-primary);
 }
 
+/* Active/pressed state */
 .button:active:not(:disabled) {
-    background-color: var(--button-bg-active);
+    transform: translateY(0);
+    box-shadow: var(--shadow-inner);
+    background: var(--button-bg-active);
 }
 
+/* Disabled state */
 .button:disabled {
-    background-color: var(--button-bg-disabled);
+    background: var(--button-bg-disabled);
     color: var(--text-disabled);
     cursor: not-allowed;
+    border-color: transparent;
+    box-shadow: none;
 }
 
-/* Size variants */
+.button:disabled::before {
+    opacity: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Size Variants
+   ───────────────────────────────────────────────────────────────────────── */
+
 .button[data-size="small"] {
     min-height: var(--button-nav-size);
     min-width: var(--button-nav-size);
-    padding: 4px 12px;
+    padding: 6px 14px;
     font-size: var(--font-size-small);
 }
 
 .button[data-size="large"] {
     min-height: calc(var(--button-min-size) * 1.2);
     min-width: calc(var(--button-min-size) * 1.5);
-    padding: 12px 24px;
+    padding: 14px 28px;
     font-size: var(--font-size-large);
+    border-radius: var(--button-radius-lg);
 }
 
-/* Toggle (pressed) state for two-state buttons */
+/* ─────────────────────────────────────────────────────────────────────────
+   Toggle State (Two-State Buttons)
+   ───────────────────────────────────────────────────────────────────────── */
+
 .button[data-pressed="true"] {
-    background-color: var(--color-processing);
+    background: linear-gradient(
+        180deg,
+        var(--accent-primary) 0%,
+        var(--accent-secondary) 100%
+    );
     color: white;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+    border-color: var(--accent-primary);
+    box-shadow:
+        var(--shadow-inner),
+        0 0 15px var(--color-processing-glow);
 }
 
-/* Highlight states per SEMI E95 */
+.button[data-pressed="true"]::before {
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.15) 0%,
+        transparent 100%
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Highlight States - SEMI E95
+   ───────────────────────────────────────────────────────────────────────── */
+
 .button[data-highlight="alarm"] {
+    border-color: var(--color-alarm);
     box-shadow: var(--highlight-alarm);
+    animation: buttonAlarmPulse 1.2s ease-in-out infinite;
 }
 
 .button[data-highlight="warning"] {
+    border-color: var(--color-warning);
     box-shadow: var(--highlight-warning);
 }
 
 .button[data-highlight="processing"] {
+    border-color: var(--color-processing);
     box-shadow: var(--highlight-processing);
 }
 
 .button[data-highlight="attention"] {
+    border-color: var(--color-attention);
     box-shadow: var(--highlight-attention);
 }
 
-/* Primary variant */
+@keyframes buttonAlarmPulse {
+    0%, 100% {
+        box-shadow: var(--highlight-alarm);
+    }
+    50% {
+        box-shadow:
+            0 0 0 3px var(--color-alarm),
+            0 0 30px var(--color-alarm-glow),
+            inset 0 0 20px rgba(255, 59, 59, 0.15);
+    }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Variant: Primary
+   ───────────────────────────────────────────────────────────────────────── */
+
 .button[data-variant="primary"] {
-    background-color: var(--color-processing);
+    background: linear-gradient(
+        180deg,
+        var(--accent-primary) 0%,
+        #0284c7 100%
+    );
     color: white;
+    border-color: var(--accent-primary);
+}
+
+.button[data-variant="primary"]::before {
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.2) 0%,
+        transparent 100%
+    );
 }
 
 .button[data-variant="primary"]:hover:not(:disabled) {
-    background-color: #3458c5;
+    background: #0284c7;
 }
 
 .button[data-variant="primary"]:active:not(:disabled) {
-    background-color: #2a47a0;
+    background: linear-gradient(
+        180deg,
+        #0284c7 0%,
+        #0369a1 100%
+    );
 }
 
-/* Danger variant */
+/* ─────────────────────────────────────────────────────────────────────────
+   Variant: Danger
+   ───────────────────────────────────────────────────────────────────────── */
+
 .button[data-variant="danger"] {
-    background-color: var(--color-alarm);
+    background: linear-gradient(
+        180deg,
+        var(--color-alarm) 0%,
+        #dc2626 100%
+    );
     color: white;
+    border-color: var(--color-alarm);
+}
+
+.button[data-variant="danger"]::before {
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.2) 0%,
+        transparent 100%
+    );
 }
 
 .button[data-variant="danger"]:hover:not(:disabled) {
-    background-color: #dd0000;
+    background: #dc2626;
 }
 
 .button[data-variant="danger"]:active:not(:disabled) {
-    background-color: #bb0000;
+    background: linear-gradient(
+        180deg,
+        #dc2626 0%,
+        #b91c1c 100%
+    );
 }
 
-/* Icon */
+/* ─────────────────────────────────────────────────────────────────────────
+   Variant: Success
+   ───────────────────────────────────────────────────────────────────────── */
+
+.button[data-variant="success"] {
+    background: linear-gradient(
+        180deg,
+        var(--color-attention) 0%,
+        #16a34a 100%
+    );
+    color: white;
+    border-color: var(--color-attention);
+}
+
+.button[data-variant="success"]:hover:not(:disabled) {
+    background: #16a34a;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Variant: Warning
+   ───────────────────────────────────────────────────────────────────────── */
+
+.button[data-variant="warning"] {
+    background: linear-gradient(
+        180deg,
+        var(--color-warning) 0%,
+        #d97706 100%
+    );
+    color: #1a1a1a;
+    border-color: var(--color-warning);
+}
+
+.button[data-variant="warning"]:hover:not(:disabled) {
+    background: #d97706;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Variant: Ghost (Outline)
+   ───────────────────────────────────────────────────────────────────────── */
+
+.button[data-variant="ghost"] {
+    background: transparent;
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
+.button[data-variant="ghost"]::before {
+    opacity: 0;
+}
+
+.button[data-variant="ghost"]:hover:not(:disabled) {
+    background: var(--button-bg);
+    border-color: var(--accent-primary);
+    color: var(--text-primary);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Icon
+   ───────────────────────────────────────────────────────────────────────── */
+
 .icon {
-    font-size: 1.2em;
+    font-size: 1.3em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.button:hover:not(:disabled) .icon {
+    color: inherit;
+}
+
+/* Icon-only button */
+.button[data-icon-only="true"] {
+    padding: 0;
+    aspect-ratio: 1;
+}
+
+.button[data-icon-only="true"] .icon {
+    font-size: 1.4em;
 }

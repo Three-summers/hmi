@@ -1,3 +1,7 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tabs Component - Industrial Futurism Style
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .tabs {
     display: flex;
     flex-direction: column;
@@ -8,48 +12,247 @@
 .tabList {
     display: flex;
     gap: 8px;
-    padding: 8px 0;
+    padding: 10px 0;
     flex-wrap: wrap;
+    position: relative;
 }
 
+/* Subtle bottom border for tab list */
+.tabList::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        var(--border-color) 20%,
+        var(--border-color) 80%,
+        transparent
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Tab Button
+   ───────────────────────────────────────────────────────────────────────── */
+
 .tab {
-    min-height: 40px;
-    padding: 8px 14px;
-    border-radius: 8px;
+    position: relative;
+    min-height: 42px;
+    padding: 10px 18px;
+    border-radius: var(--button-radius);
     border: 1px solid var(--border-color);
-    background: linear-gradient(180deg, var(--button-bg) 0%, var(--button-bg-active) 100%);
+    background: linear-gradient(
+        180deg,
+        var(--button-bg-hover) 0%,
+        var(--button-bg) 50%,
+        var(--button-bg-active) 100%
+    );
     color: var(--text-secondary);
-    font-size: 12px;
-    font-weight: 700;
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
     letter-spacing: 0.5px;
     cursor: pointer;
     transition: all var(--transition-fast);
     user-select: none;
+    overflow: hidden;
 }
 
+/* Glass shine */
+.tab::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        transparent 100%
+    );
+    pointer-events: none;
+    transition: opacity var(--transition-fast);
+}
+
+/* Hover state - subtle for touch */
 .tab:hover:not(:disabled) {
-    border-color: var(--color-processing);
-    background: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
+    border-color: var(--accent-primary);
+    background: var(--button-bg-hover);
     color: var(--text-primary);
 }
 
+/* Disabled state */
 .tab:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    background: var(--button-bg-disabled);
 }
 
+/* Active/Selected state */
 .tab[data-active="true"] {
-    border-color: var(--color-processing);
-    color: var(--text-primary);
-    box-shadow: 0 0 0 1px rgba(65, 105, 225, 0.25);
+    background: linear-gradient(
+        180deg,
+        var(--accent-primary) 0%,
+        var(--accent-secondary) 100%
+    );
+    border-color: var(--accent-primary);
+    color: white;
+    box-shadow:
+        0 0 15px var(--color-processing-glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
+
+.tab[data-active="true"]::before {
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.15) 0%,
+        transparent 100%
+    );
+}
+
+/* Active indicator */
+.tab[data-active="true"]::after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 20%;
+    right: 20%;
+    height: 3px;
+    background: white;
+    border-radius: 3px 3px 0 0;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Tab with Badge/Count
+   ───────────────────────────────────────────────────────────────────────── */
+
+.tab[data-count]::before {
+    content: attr(data-count);
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: var(--accent-primary);
+    border-radius: 9px;
+    color: white;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 6px var(--color-processing-glow);
+}
+
+.tab[data-highlight="alarm"][data-count]::before {
+    background: var(--color-alarm);
+    box-shadow: 0 2px 6px var(--color-alarm-glow);
+    animation: tabBadgePulse 1.5s ease-in-out infinite;
+}
+
+.tab[data-highlight="warning"][data-count]::before {
+    background: var(--color-warning);
+    color: #1a1a1a;
+    box-shadow: 0 2px 6px var(--color-warning-glow);
+}
+
+@keyframes tabBadgePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Tab Highlight States
+   ───────────────────────────────────────────────────────────────────────── */
+
+.tab[data-highlight="alarm"] {
+    border-color: var(--color-alarm);
+    box-shadow: 0 0 12px var(--color-alarm-glow);
+}
+
+.tab[data-highlight="warning"] {
+    border-color: var(--color-warning);
+    box-shadow: 0 0 10px var(--color-warning-glow);
+}
+
+.tab[data-highlight="processing"] {
+    border-color: var(--color-processing);
+    box-shadow: 0 0 10px var(--color-processing-glow);
+}
+
+.tab[data-highlight="attention"] {
+    border-color: var(--color-attention);
+    box-shadow: 0 0 10px var(--color-attention-glow);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Panels Container
+   ───────────────────────────────────────────────────────────────────────── */
 
 .panels {
     flex: 1;
     min-height: 0;
+    position: relative;
 }
 
 .panel {
     height: 100%;
     min-height: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Tab Variants
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Compact tabs */
+.tabList[data-variant="compact"] .tab {
+    min-height: 36px;
+    padding: 8px 14px;
+    font-size: var(--font-size-xs);
+}
+
+/* Pill-style tabs */
+.tabList[data-variant="pills"] .tab {
+    border-radius: 20px;
+}
+
+.tabList[data-variant="pills"] .tab[data-active="true"]::after {
+    display: none;
+}
+
+/* Underline-style tabs */
+.tabList[data-variant="underline"] .tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 10px 16px;
+}
+
+.tabList[data-variant="underline"] .tab:hover:not(:disabled) {
+    background: var(--overlay-weak);
+    transform: none;
+    box-shadow: none;
+}
+
+.tabList[data-variant="underline"] .tab[data-active="true"] {
+    background: transparent;
+    border-bottom-color: var(--accent-primary);
+    color: var(--accent-primary);
+    box-shadow: none;
+}
+
+.tabList[data-variant="underline"] .tab[data-active="true"]::after {
+    display: none;
+}
+
+.tabList[data-variant="underline"] .tab::before {
+    display: none;
 }

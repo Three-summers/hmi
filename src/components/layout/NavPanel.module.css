@@ -1,3 +1,7 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   NavPanel - Industrial Navigation Bar
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .navPanel {
     display: flex;
     align-items: center;
@@ -5,18 +9,63 @@
     background: linear-gradient(
         0deg,
         var(--bg-panel-header) 0%,
-        rgba(15, 52, 96, 0.9) 100%
+        var(--bg-tertiary) 50%,
+        var(--bg-secondary) 100%
     );
-    border-top: 2px solid var(--border-color);
-    padding: 8px 16px;
+    border-top: 1px solid var(--border-color);
+    padding: 10px 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Decorative bottom edge glow */
+.navPanel::before {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--accent-primary) 20%,
+        var(--accent-secondary) 50%,
+        var(--accent-primary) 80%,
+        transparent 100%
+    );
+    opacity: 0.6;
+}
+
+/* Subtle ambient glow from bottom */
+.navPanel::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    right: 10%;
+    height: 60px;
+    background: radial-gradient(
+        ellipse at bottom,
+        var(--color-processing-glow) 0%,
+        transparent 70%
+    );
+    opacity: 0.15;
+    pointer-events: none;
 }
 
 .navContainer {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
+    position: relative;
+    z-index: 1;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Navigation Button
+   ───────────────────────────────────────────────────────────────────────── */
 
 .navButton {
     position: relative;
@@ -24,111 +73,140 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-width: 90px;
-    height: calc(var(--nav-panel-height) - 20px);
-    padding: 6px 14px;
+    min-width: 95px;
+    height: calc(var(--nav-panel-height) - 22px);
+    padding: 8px 16px;
     background: linear-gradient(
         180deg,
-        var(--button-bg) 0%,
+        var(--button-bg-hover) 0%,
+        var(--button-bg) 50%,
         var(--button-bg-active) 100%
     );
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--button-radius);
     color: var(--text-secondary);
-    font-size: var(--font-size-normal);
-    font-weight: 500;
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
     transition: all var(--transition-fast);
     overflow: hidden;
 }
 
+/* Glass shine effect */
 .navButton::before {
     content: "";
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    bottom: 0;
+    height: 50%;
     background: linear-gradient(
         180deg,
-        rgba(255, 255, 255, 0.05) 0%,
-        transparent 50%
+        rgba(255, 255, 255, 0.08) 0%,
+        transparent 100%
     );
     pointer-events: none;
+    transition: opacity var(--transition-fast);
 }
 
+/* Hover state - subtle for touch */
 .navButton:hover {
-    background: linear-gradient(
-        180deg,
-        var(--button-bg-hover) 0%,
-        var(--button-bg) 100%
-    );
+    background: var(--button-bg-hover);
     color: var(--text-primary);
-    border-color: var(--color-processing);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border-color: var(--accent-primary);
 }
 
+.navButton:hover::before {
+    opacity: 1;
+}
+
+/* Active/pressed state */
 .navButton:active {
     transform: translateY(0);
-    box-shadow: none;
+    box-shadow: var(--shadow-inner);
 }
 
+/* Selected/current state */
 .navButton[data-active="true"] {
     background: linear-gradient(
         180deg,
-        var(--color-processing) 0%,
-        #2a4d8e 100%
+        var(--accent-primary) 0%,
+        var(--accent-secondary) 100%
     );
     color: white;
-    border-color: var(--color-processing);
-    box-shadow: 0 0 16px rgba(65, 105, 225, 0.5);
+    border-color: var(--accent-primary);
+    box-shadow:
+        0 0 20px var(--color-processing-glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-/* Highlight states per SEMI E95 */
+.navButton[data-active="true"]::before {
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.15) 0%,
+        transparent 100%
+    );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Highlight States - SEMI E95
+   ───────────────────────────────────────────────────────────────────────── */
+
 .navButton[data-highlight="alarm"] {
     border-color: var(--color-alarm);
     box-shadow:
-        0 0 0 2px rgba(255, 0, 0, 0.3),
-        inset 0 0 20px rgba(255, 0, 0, 0.1);
-    animation: alarmPulse 1s infinite;
+        0 0 0 2px rgba(255, 59, 59, 0.3),
+        0 0 20px var(--color-alarm-glow),
+        inset 0 0 15px rgba(255, 59, 59, 0.08);
+    animation: navAlarmPulse 1.2s ease-in-out infinite;
 }
 
 .navButton[data-highlight="warning"] {
     border-color: var(--color-warning);
     box-shadow:
-        0 0 0 2px rgba(255, 255, 0, 0.3),
-        inset 0 0 20px rgba(255, 255, 0, 0.1);
+        0 0 0 2px rgba(255, 193, 7, 0.25),
+        0 0 15px var(--color-warning-glow),
+        inset 0 0 12px rgba(255, 193, 7, 0.06);
 }
 
 .navButton[data-highlight="processing"] {
     border-color: var(--color-processing);
-    box-shadow: 0 0 0 2px rgba(65, 105, 225, 0.3);
+    box-shadow:
+        0 0 0 2px rgba(14, 165, 233, 0.3),
+        0 0 15px var(--color-processing-glow);
 }
 
 .navButton[data-highlight="attention"] {
     border-color: var(--color-attention);
-    box-shadow: 0 0 0 2px rgba(50, 205, 50, 0.3);
+    box-shadow:
+        0 0 0 2px rgba(34, 197, 94, 0.3),
+        0 0 15px var(--color-attention-glow);
 }
 
-@keyframes alarmPulse {
-    0%,
-    100% {
+@keyframes navAlarmPulse {
+    0%, 100% {
         box-shadow:
-            0 0 0 2px rgba(255, 0, 0, 0.3),
-            inset 0 0 20px rgba(255, 0, 0, 0.1);
+            0 0 0 2px rgba(255, 59, 59, 0.3),
+            0 0 20px var(--color-alarm-glow),
+            inset 0 0 15px rgba(255, 59, 59, 0.08);
     }
     50% {
         box-shadow:
-            0 0 0 4px rgba(255, 0, 0, 0.5),
-            inset 0 0 30px rgba(255, 0, 0, 0.2);
+            0 0 0 4px rgba(255, 59, 59, 0.4),
+            0 0 35px var(--color-alarm-glow),
+            inset 0 0 25px rgba(255, 59, 59, 0.12);
     }
 }
 
-/* Special spacing for Alarms button per SEMI E95 */
+/* Special spacing for Alarms button - SEMI E95 */
 .navButton[data-id="alarms"] {
     margin-left: auto;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Nav Icon & Label
+   ───────────────────────────────────────────────────────────────────────── */
 
 .navIconContainer {
     position: relative;
@@ -140,7 +218,8 @@
 .navIcon {
     width: 24px;
     height: 24px;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
+    transition: all var(--transition-fast);
 }
 
 .navIcon svg {
@@ -148,47 +227,105 @@
     height: 100%;
 }
 
+.navButton:hover .navIcon {
+    color: var(--text-primary);
+}
+
+.navButton[data-active="true"] .navIcon {
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
+}
+
+/* Badge for notifications */
 .badge {
     position: absolute;
     top: -8px;
     right: -12px;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
     background: var(--color-alarm);
-    border-radius: 9px;
+    border-radius: 10px;
     color: white;
-    font-size: 10px;
-    font-weight: 700;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow:
+        0 2px 8px var(--color-alarm-glow),
+        0 0 0 2px var(--bg-panel);
+    animation: badgePulse 2s ease-in-out infinite;
 }
 
 .badge[data-severity="warning"] {
     background: var(--color-warning);
-    color: #333;
+    color: #1a1a1a;
+    box-shadow:
+        0 2px 8px var(--color-warning-glow),
+        0 0 0 2px var(--bg-panel);
+}
+
+@keyframes badgePulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
 }
 
 .navLabel {
-    font-size: 12px;
+    font-family: var(--font-family);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
     text-transform: capitalize;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.5px;
+    transition: all var(--transition-fast);
 }
 
+.navButton:hover .navLabel {
+    color: var(--text-primary);
+}
+
+/* Active indicator line */
 .activeIndicator {
     position: absolute;
     bottom: 0;
     left: 50%;
     transform: translateX(-50%);
-    width: 40%;
+    width: 50%;
     height: 3px;
-    background: linear-gradient(90deg, transparent, white, transparent);
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.9),
+        transparent
+    );
     border-radius: 3px 3px 0 0;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
 }
 
-/* Responsive adjustments */
+/* ─────────────────────────────────────────────────────────────────────────
+   Responsive Adjustments
+   ───────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+    .navButton {
+        min-width: 80px;
+        padding: 6px 12px;
+    }
+
+    .navLabel {
+        font-size: 11px;
+    }
+
+    .navIcon {
+        width: 22px;
+        height: 22px;
+    }
+}
+
 @media (max-width: 900px) {
     .navButton {
         min-width: 70px;
@@ -196,7 +333,7 @@
     }
 
     .navLabel {
-        font-size: 11px;
+        font-size: 10px;
     }
 
     .navIcon {

@@ -1,71 +1,121 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Dialog Component - Industrial Modal Style
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 .overlay {
     position: fixed;
-    top: 0;
+    top: var(--title-panel-height);
     left: 0;
     right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    bottom: var(--nav-panel-height);
+    background: var(--overlay-modal);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    /* Per SEMI E95: Don't cover title panel */
-    top: var(--title-panel-height);
-    /* Per SEMI E95: Don't cover nav panel */
-    bottom: var(--nav-panel-height);
+    animation: overlayFadeIn 0.2s ease-out;
+}
+
+@keyframes overlayFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .dialog {
     display: flex;
     flex-direction: column;
-    background-color: var(--bg-panel);
+    background: linear-gradient(
+        180deg,
+        var(--bg-secondary) 0%,
+        var(--bg-tertiary) 100%
+    );
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    min-width: 300px;
+    border-radius: var(--button-radius-lg);
+    box-shadow:
+        var(--shadow-xl),
+        0 0 50px rgba(14, 165, 233, 0.1);
+    min-width: 320px;
     max-width: 90%;
     max-height: 90%;
     overflow: hidden;
+    animation: dialogSlideIn 0.25s ease-out;
+    position: relative;
 }
 
-/* Dialog Title Bar */
+@keyframes dialogSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Decorative top edge */
+.dialog::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--gradient-accent);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Dialog Title Bar
+   ───────────────────────────────────────────────────────────────────────── */
+
 .titleBar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px 16px;
-    background-color: var(--bg-panel-header);
+    padding: 16px 20px;
+    background: var(--overlay-weak);
     border-bottom: 1px solid var(--border-color);
 }
 
 .title {
+    font-family: var(--font-display);
     font-size: var(--font-size-title);
-    font-weight: 600;
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
+    letter-spacing: 1px;
+    text-transform: uppercase;
 }
 
 .closeButton {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    background-color: transparent;
-    border-radius: 4px;
+    width: 36px;
+    height: 36px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--button-radius);
     color: var(--text-secondary);
     font-size: 20px;
-    transition: background-color var(--transition-fast);
+    cursor: pointer;
+    transition: all var(--transition-fast);
 }
 
 .closeButton:hover {
-    background-color: var(--button-bg-hover);
-    color: var(--text-primary);
+    background: var(--button-bg);
+    border-color: var(--color-alarm);
+    color: var(--color-alarm);
 }
 
-/* Dialog Content Area */
+/* ─────────────────────────────────────────────────────────────────────────
+   Dialog Content Area
+   ───────────────────────────────────────────────────────────────────────── */
+
 .content {
     flex: 1;
-    padding: 16px;
+    padding: 20px;
     overflow: auto;
 }
 
@@ -73,12 +123,13 @@
 .messageContent {
     display: flex;
     align-items: flex-start;
-    gap: 16px;
+    gap: 18px;
 }
 
 .messageIcon {
-    font-size: 32px;
+    font-size: 36px;
     flex-shrink: 0;
+    filter: drop-shadow(0 0 8px currentColor);
 }
 
 .messageIcon[data-type="information"] {
@@ -87,6 +138,7 @@
 
 .messageIcon[data-type="progress"] {
     color: var(--color-processing);
+    animation: iconPulse 2s ease-in-out infinite;
 }
 
 .messageIcon[data-type="attention"] {
@@ -95,30 +147,46 @@
 
 .messageIcon[data-type="error"] {
     color: var(--color-alarm);
+    animation: iconShake 0.5s ease-in-out;
+}
+
+@keyframes iconPulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.7; transform: scale(0.95); }
+}
+
+@keyframes iconShake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-3px); }
+    40%, 80% { transform: translateX(3px); }
 }
 
 .messageText {
     flex: 1;
+    font-family: var(--font-family);
     font-size: var(--font-size-normal);
     color: var(--text-primary);
-    line-height: 1.5;
+    line-height: 1.6;
 }
 
-/* Dialog Button Area */
+/* ─────────────────────────────────────────────────────────────────────────
+   Dialog Button Area
+   ───────────────────────────────────────────────────────────────────────── */
+
 .buttonArea {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding: 12px 16px;
-    background-color: var(--bg-secondary);
+    gap: 14px;
+    padding: 16px 20px;
+    background: var(--overlay-weak);
     border-top: 1px solid var(--border-color);
 }
 
 /* Per SEMI E95: Primary buttons centered, auxiliary right-aligned */
 .primaryButtons {
     display: flex;
-    gap: 12px;
+    gap: 14px;
 }
 
 .auxiliaryButtons {
@@ -130,36 +198,92 @@
 }
 
 .dialogButton {
-    min-width: 80px;
+    position: relative;
+    min-width: 90px;
     min-height: var(--button-nav-size);
-    padding: 8px 16px;
-    background-color: var(--button-bg);
-    border-radius: 4px;
+    padding: 10px 20px;
+    background: linear-gradient(
+        180deg,
+        var(--button-bg-hover) 0%,
+        var(--button-bg) 100%
+    );
+    border: 1px solid var(--border-color);
+    border-radius: var(--button-radius);
     color: var(--text-primary);
+    font-family: var(--font-family);
     font-size: var(--font-size-normal);
-    font-weight: 500;
-    transition: background-color var(--transition-fast);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    overflow: hidden;
+}
+
+/* Glass shine */
+.dialogButton::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        transparent 100%
+    );
+    pointer-events: none;
 }
 
 .dialogButton:hover:not(:disabled) {
-    background-color: var(--button-bg-hover);
+    background: var(--button-bg-hover);
+    border-color: var(--accent-primary);
 }
 
 .dialogButton:active:not(:disabled) {
-    background-color: var(--button-bg-active);
+    transform: translateY(0);
+    box-shadow: var(--shadow-inner);
 }
 
 .dialogButton:disabled {
-    background-color: var(--button-bg-disabled);
+    background: var(--button-bg-disabled);
     color: var(--text-disabled);
     cursor: not-allowed;
 }
 
+/* Primary button variant */
 .dialogButton[data-primary="true"] {
-    background-color: var(--color-processing);
+    background: linear-gradient(
+        180deg,
+        var(--accent-primary) 0%,
+        var(--accent-secondary) 100%
+    );
     color: white;
+    border-color: var(--accent-primary);
+}
+
+.dialogButton[data-primary="true"]::before {
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.15) 0%,
+        transparent 100%
+    );
 }
 
 .dialogButton[data-primary="true"]:hover:not(:disabled) {
-    background-color: #3458c5;
+    background: #0284c7;
+}
+
+/* Danger button variant */
+.dialogButton[data-variant="danger"] {
+    background: linear-gradient(
+        180deg,
+        var(--color-alarm) 0%,
+        #dc2626 100%
+    );
+    color: white;
+    border-color: var(--color-alarm);
+}
+
+.dialogButton[data-variant="danger"]:hover:not(:disabled) {
+    background: #dc2626;
 }
