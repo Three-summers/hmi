@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:wsl": "DISPLAY=:0 WEBKIT_DISABLE_COMPOSITING_MODE=1 tauri dev",
+    "dev:wsl": "DISPLAY=:0 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA tauri dev",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri"
