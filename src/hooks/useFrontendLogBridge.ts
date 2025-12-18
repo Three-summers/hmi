@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigationStore, useAppStore } from "@/stores";
 import { isTauri } from "@/platform/tauri";
+import { LOG_BRIDGE_CONFIG } from "@/constants";
 
 interface FrontendLogEntry {
     level: string;
@@ -10,9 +11,7 @@ interface FrontendLogEntry {
     source?: string;
 }
 
-const MAX_BATCH_SIZE = 50;
-const FLUSH_INTERVAL_MS = 250;
-const MAX_MESSAGE_LENGTH = 8000;
+const { MAX_BATCH_SIZE, FLUSH_INTERVAL_MS, MAX_MESSAGE_LENGTH } = LOG_BRIDGE_CONFIG;
 
 const consoleLevels = ["log", "info", "warn", "error", "debug"] as const;
 type ConsoleLevel = (typeof consoleLevels)[number];

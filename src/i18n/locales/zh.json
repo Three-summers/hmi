@@ -24,7 +24,8 @@
             "settings": "设置"
         },
         "fullscreen": "全屏",
-        "exit": "退出"
+        "exit": "退出",
+        "commands": "命令"
     },
     "theme": {
         "dark": "暗色",
@@ -82,7 +83,9 @@
         "running": "运行中",
         "stopped": "已停止",
         "idle": "空闲",
-        "error": "错误"
+        "error": "错误",
+        "emergencyStop": "紧急停止",
+        "emergencyStopConfirm": "这将立即停止所有操作。是否继续？"
     },
     "jobs": {
         "title": "作业管理",
@@ -92,20 +95,28 @@
         "jobList": "作业列表",
         "noJobs": "暂无作业",
         "selectJob": "请选择一个作业查看详情",
-        "total": "总数"
+        "total": "总数",
+        "stopConfirm": "确定要停止当前作业吗？"
     },
     "recipes": {
         "title": "配方管理",
         "newRecipe": "新建配方",
         "editRecipe": "编辑配方",
         "deleteRecipe": "删除配方",
+        "loadRecipe": "加载配方",
         "recipeList": "配方列表",
-        "noRecipes": "暂无配方"
+        "noRecipes": "暂无配方",
+        "deleteConfirm": "确定要删除此配方吗？"
     },
     "setup": {
         "title": "系统设置",
         "language": "语言",
+        "languageDesc": "选择显示语言",
         "theme": "主题",
+        "layout": "布局",
+        "layoutDesc": "命令面板位置",
+        "layoutRight": "右侧",
+        "layoutLeft": "左侧",
         "debug": "调试",
         "debugDesc": "日志输出与诊断工具",
         "logBridge": "前端日志转发到终端",
@@ -113,12 +124,20 @@
         "disabled": "关闭",
         "communication": "通信设置",
         "serial": "串口",
+        "serialDesc": "串口通信配置",
         "tcp": "TCP/IP",
+        "tcpDesc": "TCP/IP 连接设置",
         "port": "端口",
         "baudRate": "波特率",
         "host": "主机地址",
         "connect": "连接",
-        "disconnect": "断开"
+        "disconnect": "断开",
+        "connected": "已连接",
+        "disconnected": "已断开",
+        "selectPort": "选择端口...",
+        "invalidPort": "无效的端口号",
+        "resetSettings": "重置设置",
+        "resetConfirm": "将所有设置恢复为默认值？"
     },
     "help": {
         "title": "帮助",
@@ -138,7 +157,8 @@
         "title": "实时监控",
         "temperature": "温度",
         "pressure": "压力",
-        "humidity": "湿度"
+        "humidity": "湿度",
+        "exportData": "导出数据"
     },
     "files": {
         "title": "文件浏览",
@@ -150,5 +170,52 @@
         "readError": "读取文件失败",
         "showMore": "显示更多 (+{{count}})",
         "showLess": "收起"
+    },
+    "notification": {
+        "newJob": "新建作业",
+        "creatingJob": "正在创建新作业...",
+        "jobStarted": "作业已启动",
+        "jobRunning": "处理作业正在运行",
+        "jobPaused": "作业已暂停",
+        "processPaused": "处理已暂停",
+        "jobStopped": "作业已停止",
+        "processTerminated": "处理已终止",
+        "refreshing": "刷新中",
+        "systemDataRefreshed": "系统数据已刷新",
+        "systemStarted": "系统已启动",
+        "allSubsystemsOnline": "所有子系统已上线",
+        "systemStopped": "系统已停止",
+        "allSubsystemsShutdown": "所有子系统已关闭",
+        "emergencyStop": "紧急停止",
+        "allOperationsHalted": "所有操作已立即停止！",
+        "dataRefreshed": "数据已刷新",
+        "sensorDataUpdated": "传感器数据已更新",
+        "monitoringPaused": "监控已暂停",
+        "dataCollectionPaused": "数据采集已暂停",
+        "exportComplete": "导出完成",
+        "dataExportedToFile": "数据已导出到文件",
+        "newRecipe": "新建配方",
+        "creatingRecipe": "正在创建新配方...",
+        "recipeLoaded": "配方已加载",
+        "recipeReadyForExecution": "配方已准备好执行",
+        "editMode": "编辑模式",
+        "recipeEditorOpened": "配方编辑器已打开",
+        "recipeDeleted": "配方已删除",
+        "recipeRemoved": "配方已移除",
+        "fileListRefreshed": "文件列表已刷新",
+        "connected": "已连接",
+        "connectionEstablished": "连接已建立",
+        "disconnected": "已断开",
+        "connectionClosed": "连接已关闭",
+        "settingsSaved": "设置已保存",
+        "configurationSaved": "配置已保存",
+        "settingsReset": "设置已重置",
+        "settingsRestoredToDefaults": "所有设置已恢复为默认值",
+        "alarmsAcknowledged": "报警已确认",
+        "alarmsAcknowledgedCount": "{{count}} 个报警已确认",
+        "alarmsCleared": "报警已清除",
+        "alarmHistoryCleared": "报警历史已清除",
+        "helpRefreshed": "已刷新",
+        "helpContentRefreshed": "帮助内容已刷新"
     }
 }

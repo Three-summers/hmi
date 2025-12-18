@@ -241,15 +241,8 @@ impl SensorSimulator {
                 };
 
                 // 尝试发送数据，如果失败则退出循环
-                log::info!(
-                    "Emitting spectrum data: peak_freq={:.1} Hz, peak_amp={:.1} dB",
-                    data.peak_frequency,
-                    data.peak_amplitude
-                );
                 match app.emit("spectrum-data", &data) {
-                    Ok(_) => {
-                        log::debug!("Data emitted successfully");
-                    }
+                    Ok(_) => {}
                     Err(e) => {
                         log::warn!("Failed to emit spectrum data (window may be closed): {}", e);
                         break;

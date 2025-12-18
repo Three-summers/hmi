@@ -24,7 +24,8 @@
             "settings": "Settings"
         },
         "fullscreen": "Fullscreen",
-        "exit": "Exit"
+        "exit": "Exit",
+        "commands": "Commands"
     },
     "theme": {
         "dark": "Dark",
@@ -82,7 +83,9 @@
         "running": "Running",
         "stopped": "Stopped",
         "idle": "Idle",
-        "error": "Error"
+        "error": "Error",
+        "emergencyStop": "Emergency Stop",
+        "emergencyStopConfirm": "This will immediately halt all operations. Continue?"
     },
     "jobs": {
         "title": "Job Management",
@@ -92,20 +95,28 @@
         "jobList": "Job List",
         "noJobs": "No Jobs",
         "selectJob": "Select a job to view details",
-        "total": "Total"
+        "total": "Total",
+        "stopConfirm": "Are you sure you want to stop the current job?"
     },
     "recipes": {
         "title": "Recipe Management",
         "newRecipe": "New Recipe",
         "editRecipe": "Edit Recipe",
         "deleteRecipe": "Delete Recipe",
+        "loadRecipe": "Load Recipe",
         "recipeList": "Recipe List",
-        "noRecipes": "No Recipes"
+        "noRecipes": "No Recipes",
+        "deleteConfirm": "Are you sure you want to delete this recipe?"
     },
     "setup": {
         "title": "System Setup",
         "language": "Language",
+        "languageDesc": "Select display language",
         "theme": "Theme",
+        "layout": "Layout",
+        "layoutDesc": "Command panel position",
+        "layoutRight": "Right",
+        "layoutLeft": "Left",
         "debug": "Debug",
         "debugDesc": "Logging and diagnostics",
         "logBridge": "Frontend logs to terminal",
@@ -113,12 +124,20 @@
         "disabled": "Off",
         "communication": "Communication Settings",
         "serial": "Serial Port",
+        "serialDesc": "Serial port configuration",
         "tcp": "TCP/IP",
+        "tcpDesc": "TCP/IP connection settings",
         "port": "Port",
         "baudRate": "Baud Rate",
         "host": "Host Address",
         "connect": "Connect",
-        "disconnect": "Disconnect"
+        "disconnect": "Disconnect",
+        "connected": "Connected",
+        "disconnected": "Disconnected",
+        "selectPort": "Select port...",
+        "invalidPort": "Invalid port number",
+        "resetSettings": "Reset Settings",
+        "resetConfirm": "Reset all settings to defaults?"
     },
     "help": {
         "title": "Help",
@@ -138,7 +157,8 @@
         "title": "Real-time Monitor",
         "temperature": "Temperature",
         "pressure": "Pressure",
-        "humidity": "Humidity"
+        "humidity": "Humidity",
+        "exportData": "Export Data"
     },
     "files": {
         "title": "File Browser",
@@ -150,5 +170,52 @@
         "readError": "Failed to read file",
         "showMore": "Show more (+{{count}})",
         "showLess": "Show less"
+    },
+    "notification": {
+        "newJob": "New Job",
+        "creatingJob": "Creating new job...",
+        "jobStarted": "Job Started",
+        "jobRunning": "Process job is now running",
+        "jobPaused": "Job Paused",
+        "processPaused": "Process has been paused",
+        "jobStopped": "Job Stopped",
+        "processTerminated": "Process has been terminated",
+        "refreshing": "Refreshing",
+        "systemDataRefreshed": "System data refreshed",
+        "systemStarted": "System Started",
+        "allSubsystemsOnline": "All subsystems are now online",
+        "systemStopped": "System Stopped",
+        "allSubsystemsShutdown": "All subsystems have been shut down",
+        "emergencyStop": "EMERGENCY STOP",
+        "allOperationsHalted": "All operations immediately halted!",
+        "dataRefreshed": "Data Refreshed",
+        "sensorDataUpdated": "Sensor data has been updated",
+        "monitoringPaused": "Monitoring Paused",
+        "dataCollectionPaused": "Data collection paused",
+        "exportComplete": "Export Complete",
+        "dataExportedToFile": "Data exported to file",
+        "newRecipe": "New Recipe",
+        "creatingRecipe": "Creating new recipe...",
+        "recipeLoaded": "Recipe Loaded",
+        "recipeReadyForExecution": "Recipe is ready for execution",
+        "editMode": "Edit Mode",
+        "recipeEditorOpened": "Recipe editor opened",
+        "recipeDeleted": "Recipe Deleted",
+        "recipeRemoved": "Recipe has been removed",
+        "fileListRefreshed": "File list refreshed",
+        "connected": "Connected",
+        "connectionEstablished": "Connection established",
+        "disconnected": "Disconnected",
+        "connectionClosed": "Connection closed",
+        "settingsSaved": "Settings Saved",
+        "configurationSaved": "Configuration has been saved",
+        "settingsReset": "Settings Reset",
+        "settingsRestoredToDefaults": "All settings restored to defaults",
+        "alarmsAcknowledged": "Alarms Acknowledged",
+        "alarmsAcknowledgedCount": "{{count}} alarm(s) acknowledged",
+        "alarmsCleared": "Alarms Cleared",
+        "alarmHistoryCleared": "Alarm history has been cleared",
+        "helpRefreshed": "Refreshed",
+        "helpContentRefreshed": "Help content refreshed"
     }
 }

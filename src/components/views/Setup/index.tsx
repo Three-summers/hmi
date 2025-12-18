@@ -1,12 +1,27 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";
+import {
+    LanguageIcon,
+    PaletteIcon,
+    LayoutIcon,
+    LayoutRightIcon,
+    InfoIcon,
+    SerialIcon,
+    NetworkIcon,
+    LogIcon,
+    ConnectIcon,
+    CloseIcon,
+} from "@/components/common";
 import { useAppStore, useCommStore } from "@/stores";
+import { useNotify } from "@/hooks";
+import { COMM_CONFIG } from "@/constants";
 import styles from "./Setup.module.css";
 import sharedStyles from "../shared.module.css";
 
 export default function SetupView() {
     const { t } = useTranslation();
+    const { error: notifyError } = useNotify();
     const {
         language,
         setLanguage,
@@ -29,7 +44,7 @@ export default function SetupView() {
 
     const [availablePorts, setAvailablePorts] = useState<string[]>([]);
     const [selectedPort, setSelectedPort] = useState("");
-    const [baudRate, setBaudRate] = useState(9600);
+    const [baudRate, setBaudRate] = useState<number>(COMM_CONFIG.DEFAULT_BAUD_RATE);
     const [tcpHost, setTcpHost] = useState("127.0.0.1");
     const [tcpPort, setTcpPort] = useState("502");
     const [activeTab, setActiveTab] = useState<"settings" | "communication">(
@@ -59,14 +74,18 @@ export default function SetupView() {
             await disconnectTcp();
         } else {
             const portNum = parseInt(tcpPort, 10);
-            if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
-                console.error("Invalid port number");
+            if (
+                isNaN(portNum) ||
+                portNum < COMM_CONFIG.TCP_PORT_MIN ||
+                portNum > COMM_CONFIG.TCP_PORT_MAX
+            ) {
+                notifyError(t("setup.invalidPort"));
                 return;
             }
             await connectTcp({
                 host: tcpHost,
                 port: portNum,
-                timeoutMs: 5000,
+                timeoutMs: COMM_CONFIG.TCP_TIMEOUT_MS,
             });
         }
     };
@@ -85,12 +104,7 @@ export default function SetupView() {
                                 <div className={styles.section}>
                                     <div className={styles.sectionHeader}>
                                         <div className={styles.sectionIcon}>
-                                            <svg
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                            >
-                                                <path d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z" />
-                                            </svg>
+                                            <LanguageIcon />
                                         </div>
                                         <div>
                                             <h3
@@ -99,7 +113,7 @@ export default function SetupView() {
                                                 {t("setup.language")}
                                             </h3>
                                             <p className={styles.sectionDesc}>
-                                                Select display language
+                                                {t("setup.languageDesc")}
                                             </p>
                                         </div>
                                     </div>
@@ -130,12 +144,7 @@ export default function SetupView() {
                                 <div className={styles.section}>
                                     <div className={styles.sectionHeader}>
                                         <div className={styles.sectionIcon}>
-                                            <svg
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                            >
-                                                <path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
-                                            </svg>
+                                            <PaletteIcon />
                                         </div>
                                         <div>
                                             <h3
@@ -167,21 +176,16 @@ export default function SetupView() {
                                 <div className={styles.section}>
                                     <div className={styles.sectionHeader}>
                                         <div className={styles.sectionIcon}>
-                                            <svg
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                            >
-                                                <path d="M3 5v14h18V5H3zm4 12H5v-2h2v2zm0-4H5v-2h2v2zm0-4H5V7h2v2zm12 8H9V7h10v10z" />
-                                            </svg>
+                                            <LayoutIcon />
                                         </div>
                                         <div>
                                             <h3
                                                 className={styles.sectionTitle}
                                             >
-                                                Layout
+                                                {t("setup.layout")}
                                             </h3>
                                             <p className={styles.sectionDesc}>
-                                                Command panel position
+                                                {t("setup.layoutDesc")}
                                             </p>
                                         </div>
                                     </div>
@@ -195,14 +199,8 @@ export default function SetupView() {
                                                 setCommandPanelPosition("right")
                                             }
                                         >
-                                            <svg
-                                                className={styles.optionIcon}
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                            >
-                                                <path d="M3 5v14h18V5H3zm14 12H5V7h12v10zm2 0v-2h2v2h-2zm0-4v-2h2v2h-2zm0-4V7h2v2h-2z" />
-                                            </svg>
-                                            Right
+                                            <LayoutRightIcon className={styles.optionIcon} />
+                                            {t("setup.layoutRight")}
                                         </button>
                                         <button
                                             className={styles.optionButton}
@@ -213,14 +211,8 @@ export default function SetupView() {
                                                 setCommandPanelPosition("left")
                                             }
                                         >
-                                            <svg
-                                                className={styles.optionIcon}
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                            >
-                                                <path d="M3 5v14h18V5H3zm4 12H5v-2h2v2zm0-4H5v-2h2v2zm0-4H5V7h2v2zm12 8H9V7h10v10z" />
-                                            </svg>
-                                            Left
+                                            <LayoutIcon className={styles.optionIcon} />
+                                            {t("setup.layoutLeft")}
                                         </button>
                                     </div>
                                 </div>
@@ -228,12 +220,7 @@ export default function SetupView() {
                                 <div className={styles.section}>
                                     <div className={styles.sectionHeader}>
                                         <div className={styles.sectionIcon}>
-                                            <svg
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                            >
-                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm0-12h2v10h-2V5z" />
-                                            </svg>
+                                            <InfoIcon />
                                         </div>
                                         <div>
                                             <h3
@@ -257,13 +244,7 @@ export default function SetupView() {
                                                 )
                                             }
                                         >
-                                            <svg
-                                                className={styles.optionIcon}
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                            >
-                                                <path d="M7 6h10v2H7V6zm0 4h10v2H7v-2zm0 4h7v2H7v-2z" />
-                                            </svg>
+                                            <LogIcon className={styles.optionIcon} />
                                             {t("setup.logBridge")}：
                                             {debugLogBridgeEnabled
                                                 ? t("setup.enabled")
@@ -282,12 +263,7 @@ export default function SetupView() {
                                 <div className={styles.section}>
                                     <div className={styles.sectionHeader}>
                                         <div className={styles.sectionIcon}>
-                                            <svg
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                            >
-                                                <path d="M17 16l-4-4V8.82C14.16 8.4 15 7.3 15 6c0-1.66-1.34-3-3-3S9 4.34 9 6c0 1.3.84 2.4 2 2.82V12l-4 4H3v5h5v-3.05l4-4.2 4 4.2V21h5v-5h-4z" />
-                                            </svg>
+                                            <SerialIcon />
                                         </div>
                                         <div>
                                             <h3
@@ -296,7 +272,7 @@ export default function SetupView() {
                                                 {t("setup.serial")}
                                             </h3>
                                             <p className={styles.sectionDesc}>
-                                                Serial port configuration
+                                                {t("setup.serialDesc")}
                                             </p>
                                         </div>
                                     </div>
@@ -311,8 +287,8 @@ export default function SetupView() {
                                             data-connected={serialConnected}
                                         >
                                             {serialConnected
-                                                ? "Connected"
-                                                : "Disconnected"}
+                                                ? t("setup.connected")
+                                                : t("setup.disconnected")}
                                         </span>
                                     </div>
 
@@ -329,7 +305,7 @@ export default function SetupView() {
                                             disabled={serialConnected}
                                         >
                                             <option value="">
-                                                Select port...
+                                                {t("setup.selectPort")}
                                             </option>
                                             {availablePorts.map((port) => (
                                                 <option key={port} value={port}>
@@ -353,10 +329,7 @@ export default function SetupView() {
                                             className={styles.select}
                                             disabled={serialConnected}
                                         >
-                                            {[
-                                                9600, 19200, 38400, 57600,
-                                                115200,
-                                            ].map((rate) => (
+                                            {COMM_CONFIG.BAUD_RATES.map((rate) => (
                                                 <option
                                                     key={rate}
                                                     value={rate}
@@ -374,22 +347,12 @@ export default function SetupView() {
                                     >
                                         {serialConnected ? (
                                             <>
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                >
-                                                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                                                </svg>
+                                                <CloseIcon />
                                                 {t("setup.disconnect")}
                                             </>
                                         ) : (
                                             <>
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                >
-                                                    <path d="M21 3L3 10.53v.98l6.84 2.65L12.48 21h.98L21 3z" />
-                                                </svg>
+                                                <ConnectIcon />
                                                 {t("setup.connect")}
                                             </>
                                         )}
@@ -399,12 +362,7 @@ export default function SetupView() {
                                 <div className={styles.section}>
                                     <div className={styles.sectionHeader}>
                                         <div className={styles.sectionIcon}>
-                                            <svg
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                            >
-                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
-                                            </svg>
+                                            <NetworkIcon />
                                         </div>
                                         <div>
                                             <h3
@@ -413,7 +371,7 @@ export default function SetupView() {
                                                 {t("setup.tcp")}
                                             </h3>
                                             <p className={styles.sectionDesc}>
-                                                TCP/IP connection settings
+                                                {t("setup.tcpDesc")}
                                             </p>
                                         </div>
                                     </div>
@@ -428,8 +386,8 @@ export default function SetupView() {
                                             data-connected={tcpConnected}
                                         >
                                             {tcpConnected
-                                                ? "Connected"
-                                                : "Disconnected"}
+                                                ? t("setup.connected")
+                                                : t("setup.disconnected")}
                                         </span>
                                     </div>
 
@@ -480,22 +438,12 @@ export default function SetupView() {
                                     >
                                         {tcpConnected ? (
                                             <>
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                >
-                                                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                                                </svg>
+                                                <CloseIcon />
                                                 {t("setup.disconnect")}
                                             </>
                                         ) : (
                                             <>
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                >
-                                                    <path d="M21 3L3 10.53v.98l6.84 2.65L12.48 21h.98L21 3z" />
-                                                </svg>
+                                                <ConnectIcon />
                                                 {t("setup.connect")}
                                             </>
                                         )}

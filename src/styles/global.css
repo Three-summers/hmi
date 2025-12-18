@@ -84,17 +84,17 @@ textarea {
 
 /* Status highlight classes based on SEMI E95 */
 .highlight-alarm {
-    box-shadow: 0 0 0 3px var(--color-alarm);
+    box-shadow: var(--highlight-alarm);
 }
 
 .highlight-warning {
-    box-shadow: 0 0 0 3px var(--color-warning);
+    box-shadow: var(--highlight-warning);
 }
 
 .highlight-processing {
-    box-shadow: 0 0 0 3px var(--color-processing);
+    box-shadow: var(--highlight-processing);
 }
 
 .highlight-attention {
-    box-shadow: 0 0 0 3px var(--color-attention);
+    box-shadow: var(--highlight-attention);
 }

@@ -11,6 +11,12 @@
     --color-processing: #4169e1; /* 处理中/未完成（蓝） */
     --color-attention: #32cd32; /* 关注/就绪（绿） */
 
+    /* 状态色高亮阴影（用于按钮等组件的 data-highlight 样式） */
+    --highlight-alarm: 0 0 0 3px var(--color-alarm);
+    --highlight-warning: 0 0 0 3px var(--color-warning);
+    --highlight-processing: 0 0 0 3px var(--color-processing);
+    --highlight-attention: 0 0 0 3px var(--color-attention);
+
     /* 按钮尺寸（SEMI E95 触控尺寸要求） */
     --button-min-size: 70px; /* 约 1.5cm */
     --button-nav-size: 47px; /* 约 1.0cm（导航区） */

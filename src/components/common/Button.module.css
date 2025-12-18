@@ -53,19 +53,19 @@
 
 /* Highlight states per SEMI E95 */
 .button[data-highlight="alarm"] {
-    box-shadow: 0 0 0 3px var(--color-alarm);
+    box-shadow: var(--highlight-alarm);
 }
 
 .button[data-highlight="warning"] {
-    box-shadow: 0 0 0 3px var(--color-warning);
+    box-shadow: var(--highlight-warning);
 }
 
 .button[data-highlight="processing"] {
-    box-shadow: 0 0 0 3px var(--color-processing);
+    box-shadow: var(--highlight-processing);
 }
 
 .button[data-highlight="attention"] {
-    box-shadow: 0 0 0 3px var(--color-attention);
+    box-shadow: var(--highlight-attention);
 }
 
 /* Primary variant */
