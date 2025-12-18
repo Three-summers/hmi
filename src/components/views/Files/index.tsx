@@ -1,12 +1,21 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import {
+    memo,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { readTextFile, readDir } from "@tauri-apps/plugin-fs";
-import { invoke } from "@tauri-apps/api/core";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
-import { Tabs } from "@/components/common";
+import { Tabs, StatusIndicator } from "@/components/common";
 import { useIsViewActive } from "@/components/layout/ViewContext";
 import { isTauri } from "@/platform/tauri";
+import { invoke } from "@/platform/invoke";
+import { FILES_CONFIG } from "@/constants";
 import styles from "../shared.module.css";
 import filesStyles from "./Files.module.css";
 
@@ -22,7 +31,321 @@ interface CsvData {
     rows: number[][];
 }
 
-const DEFAULT_VISIBLE_CHARTS = 4;
+const FILE_TREE_TIMEOUT_MS = 8000;
+
+function createTimeoutError(timeoutMs: number): Error {
+    const error = new Error(`Operation timed out after ${timeoutMs}ms`);
+    error.name = "TimeoutError";
+    return error;
+}
+
+function isTimeoutError(error: unknown): boolean {
+    return error instanceof Error && error.name === "TimeoutError";
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return promise;
+
+    return new Promise<T>((resolve, reject) => {
+        const timer = window.setTimeout(() => {
+            reject(createTimeoutError(timeoutMs));
+        }, timeoutMs);
+
+        promise.then(
+            (value) => {
+                window.clearTimeout(timer);
+                resolve(value);
+            },
+            (error) => {
+                window.clearTimeout(timer);
+                reject(error);
+            },
+        );
+    });
+}
+
+function formatHms(seconds: number): string {
+    const date = new Date(seconds * 1000);
+    const hh = String(date.getHours()).padStart(2, "0");
+    const mm = String(date.getMinutes()).padStart(2, "0");
+    const ss = String(date.getSeconds()).padStart(2, "0");
+    return `${hh}:${mm}:${ss}`;
+}
+
+function xAxisValues(_u: uPlot, splits: number[]): string[] {
+    return splits.map((value) => (Number.isFinite(value) ? formatHms(value) : ""));
+}
+
+function getXRange(xData: number[]): { min: number; max: number } | null {
+    let min = Number.POSITIVE_INFINITY;
+    let max = Number.NEGATIVE_INFINITY;
+    for (const value of xData) {
+        if (!Number.isFinite(value)) continue;
+        if (value < min) min = value;
+        if (value > max) max = value;
+    }
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) return null;
+    return { min, max };
+}
+
+// 解析 CSV 内容：支持“时间列 + 多数值列”的通用数据日志格式
+function parseCsv(content: string): CsvData | null {
+    const lines = content.trim().split(/\r?\n/);
+    if (lines.length < 2) return null;
+
+    const headers = lines[0].split(",").map((h) => h.trim());
+    const rows: number[][] = [];
+
+    const isPlainNumber = (value: string): boolean => {
+        return /^[-+]?(\d+(\.\d+)?|\.\d+)(e[-+]?\d+)?$/i.test(value);
+    };
+
+    const parseDateTimeToSeconds = (value: string): number | null => {
+        // 支持：YYYY-MM-DD HH:mm:ss(.SSS) / YYYY-MM-DDTHH:mm:ss(.SSS) / YYYY/MM/DD HH:mm:ss(.SSS)
+        const match = value.match(
+            /^(\d{4})[-/](\d{2})[-/](\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/,
+        );
+        if (!match) return null;
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        const hours = Number(match[4]);
+        const minutes = Number(match[5]);
+        const seconds = Number(match[6]);
+        const millis = match[7] ? Number(match[7].padEnd(3, "0")) : 0;
+        const date = new Date(year, month - 1, day, hours, minutes, seconds, millis);
+        const time = date.getTime();
+        if (!Number.isFinite(time)) return null;
+        return time / 1000;
+    };
+
+    for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(",").map((v) => {
+            const trimmed = v.trim();
+            // 仅当字段为“纯数字”时才按数值解析，避免把时间戳（如 2024-12-17 08:00:00）误解析成 2024
+            if (isPlainNumber(trimmed)) return Number.parseFloat(trimmed);
+            // 优先按固定格式解析，避免不同 WebView 的 Date 解析差异
+            const parsedFixed = parseDateTimeToSeconds(trimmed);
+            if (parsedFixed !== null) return parsedFixed;
+            // 兜底：尝试按日期时间解析
+            const date = new Date(trimmed);
+            if (!Number.isNaN(date.getTime())) return date.getTime() / 1000;
+            return Number.NaN;
+        });
+
+        // 仅保留包含有效数值的行，避免空行/无效行污染曲线
+        if (values.some((v) => !Number.isNaN(v))) {
+            rows.push(values);
+        }
+    }
+
+    return { headers, rows };
+}
+
+function getSeriesColor(index: number): string {
+    const colors = [
+        "#00d4ff",
+        "#ff6b6b",
+        "#00ff88",
+        "#ffaa00",
+        "#aa66ff",
+        "#ff66aa",
+        "#66ffaa",
+        "#ff8800",
+    ];
+    return colors[(index - 1) % colors.length];
+}
+
+function getSeriesFill(index: number): string {
+    const colors: Record<string, string> = {
+        "#00d4ff": "rgba(0, 212, 255, 0.1)",
+        "#ff6b6b": "rgba(255, 107, 107, 0.1)",
+        "#00ff88": "rgba(0, 255, 136, 0.1)",
+        "#ffaa00": "rgba(255, 170, 0, 0.1)",
+        "#aa66ff": "rgba(170, 102, 255, 0.1)",
+        "#ff66aa": "rgba(255, 102, 170, 0.1)",
+        "#66ffaa": "rgba(102, 255, 170, 0.1)",
+        "#ff8800": "rgba(255, 136, 0, 0.1)",
+    };
+    return colors[getSeriesColor(index)] || "rgba(0, 212, 255, 0.1)";
+}
+
+type VisibleTreeItem = {
+    entry: FileEntry;
+    level: number;
+    isExpanded: boolean;
+};
+
+interface FileTreeRowProps {
+    item: VisibleTreeItem;
+    selectedPath: string | null;
+    onToggleDirectory: (path: string) => void;
+    onSelectFile: (file: FileEntry) => void;
+}
+
+const FileTreeRow = memo(function FileTreeRow({
+    item,
+    selectedPath,
+    onToggleDirectory,
+    onSelectFile,
+}: FileTreeRowProps) {
+    const { entry, level, isExpanded } = item;
+    const isSelected = selectedPath === entry.path;
+
+    const handleActivate = useCallback(() => {
+        if (entry.isDirectory) {
+            onToggleDirectory(entry.path);
+        } else {
+            void onSelectFile(entry);
+        }
+    }, [entry, onSelectFile, onToggleDirectory]);
+
+    const handleKeyDown = useCallback(
+        (e: ReactKeyboardEvent<HTMLDivElement>) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            handleActivate();
+        },
+        [handleActivate],
+    );
+
+    const icon = entry.isDirectory ? (
+        <svg
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className={filesStyles.fileIcon}
+        >
+            <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
+        </svg>
+    ) : entry.name.endsWith(".csv") ? (
+        <svg
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className={filesStyles.fileIcon}
+            data-type="csv"
+        >
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
+        </svg>
+    ) : (
+        <svg
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            className={filesStyles.fileIcon}
+        >
+            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
+        </svg>
+    );
+
+    return (
+        <div
+            className={filesStyles.fileItem}
+            style={{ paddingLeft: `${12 + level * 16}px` }}
+            data-selected={isSelected}
+            data-directory={entry.isDirectory}
+            data-expanded={entry.isDirectory ? isExpanded : undefined}
+            role="button"
+            tabIndex={0}
+            onClick={handleActivate}
+            onKeyDown={handleKeyDown}
+        >
+            {entry.isDirectory ? (
+                <span
+                    className={filesStyles.expandIcon}
+                    data-expanded={isExpanded}
+                    aria-hidden="true"
+                >
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" />
+                    </svg>
+                </span>
+            ) : (
+                <span className={filesStyles.expandSpacer} aria-hidden="true" />
+            )}
+            {icon}
+            <span className={filesStyles.fileName}>{entry.name}</span>
+        </div>
+    );
+});
+
+interface FileTreeContentProps {
+    items: VisibleTreeItem[];
+    selectedPath: string | null;
+    treeLoading: boolean;
+    treeError: string | null;
+    loadingText: string;
+    emptyText: string;
+    retryText: string;
+    retryDisabled: boolean;
+    onRetry: () => void;
+    onToggleDirectory: (path: string) => void;
+    onSelectFile: (file: FileEntry) => void;
+}
+
+const FileTreeContent = memo(function FileTreeContent({
+    items,
+    selectedPath,
+    treeLoading,
+    treeError,
+    loadingText,
+    emptyText,
+    retryText,
+    retryDisabled,
+    onRetry,
+    onToggleDirectory,
+    onSelectFile,
+}: FileTreeContentProps) {
+    if (treeLoading && items.length === 0) {
+        return (
+            <div className={filesStyles.loading}>
+                <StatusIndicator status="processing" label={loadingText} />
+            </div>
+        );
+    }
+    if (treeError && items.length === 0) {
+        return (
+            <div className={filesStyles.error}>
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 12,
+                    }}
+                >
+                    <StatusIndicator status="alarm" label={treeError} />
+                    <button
+                        className={filesStyles.refreshBtn}
+                        onClick={onRetry}
+                        disabled={retryDisabled}
+                    >
+                        {retryText}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+    if (items.length === 0) {
+        return (
+            <div className={filesStyles.empty}>
+                <StatusIndicator status="idle" label={emptyText} />
+            </div>
+        );
+    }
+
+    return (
+        <>
+            {items.map((item) => (
+                <FileTreeRow
+                    key={item.entry.path}
+                    item={item}
+                    selectedPath={selectedPath}
+                    onToggleDirectory={onToggleDirectory}
+                    onSelectFile={onSelectFile}
+                />
+            ))}
+        </>
+    );
+});
 
 export default function FilesView() {
     const { t } = useTranslation();
@@ -31,7 +354,9 @@ export default function FilesView() {
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [fileContent, setFileContent] = useState<string>("");
     const [csvData, setCsvData] = useState<CsvData | null>(null);
-    const [visibleCharts, setVisibleCharts] = useState<number>(DEFAULT_VISIBLE_CHARTS);
+    const [visibleCharts, setVisibleCharts] = useState<number>(
+        FILES_CONFIG.DEFAULT_VISIBLE_CHARTS,
+    );
     const [enabledColumns, setEnabledColumns] = useState<Set<number>>(new Set());
     const [treeLoading, setTreeLoading] = useState(false);
     const [previewLoading, setPreviewLoading] = useState(false);
@@ -45,27 +370,48 @@ export default function FilesView() {
     const [enlargedColumn, setEnlargedColumn] = useState<number | null>(null);
     const chartRefs = useRef<Map<number, HTMLDivElement>>(new Map());
     const uplotInstances = useRef<Map<number, uPlot>>(new Map());
+    const plotDataCacheRef = useRef<{
+        csvData: CsvData;
+        xData: number[];
+        yByCol: Map<number, number[]>;
+    } | null>(null);
+    const lastCsvDataRef = useRef<CsvData | null>(null);
     const enlargedChartRef = useRef<HTMLDivElement | null>(null);
     const enlargedUplotInstance = useRef<uPlot | null>(null);
     const enlargedFullXRange = useRef<{ min: number; max: number } | null>(null);
 
     // 获取日志目录路径（由后端提供，避免前端硬编码）
-    useEffect(() => {
-        const initPath = async () => {
-            if (!isTauri()) {
-                setTreeError("Not running in Tauri environment");
-                return;
-            }
-            try {
-                const logPath = await invoke<string>("get_log_dir");
-                setLogBasePath(logPath);
-            } catch (err) {
-                console.error("Failed to get Log directory:", err);
-                setTreeError(t("files.noLogFolder"));
-            }
-        };
-        initPath();
+    const loadLogBasePath = useCallback(async () => {
+        if (!isTauri()) {
+            setTreeError(t("files.unavailableInBrowser"));
+            setLogBasePath("");
+            setFileTree([]);
+            return;
+        }
+
+        try {
+            setTreeLoading(true);
+            setTreeError(null);
+            const logPath = await withTimeout(
+                invoke<string>("get_log_dir"),
+                FILE_TREE_TIMEOUT_MS,
+            );
+            setLogBasePath(logPath);
+        } catch (err) {
+            console.error("Failed to get Log directory:", err);
+            setLogBasePath("");
+            setFileTree([]);
+            setTreeError(
+                isTimeoutError(err) ? t("files.loadTimeout") : t("files.noLogFolder"),
+            );
+        } finally {
+            setTreeLoading(false);
+        }
     }, [t]);
+
+    useEffect(() => {
+        void loadLogBasePath();
+    }, [loadLogBasePath]);
 
     // 加载文件树（目录默认收起，点击展开/收起）
     const loadFileTree = useCallback(async () => {
@@ -75,7 +421,10 @@ export default function FilesView() {
             setTreeLoading(true);
             setTreeError(null);
 
-            const entries = await readDir(logBasePath);
+            const entries = await withTimeout(
+                readDir(logBasePath),
+                FILE_TREE_TIMEOUT_MS,
+            );
             const tree: FileEntry[] = [];
 
             for (const entry of entries) {
@@ -87,7 +436,10 @@ export default function FilesView() {
 
                 if (entry.isDirectory) {
                     try {
-                        const subEntries = await readDir(fileEntry.path);
+                        const subEntries = await withTimeout(
+                            readDir(fileEntry.path),
+                            FILE_TREE_TIMEOUT_MS,
+                        );
                         fileEntry.children = subEntries.map((sub) => ({
                             name: sub.name,
                             path: `${fileEntry.path}/${sub.name}`,
@@ -111,7 +463,7 @@ export default function FilesView() {
             setFileTree(tree);
         } catch (err) {
             console.error("Failed to load file tree:", err);
-            setTreeError(t("files.noLogFolder"));
+            setTreeError(isTimeoutError(err) ? t("files.loadTimeout") : t("files.noLogFolder"));
             setFileTree([]);
         } finally {
             setTreeLoading(false);
@@ -124,125 +476,62 @@ export default function FilesView() {
         }
     }, [logBasePath, loadFileTree]);
 
-    const formatHms = (seconds: number): string => {
-        const date = new Date(seconds * 1000);
-        const hh = String(date.getHours()).padStart(2, "0");
-        const mm = String(date.getMinutes()).padStart(2, "0");
-        const ss = String(date.getSeconds()).padStart(2, "0");
-        return `${hh}:${mm}:${ss}`;
-    };
-
-    const xAxisValues = (_u: uPlot, splits: number[]): string[] => {
-        return splits.map((value) => (Number.isFinite(value) ? formatHms(value) : ""));
-    };
-
-    const getXRange = (xData: number[]): { min: number; max: number } | null => {
-        let min = Number.POSITIVE_INFINITY;
-        let max = Number.NEGATIVE_INFINITY;
-        for (const value of xData) {
-            if (!Number.isFinite(value)) continue;
-            if (value < min) min = value;
-            if (value > max) max = value;
-        }
-        if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) return null;
-        return { min, max };
-    };
-
-    // 解析 CSV 内容：支持“时间列 + 多数值列”的通用数据日志格式
-    const parseCsv = (content: string): CsvData | null => {
-        const lines = content.trim().split(/\r?\n/);
-        if (lines.length < 2) return null;
-
-        const headers = lines[0].split(",").map((h) => h.trim());
-        const rows: number[][] = [];
-
-        const isPlainNumber = (value: string): boolean => {
-            return /^[-+]?(\d+(\.\d+)?|\.\d+)(e[-+]?\d+)?$/i.test(value);
-        };
-
-        const parseDateTimeToSeconds = (value: string): number | null => {
-            // 支持：YYYY-MM-DD HH:mm:ss(.SSS) / YYYY-MM-DDTHH:mm:ss(.SSS) / YYYY/MM/DD HH:mm:ss(.SSS)
-            const match = value.match(
-                /^(\d{4})[-/](\d{2})[-/](\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/
-            );
-            if (!match) return null;
-            const year = Number(match[1]);
-            const month = Number(match[2]);
-            const day = Number(match[3]);
-            const hours = Number(match[4]);
-            const minutes = Number(match[5]);
-            const seconds = Number(match[6]);
-            const millis = match[7] ? Number(match[7].padEnd(3, "0")) : 0;
-            const date = new Date(year, month - 1, day, hours, minutes, seconds, millis);
-            const time = date.getTime();
-            if (!Number.isFinite(time)) return null;
-            return time / 1000;
-        };
-
-        for (let i = 1; i < lines.length; i++) {
-            const values = lines[i].split(",").map((v) => {
-                const trimmed = v.trim();
-                // 仅当字段为“纯数字”时才按数值解析，避免把时间戳（如 2024-12-17 08:00:00）误解析成 2024
-                if (isPlainNumber(trimmed)) return parseFloat(trimmed);
-                // 优先按固定格式解析，避免不同 WebView 的 Date 解析差异
-                const parsedFixed = parseDateTimeToSeconds(trimmed);
-                if (parsedFixed !== null) return parsedFixed;
-                // 兜底：尝试按日期时间解析
-                const date = new Date(trimmed);
-                if (!isNaN(date.getTime())) return date.getTime() / 1000;
-                return NaN;
-            });
-
-            // 仅保留包含有效数值的行，避免空行/无效行污染曲线
-            if (values.some((v) => !isNaN(v))) {
-                rows.push(values);
-            }
-        }
-
-        return { headers, rows };
-    };
-
     // 加载选中文件内容；CSV 将自动解析并渲染多图表预览
-    const handleFileSelect = async (file: FileEntry) => {
-        if (file.isDirectory) return;
+    const handleFileSelect = useCallback(
+        async (file: FileEntry) => {
+            if (file.isDirectory) return;
 
-        setSelectedFile(file.path);
-        setFileContent("");
-        setCsvData(null);
-        setPreviewLoading(true);
-        setPreviewError(null);
+            setSelectedFile(file.path);
+            setFileContent("");
+            setCsvData(null);
+            setPreviewLoading(true);
+            setPreviewError(null);
 
-        try {
-            const content = await readTextFile(file.path);
-            setFileContent(content);
+            try {
+                const content = await readTextFile(file.path);
+                setFileContent(content);
 
-            if (file.name.toLowerCase().endsWith(".csv")) {
-                const parsed = parseCsv(content);
-                if (parsed) {
-                    setCsvData(parsed);
-                    // 初始化显示列：默认启用前 4 个数据列
-                    const dataColumns = parsed.headers.length - 1;
-                    const initialEnabled = new Set<number>();
-                    for (let i = 1; i <= Math.min(DEFAULT_VISIBLE_CHARTS, dataColumns); i++) {
-                        initialEnabled.add(i);
+                if (file.name.toLowerCase().endsWith(".csv")) {
+                    const parsed = parseCsv(content);
+                    if (parsed) {
+                        setCsvData(parsed);
+                        // 初始化显示列：默认启用前 N 个数据列（由常量配置）
+                        const dataColumns = parsed.headers.length - 1;
+                        const initialEnabled = new Set<number>();
+                        for (
+                            let i = 1;
+                            i <=
+                            Math.min(FILES_CONFIG.DEFAULT_VISIBLE_CHARTS, dataColumns);
+                            i++
+                        ) {
+                            initialEnabled.add(i);
+                        }
+                        setEnabledColumns(initialEnabled);
+                        setVisibleCharts(
+                            Math.min(
+                                FILES_CONFIG.DEFAULT_VISIBLE_CHARTS,
+                                dataColumns,
+                            ),
+                        );
                     }
-                    setEnabledColumns(initialEnabled);
-                    setVisibleCharts(Math.min(DEFAULT_VISIBLE_CHARTS, dataColumns));
                 }
+            } catch (err) {
+                console.error("Failed to read file:", err);
+                setPreviewError(t("files.readError"));
+            } finally {
+                setPreviewLoading(false);
             }
-        } catch (err) {
-            console.error("Failed to read file:", err);
-            setPreviewError(t("files.readError"));
-        } finally {
-            setPreviewLoading(false);
-        }
-    };
+        },
+        [t],
+    );
 
     // 组件卸载时清理 uPlot 实例，释放事件监听与 Canvas 资源
     useEffect(() => {
         return () => {
             uplotInstances.current.forEach((instance) => instance.destroy());
             uplotInstances.current.clear();
+            plotDataCacheRef.current = null;
+            lastCsvDataRef.current = null;
         };
     }, []);
 
@@ -252,71 +541,117 @@ export default function FilesView() {
             // CSV 被清空时销毁图表
             uplotInstances.current.forEach((instance) => instance.destroy());
             uplotInstances.current.clear();
+            plotDataCacheRef.current = null;
+            lastCsvDataRef.current = null;
             return;
         }
 
-        // 每次重新渲染前都清理旧实例，避免重复挂载导致事件与 DOM 堆积
-        uplotInstances.current.forEach((instance) => instance.destroy());
-        uplotInstances.current.clear();
+        // 视图缓存 + keepMounted 场景下，后台视图不做图表创建/更新，避免无意义开销
+        if (!isViewActive || activeTab !== "overview") return;
 
-        // X 轴：默认取第一列为时间
-        const xData = csvData.rows.map((row) => row[0]);
+        const raf = requestAnimationFrame(() => {
+            const existingCache = plotDataCacheRef.current;
 
-        // 等待容器完成布局后再创建图表，否则 clientWidth 可能为 0
-        requestAnimationFrame(() => {
-            // 每个启用列渲染一张图
-            enabledColumns.forEach((colIndex) => {
-                const container = chartRefs.current.get(colIndex);
-                if (!container || colIndex >= csvData.headers.length) return;
+            // 先销毁已禁用列的实例，避免实例长期堆积
+            for (const [colIndex, instance] of Array.from(
+                uplotInstances.current.entries(),
+            )) {
+                if (!enabledColumns.has(colIndex)) {
+                    instance.destroy();
+                    uplotInstances.current.delete(colIndex);
+                    if (existingCache && existingCache.csvData === csvData) {
+                        existingCache.yByCol.delete(colIndex);
+                    }
+                }
+            }
 
-                const yData = csvData.rows.map((row) => row[colIndex]);
-                const data: uPlot.AlignedData = [xData, yData];
-
-                const chartHeight = 200;
-                const chartWidth = container.clientWidth || 400;
-
-                const opts: uPlot.Options = {
-                    width: chartWidth,
-                    height: chartHeight,
-                    scales: {
-                        x: { time: true },
-                        y: { auto: true },
-                    },
-                    series: [
-                        {},
-                        {
-                            label: csvData.headers[colIndex],
-                            stroke: getSeriesColor(colIndex),
-                            width: 2,
-                            fill: getSeriesFill(colIndex),
-                        },
-                    ],
-                    axes: [
-                        {
-                            stroke: "rgba(180, 200, 230, 0.9)",
-                            grid: { stroke: "rgba(100, 150, 200, 0.2)" },
-                            ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
-                            size: 30,
-                            values: xAxisValues,
-                        },
-                        {
-                            stroke: "rgba(180, 200, 230, 0.9)",
-                            grid: { stroke: "rgba(100, 150, 200, 0.2)" },
-                            ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
-                            size: 50,
-                        },
-                    ],
-                    cursor: {
-                        // 小图模式禁用拖拽交互（避免误操作 & 与滚动冲突）
-                        drag: { x: false, y: false },
-                    },
+            // 构建/复用数据缓存：xData 只需要计算一次；yData 按列懒加载
+            let cache = plotDataCacheRef.current;
+            if (!cache || cache.csvData !== csvData) {
+                cache = {
+                    csvData,
+                    xData: csvData.rows.map((row) => row[0]),
+                    yByCol: new Map<number, number[]>(),
                 };
+                plotDataCacheRef.current = cache;
+            }
 
-                const chart = new uPlot(opts, data, container);
-                uplotInstances.current.set(colIndex, chart);
-            });
+            const csvChanged = lastCsvDataRef.current !== csvData;
+
+            for (const colIndex of enabledColumns) {
+                if (colIndex >= csvData.headers.length) continue;
+
+                const container = chartRefs.current.get(colIndex);
+                if (!container) continue;
+
+                const width = container.clientWidth;
+                if (width <= 0) continue;
+
+                const height = 200;
+
+                let yData = cache.yByCol.get(colIndex);
+                if (!yData) {
+                    yData = csvData.rows.map((row) => row[colIndex]);
+                    cache.yByCol.set(colIndex, yData);
+                }
+
+                const data: uPlot.AlignedData = [cache.xData, yData];
+
+                const existing = uplotInstances.current.get(colIndex);
+                if (!existing) {
+                    const opts: uPlot.Options = {
+                        width,
+                        height,
+                        scales: {
+                            x: { time: true },
+                            y: { auto: true },
+                        },
+                        series: [
+                            {},
+                            {
+                                label: csvData.headers[colIndex],
+                                stroke: getSeriesColor(colIndex),
+                                width: 2,
+                                fill: getSeriesFill(colIndex),
+                            },
+                        ],
+                        axes: [
+                            {
+                                stroke: "rgba(180, 200, 230, 0.9)",
+                                grid: { stroke: "rgba(100, 150, 200, 0.2)" },
+                                ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
+                                size: 30,
+                                values: xAxisValues,
+                            },
+                            {
+                                stroke: "rgba(180, 200, 230, 0.9)",
+                                grid: { stroke: "rgba(100, 150, 200, 0.2)" },
+                                ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
+                                size: 50,
+                            },
+                        ],
+                        cursor: {
+                            // 小图模式禁用拖拽交互（避免误操作 & 与滚动冲突）
+                            drag: { x: false, y: false },
+                        },
+                    };
+
+                    const chart = new uPlot(opts, data, container);
+                    uplotInstances.current.set(colIndex, chart);
+                } else {
+                    existing.setSize({ width, height });
+                    if (csvChanged) {
+                        existing.setData(data);
+                        existing.series[1].label = csvData.headers[colIndex];
+                    }
+                }
+            }
+
+            lastCsvDataRef.current = csvData;
         });
-    }, [csvData, enabledColumns]);
+
+        return () => cancelAnimationFrame(raf);
+    }, [activeTab, csvData, enabledColumns, isViewActive]);
 
     // 放大图表：点击小图打开弹窗，并支持“拖拽选择区域缩放”
     useEffect(() => {
@@ -462,35 +797,7 @@ export default function FilesView() {
         return () => cancelAnimationFrame(raf);
     }, [activeTab, isViewActive, resizeCharts]);
 
-    const getSeriesColor = (index: number): string => {
-        const colors = [
-            "#00d4ff",
-            "#ff6b6b",
-            "#00ff88",
-            "#ffaa00",
-            "#aa66ff",
-            "#ff66aa",
-            "#66ffaa",
-            "#ff8800",
-        ];
-        return colors[(index - 1) % colors.length];
-    };
-
-    const getSeriesFill = (index: number): string => {
-        const colors: Record<string, string> = {
-            "#00d4ff": "rgba(0, 212, 255, 0.1)",
-            "#ff6b6b": "rgba(255, 107, 107, 0.1)",
-            "#00ff88": "rgba(0, 255, 136, 0.1)",
-            "#ffaa00": "rgba(255, 170, 0, 0.1)",
-            "#aa66ff": "rgba(170, 102, 255, 0.1)",
-            "#ff66aa": "rgba(255, 102, 170, 0.1)",
-            "#66ffaa": "rgba(102, 255, 170, 0.1)",
-            "#ff8800": "rgba(255, 136, 0, 0.1)",
-        };
-        return colors[getSeriesColor(index)] || "rgba(0, 212, 255, 0.1)";
-    };
-
-    const toggleColumn = (colIndex: number) => {
+    const toggleColumn = useCallback((colIndex: number) => {
         setEnabledColumns((prev) => {
             const next = new Set(prev);
             if (next.has(colIndex)) {
@@ -500,7 +807,7 @@ export default function FilesView() {
             }
             return next;
         });
-    };
+    }, []);
 
     const showMoreCharts = () => {
         if (csvData) {
@@ -516,10 +823,18 @@ export default function FilesView() {
     };
 
     const showLessCharts = () => {
-        setVisibleCharts(DEFAULT_VISIBLE_CHARTS);
+        setVisibleCharts(FILES_CONFIG.DEFAULT_VISIBLE_CHARTS);
         if (csvData) {
             const initialEnabled = new Set<number>();
-            for (let i = 1; i <= Math.min(DEFAULT_VISIBLE_CHARTS, csvData.headers.length - 1); i++) {
+            for (
+                let i = 1;
+                i <=
+                Math.min(
+                    FILES_CONFIG.DEFAULT_VISIBLE_CHARTS,
+                    csvData.headers.length - 1,
+                );
+                i++
+            ) {
                 initialEnabled.add(i);
             }
             setEnabledColumns(initialEnabled);
@@ -527,90 +842,57 @@ export default function FilesView() {
     };
 
     const isCsvFile = selectedFile?.toLowerCase().endsWith(".csv");
-    const hasMoreCharts = csvData && csvData.headers.length - 1 > DEFAULT_VISIBLE_CHARTS;
+    const hasMoreCharts =
+        csvData && csvData.headers.length - 1 > FILES_CONFIG.DEFAULT_VISIBLE_CHARTS;
+    const sortedEnabledColumns = useMemo(
+        () => Array.from(enabledColumns).sort((a, b) => a - b),
+        [enabledColumns],
+    );
 
-    const toggleDirectory = (path: string) => {
+    const toggleDirectory = useCallback((path: string) => {
         setExpandedDirectories((prev) => {
             const next = new Set(prev);
             if (next.has(path)) next.delete(path);
             else next.add(path);
             return next;
         });
-    };
+    }, []);
 
-    // 渲染文件树节点（支持键盘 Enter/Space 操作）
-    const renderFileItem = (file: FileEntry, level: number = 0) => {
-        const isSelected = selectedFile === file.path;
-        const isExpanded = file.isDirectory && expandedDirectories.has(file.path);
-        const icon = file.isDirectory ? (
-            <svg viewBox="0 0 24 24" fill="currentColor" className={filesStyles.fileIcon}>
-                <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" />
-            </svg>
-        ) : file.name.endsWith(".csv") ? (
-            <svg viewBox="0 0 24 24" fill="currentColor" className={filesStyles.fileIcon} data-type="csv">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z" />
-            </svg>
-        ) : (
-            <svg viewBox="0 0 24 24" fill="currentColor" className={filesStyles.fileIcon}>
-                <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
-            </svg>
-        );
+    const visibleTreeItems = useMemo<VisibleTreeItem[]>(() => {
+        const items: VisibleTreeItem[] = [];
 
-        return (
-            <div key={file.path}>
-                <div
-                    className={filesStyles.fileItem}
-                    style={{ paddingLeft: `${12 + level * 16}px` }}
-                    data-selected={isSelected}
-                    data-directory={file.isDirectory}
-                    data-expanded={file.isDirectory ? isExpanded : undefined}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() =>
-                        file.isDirectory
-                            ? toggleDirectory(file.path)
-                            : handleFileSelect(file)
-                    }
-                    onKeyDown={(e) => {
-                        if (e.key !== "Enter" && e.key !== " ") return;
-                        e.preventDefault();
-                        if (file.isDirectory) toggleDirectory(file.path);
-                        else handleFileSelect(file);
-                    }}
-                >
-                    {file.isDirectory ? (
-                        <span
-                            className={filesStyles.expandIcon}
-                            data-expanded={isExpanded}
-                            aria-hidden="true"
-                        >
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="currentColor"
-                            >
-                                <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" />
-                            </svg>
-                        </span>
-                    ) : (
-                        <span className={filesStyles.expandSpacer} aria-hidden="true" />
-                    )}
-                    {icon}
-                    <span className={filesStyles.fileName}>{file.name}</span>
-                </div>
-                {file.isDirectory &&
-                    isExpanded &&
-                    file.children?.map((child) =>
-                        renderFileItem(child, level + 1),
-                    )}
-            </div>
-        );
-    };
+        const walk = (entry: FileEntry, level: number) => {
+            const isExpanded =
+                entry.isDirectory && expandedDirectories.has(entry.path);
+            items.push({ entry, level, isExpanded });
+
+            if (entry.isDirectory && isExpanded && entry.children?.length) {
+                for (const child of entry.children) {
+                    walk(child, level + 1);
+                }
+            }
+        };
+
+        for (const entry of fileTree) {
+            walk(entry, 0);
+        }
+
+        return items;
+    }, [expandedDirectories, fileTree]);
+
+    const handleRetryTree = useCallback(() => {
+        if (!logBasePath) {
+            void loadLogBasePath();
+            return;
+        }
+        void loadFileTree();
+    }, [loadFileTree, loadLogBasePath, logBasePath]);
 
     return (
         <div className={styles.view}>
             <div className={styles.header}>
                 <h2 className={styles.title}>{t("nav.files")}</h2>
-                <button className={filesStyles.refreshBtn} onClick={loadFileTree} disabled={treeLoading}>
+                <button className={filesStyles.refreshBtn} onClick={handleRetryTree} disabled={treeLoading}>
                     <svg viewBox="0 0 24 24" fill="currentColor">
                         <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
                     </svg>
@@ -635,23 +917,19 @@ export default function FilesView() {
                                             </span>
                                         </div>
                                         <div className={filesStyles.treeContent}>
-                                            {treeLoading && !fileTree.length ? (
-                                                <div className={filesStyles.loading}>
-                                                    {t("files.loading")}
-                                                </div>
-                                            ) : treeError && !fileTree.length ? (
-                                                <div className={filesStyles.error}>
-                                                    {treeError}
-                                                </div>
-                                            ) : fileTree.length === 0 ? (
-                                                <div className={filesStyles.empty}>
-                                                    {t("files.empty")}
-                                                </div>
-                                            ) : (
-                                                fileTree.map((file) =>
-                                                    renderFileItem(file),
-                                                )
-                                            )}
+                                            <FileTreeContent
+                                                items={visibleTreeItems}
+                                                selectedPath={selectedFile}
+                                                treeLoading={treeLoading}
+                                                treeError={treeError}
+                                                loadingText={t("files.loading")}
+                                                emptyText={t("files.empty")}
+                                                retryText={t("common.retry")}
+                                                retryDisabled={treeLoading}
+                                                onRetry={handleRetryTree}
+                                                onToggleDirectory={toggleDirectory}
+                                                onSelectFile={handleFileSelect}
+                                            />
                                         </div>
                                     </div>
 
@@ -664,17 +942,24 @@ export default function FilesView() {
                                                 >
                                                     <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z" />
                                                 </svg>
-                                                <span>
-                                                    {t("files.selectFile")}
-                                                </span>
+                                                <StatusIndicator
+                                                    status="idle"
+                                                    label={t("files.selectFile")}
+                                                />
                                             </div>
                                         ) : previewLoading ? (
                                             <div className={filesStyles.loading}>
-                                                {t("files.loading")}
+                                                <StatusIndicator
+                                                    status="processing"
+                                                    label={t("files.loading")}
+                                                />
                                             </div>
                                         ) : previewError ? (
                                             <div className={filesStyles.error}>
-                                                {previewError}
+                                                <StatusIndicator
+                                                    status="alarm"
+                                                    label={previewError}
+                                                />
                                             </div>
                                         ) : isCsvFile && csvData ? (
                                             <div className={filesStyles.csvPreview}>
@@ -730,26 +1015,25 @@ export default function FilesView() {
                                                             className={filesStyles.moreBtn}
                                                             onClick={
                                                                 visibleCharts >
-                                                                DEFAULT_VISIBLE_CHARTS
+                                                                FILES_CONFIG.DEFAULT_VISIBLE_CHARTS
                                                                     ? showLessCharts
                                                                     : showMoreCharts
                                                             }
                                                         >
                                                             {visibleCharts >
-                                                            DEFAULT_VISIBLE_CHARTS
+                                                            FILES_CONFIG.DEFAULT_VISIBLE_CHARTS
                                                                 ? t("files.showLess")
                                                                 : t("files.showMore", {
                                                                       count: csvData.headers.length -
                                                                           1 -
-                                                                          DEFAULT_VISIBLE_CHARTS,
+                                                                          FILES_CONFIG.DEFAULT_VISIBLE_CHARTS,
                                                                   })}
                                                         </button>
                                                     )}
                                                 </div>
                                                 <div className={filesStyles.chartsContainer}>
-                                                    {Array.from(enabledColumns)
-                                                        .sort((a, b) => a - b)
-                                                        .map((colIndex) => (
+                                                    {sortedEnabledColumns.map(
+                                                        (colIndex) => (
                                                             <div
                                                                 key={colIndex}
                                                                 className={filesStyles.chartWrapper}
@@ -790,7 +1074,8 @@ export default function FilesView() {
                                                                     className={filesStyles.chart}
                                                                 />
                                                             </div>
-                                                        ))}
+                                                        ),
+                                                    )}
                                                 </div>
                                             </div>
                                         ) : (
@@ -830,13 +1115,13 @@ export default function FilesView() {
                                                         className={filesStyles.chartModalBtn}
                                                         onClick={resetEnlargedZoom}
                                                     >
-                                                        重置
+                                                        {t("common.reset")}
                                                     </button>
                                                     <button
                                                         className={filesStyles.chartModalBtn}
                                                         onClick={closeEnlargedChart}
                                                     >
-                                                        关闭
+                                                        {t("common.close")}
                                                     </button>
                                                 </div>
                                             </div>
@@ -845,7 +1130,7 @@ export default function FilesView() {
                                                 className={filesStyles.chartModalBody}
                                             />
                                             <div className={filesStyles.chartModalHint}>
-                                                拖拽横向选择区域可缩放（小图模式已禁用拖拽）
+                                                {t("files.chart.zoomHint")}
                                             </div>
                                         </div>
                                     </div>
@@ -864,10 +1149,10 @@ export default function FilesView() {
                                 <ul className={filesStyles.filesInfoList}>
                                     <li>{t("files.selectFile")}</li>
                                     <li>
-                                        点击任意图表可放大；放大后可拖拽横向选择区域缩放。
+                                        {t("files.info.zoomTip")}
                                     </li>
                                     <li>
-                                        点击“刷新”只会更新文件列表，不会清空当前预览状态。
+                                        {t("files.info.refreshTip")}
                                     </li>
                                 </ul>
                             </div>

@@ -127,7 +127,7 @@
 
 .commStatus[data-connected="false"] {
     border-color: var(--color-alarm);
-    animation: pulse-alarm 2s ease-in-out infinite;
+    box-shadow: 0 0 15px var(--color-alarm-glow);
 }
 
 .commIcon {
@@ -174,25 +174,12 @@
     border-radius: 50%;
     background-color: var(--color-alarm);
     box-shadow: 0 0 8px var(--color-alarm-glow);
-    animation: pulse 1.5s infinite;
     transition: all var(--transition-fast);
 }
 
 .commIndicator[data-connected="true"] {
     background-color: var(--color-attention);
     box-shadow: 0 0 8px var(--color-attention-glow);
-    animation: none;
-}
-
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-    50% {
-        opacity: 0.5;
-        transform: scale(0.9);
-    }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -258,7 +245,7 @@
     font-weight: var(--font-weight-bold);
     font-size: var(--font-size-normal);
     letter-spacing: 0.5px;
-    animation: pulse-alarm 1.5s ease-in-out infinite;
+    box-shadow: 0 0 15px var(--color-alarm-glow);
     cursor: pointer;
     transition: transform var(--transition-fast);
 }
@@ -271,7 +258,7 @@
     background: rgba(255, 193, 7, 0.12);
     border-color: var(--color-warning);
     color: var(--color-warning);
-    animation: pulse-warning 2s ease-in-out infinite;
+    box-shadow: 0 0 15px var(--color-warning-glow);
 }
 
 .alarmBadge svg {
@@ -387,7 +374,7 @@
     background: rgba(255, 59, 59, 0.12);
     border-color: var(--color-alarm);
     color: var(--color-alarm);
-    animation: alarmBlink 0.8s infinite;
+    box-shadow: 0 0 10px var(--color-alarm-glow);
 }
 
 .messageArea[data-severity="warning"] {
@@ -400,17 +387,6 @@
     background: rgba(14, 165, 233, 0.1);
     border-color: var(--color-processing);
     color: var(--color-processing);
-}
-
-@keyframes alarmBlink {
-    0%, 100% {
-        opacity: 1;
-        background: rgba(255, 59, 59, 0.15);
-    }
-    50% {
-        opacity: 0.85;
-        background: rgba(255, 59, 59, 0.08);
-    }
 }
 
 .messageIcon {
@@ -452,7 +428,7 @@
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    animation: fade-in 0.2s ease-out;
+    animation: fade-in var(--transition-fast);
 }
 
 .loginModal {
@@ -468,7 +444,7 @@
     box-shadow:
         var(--shadow-xl),
         0 0 40px rgba(14, 165, 233, 0.15);
-    animation: scale-in 0.25s ease-out;
+    animation: scale-in var(--transition-fast);
     position: relative;
     overflow: hidden;
 }
@@ -652,50 +628,4 @@
     width: 20px;
     height: 20px;
     filter: drop-shadow(0 0 3px var(--color-processing-glow));
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   Animation Keyframes
-   ───────────────────────────────────────────────────────────────────────── */
-
-@keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes scale-in {
-    from {
-        opacity: 0;
-        transform: scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-@keyframes pulse-alarm {
-    0%, 100% {
-        box-shadow:
-            0 0 0 2px var(--color-alarm),
-            0 0 15px var(--color-alarm-glow);
-    }
-    50% {
-        box-shadow:
-            0 0 0 3px var(--color-alarm),
-            0 0 25px var(--color-alarm-glow);
-    }
-}
-
-@keyframes pulse-warning {
-    0%, 100% {
-        box-shadow:
-            0 0 0 2px var(--color-warning),
-            0 0 12px var(--color-warning-glow);
-    }
-    50% {
-        box-shadow:
-            0 0 0 2px var(--color-warning),
-            0 0 20px var(--color-warning-glow);
-    }
 }

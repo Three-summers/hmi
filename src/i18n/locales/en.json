@@ -17,6 +17,13 @@
         "resume": "Resume",
         "reset": "Reset",
         "theme": "Theme",
+        "clear": "Clear",
+        "retry": "Retry",
+        "loading": "Loading...",
+        "languages": {
+            "zh": "中文",
+            "en": "English"
+        },
         "tabs": {
             "overview": "Overview",
             "details": "Details",
@@ -50,6 +57,20 @@
             "disconnected": "Disconnected",
             "local": "Local",
             "remote": "Remote"
+        },
+        "commType": {
+            "serialTcp": "Serial + TCP",
+            "serial": "Serial",
+            "tcp": "TCP"
+        },
+        "roles": {
+            "operator": "Operator",
+            "engineer": "Engineer",
+            "admin": "Admin"
+        },
+        "errors": {
+            "fullscreenFailed": "Failed to toggle fullscreen",
+            "closeFailed": "Failed to close window"
         }
     },
     "dialog": {
@@ -73,17 +94,62 @@
         "tabs": {
             "active": "Active",
             "history": "History"
-        }
+        },
+        "section": {
+            "active": "Active ({{count}})",
+            "history": "History ({{count}})"
+        },
+        "actions": {
+            "ack": "ACK"
+        },
+        "acknowledged": "Acknowledged"
     },
     "system": {
         "title": "System Status",
         "overview": "Overview",
         "subsystems": "Subsystems",
+        "labels": {
+            "uptime": "Uptime"
+        },
+        "subsystemsOnlineCount": "{{online}}/{{total}} Online",
+        "resources": {
+            "cpu": "CPU",
+            "memory": "Memory",
+            "disk": "Disk",
+            "temperature": "Temp"
+        },
+        "subsystemStatus": {
+            "online": "ONLINE",
+            "offline": "OFFLINE",
+            "warning": "WARNING",
+            "error": "ERROR"
+        },
+        "subsystemsDemo": {
+            "chamber": "Chamber",
+            "vacuum": "Vacuum",
+            "rf": "RF",
+            "gas": "Gas",
+            "exhaust": "Exhaust",
+            "cooling": "Cooling",
+            "loader": "Loader",
+            "plc": "PLC"
+        },
+        "subsystemValues": {
+            "ready": "Ready",
+            "active": "Active",
+            "home": "Home",
+            "run": "Run"
+        },
         "status": "Status",
         "running": "Running",
         "stopped": "Stopped",
         "idle": "Idle",
         "error": "Error",
+        "loading": "Loading...",
+        "uptimeFormat": "{{days}}d {{hours}}h {{mins}}m",
+        "errors": {
+            "loadFailed": "Failed to load system info"
+        },
         "emergencyStop": "Emergency Stop",
         "emergencyStopConfirm": "This will immediately halt all operations. Continue?"
     },
@@ -96,6 +162,23 @@
         "noJobs": "No Jobs",
         "selectJob": "Select a job to view details",
         "total": "Total",
+        "running": "Running",
+        "completed": "Completed",
+        "errors": "Errors",
+        "fields": {
+            "recipe": "Recipe",
+            "progress": "Progress",
+            "wafers": "Wafers",
+            "start": "Start",
+            "eta": "ETA"
+        },
+        "status": {
+            "idle": "Idle",
+            "running": "Running",
+            "completed": "Completed",
+            "error": "Error",
+            "paused": "Paused"
+        },
         "stopConfirm": "Are you sure you want to stop the current job?"
     },
     "recipes": {
@@ -106,7 +189,25 @@
         "loadRecipe": "Load Recipe",
         "recipeList": "Recipe List",
         "noRecipes": "No Recipes",
-        "deleteConfirm": "Are you sure you want to delete this recipe?"
+        "deleteConfirm": "Are you sure you want to delete this recipe?",
+        "listTitle": "Recipes ({{count}})",
+        "meta": "v{{version}} • {{steps}} steps",
+        "selectRecipe": "Select a recipe to view details",
+        "fields": {
+            "version": "Version",
+            "steps": "Steps",
+            "duration": "Duration",
+            "modified": "Modified"
+        },
+        "steps": {
+            "title": "Process steps",
+            "empty": "No steps defined"
+        },
+        "status": {
+            "active": "ACTIVE",
+            "draft": "DRAFT",
+            "archived": "ARCHIVED"
+        }
     },
     "setup": {
         "title": "System Setup",
@@ -137,7 +238,12 @@
         "selectPort": "Select port...",
         "invalidPort": "Invalid port number",
         "resetSettings": "Reset Settings",
-        "resetConfirm": "Reset all settings to defaults?"
+        "resetConfirm": "Reset all settings to defaults?",
+        "errors": {
+            "loadSerialPorts": "Failed to load serial ports",
+            "serialOperationFailed": "Serial operation failed",
+            "tcpOperationFailed": "TCP operation failed"
+        }
     },
     "help": {
         "title": "Help",
@@ -151,6 +257,114 @@
             "semi": "SEMI E95",
             "faq": "FAQ",
             "support": "Support"
+        },
+        "aboutInfo": {
+            "applicationLabel": "Application",
+            "applicationValue": "Industrial HMI",
+            "frameworkLabel": "Framework",
+            "frameworkValue": "Tauri 2.x + React 18",
+            "standardLabel": "Standard",
+            "standardValue": "SEMI E95-1101",
+            "platformLabel": "Platform",
+            "platformValue": "Raspberry Pi CM5",
+            "displayLabel": "Display",
+            "displayValue": "1280x800 Touch",
+            "description": "This Human-Machine Interface (HMI) application is designed for industrial semiconductor equipment control, following the SEMI E95 specification for standardized user interfaces. It provides real-time monitoring, process control, alarm management, and recipe execution capabilities."
+        },
+        "colors": {
+            "title": "SEMI E95 Color Legend",
+            "description": "Colors follow the SEMI E95 specification for consistent visual feedback across all semiconductor equipment interfaces.",
+            "items": {
+                "alarm": {
+                    "name": "Alarm (Red)",
+                    "desc": "Critical fault, immediate attention required"
+                },
+                "warning": {
+                    "name": "Warning (Yellow)",
+                    "desc": "Caution state, monitoring recommended"
+                },
+                "processing": {
+                    "name": "Processing (Blue)",
+                    "desc": "Active operation in progress"
+                },
+                "attention": {
+                    "name": "Attention (Green)",
+                    "desc": "Normal operation, ready state"
+                }
+            }
+        },
+        "shortcuts": {
+            "title": "Keyboard Shortcuts",
+            "actions": {
+                "emergencyStop": "Emergency Stop",
+                "acknowledgeAlarms": "Acknowledge Alarms",
+                "startProcess": "Start Process",
+                "stopProcess": "Stop Process",
+                "navigateViews": "Navigate Views",
+                "toggleFullscreen": "Toggle Fullscreen"
+            }
+        },
+        "semi": {
+            "title": "SEMI E95 Specification",
+            "description": "SEMI E95-1101 defines the standard for Human Interface for Semiconductor Manufacturing Equipment, ensuring consistent user experience across different equipment manufacturers.",
+            "cards": {
+                "layout": {
+                    "title": "Layout",
+                    "value": "4-panel architecture: Title, Navigation, Main, Command"
+                },
+                "buttonSize": {
+                    "title": "Button Size",
+                    "value": "Minimum 70px (1.5cm) for touch targets"
+                },
+                "fontSize": {
+                    "title": "Font Size",
+                    "value": "Minimum 12px for readability"
+                },
+                "colorCoding": {
+                    "title": "Color Coding",
+                    "value": "Standardized status colors (RYGB)"
+                },
+                "alarmManagement": {
+                    "title": "Alarm Management",
+                    "value": "Visual and audible alerts with acknowledgment"
+                },
+                "userLevels": {
+                    "title": "User Levels",
+                    "value": "Operator, Engineer, Admin access control"
+                }
+            }
+        },
+        "faq": {
+            "title": "Frequently Asked Questions",
+            "items": {
+                "connect": {
+                    "question": "How do I connect to the equipment?",
+                    "answer": "Navigate to the Setup view and configure either Serial or TCP connection settings. Select the appropriate port and baud rate for serial, or enter the IP address and port for TCP connections."
+                },
+                "colors": {
+                    "question": "What do the different alarm colors mean?",
+                    "answer": "Red indicates critical alarms requiring immediate attention. Yellow shows warnings that should be monitored. Blue represents active processing states, and green indicates normal operation."
+                },
+                "recipe": {
+                    "question": "How do I run a recipe?",
+                    "answer": "Go to the Recipes view and select a recipe from the list. Review the process steps and parameters, then use the command panel to load and start the recipe execution."
+                },
+                "language": {
+                    "question": "How do I change the language?",
+                    "answer": "Navigate to the Setup view and select your preferred language from the Language section. The interface will update immediately to the selected language."
+                }
+            }
+        },
+        "support": {
+            "title": "Technical Support",
+            "needHelpTitle": "Need Help?",
+            "needHelpDesc": "For technical support, please contact your equipment administrator or refer to the equipment documentation.",
+            "info": {
+                "documentationLabel": "Documentation",
+                "documentationValue": "Equipment Manual",
+                "logFilesLabel": "Log Files",
+                "configFilesLabel": "Config Files"
+            }
         }
     },
     "monitor": {
@@ -158,16 +372,67 @@
         "temperature": "Temperature",
         "pressure": "Pressure",
         "humidity": "Humidity",
-        "exportData": "Export Data"
+        "exportData": "Export Data",
+        "spectrum": {
+            "title": "Spectrum"
+        },
+        "displayMode": {
+            "fill": "Fill",
+            "bars": "Bars",
+            "line": "Line"
+        },
+        "stats": {
+            "peakFrequency": "Peak frequency",
+            "centerFrequencyAnalysis": "Center frequency analysis",
+            "peakAmplitude": "Peak amplitude",
+            "signalStrength": "Signal strength",
+            "bandwidth": "Bandwidth",
+            "averageAmplitude": "Avg amplitude: {{value}} dB"
+        },
+        "badges": {
+            "peak": "Peak",
+            "high": "High",
+            "normal": "Normal",
+            "bandwidth": "Bandwidth"
+        },
+        "canvas": {
+            "waiting": "Waiting for data...",
+            "axisFrequency": "Frequency (kHz)",
+            "axisAmplitude": "Amplitude (dB)"
+        },
+        "legend": {
+            "spectrumAmplitude": "Spectrum amplitude",
+            "peakMarker": "Peak marker",
+            "noiseFloor": "Noise floor"
+        },
+        "info": {
+            "autoPause": "Auto-pause when view is not active",
+            "displayModeTip": "Switch display mode: fill/bars/line",
+            "browserModeTip": "Live data is unavailable in browser mode. Run in Tauri."
+        },
+        "status": {
+            "loading": "Loading...",
+            "error": "Failed to load data",
+            "unavailable": "Unavailable"
+        }
     },
     "files": {
         "title": "File Browser",
         "logFolder": "Log Folder",
         "noLogFolder": "Log folder does not exist or is not accessible",
+        "unavailableInBrowser": "Unavailable in browser mode (run in Tauri)",
+        "loadTimeout": "Load timed out. Please retry.",
         "loading": "Loading...",
         "empty": "Folder is empty",
         "selectFile": "Select a file to preview",
         "readError": "Failed to read file",
+        "chart": {
+            "zoomHint": "Scroll to zoom, drag to pan, double-click to reset"
+        },
+        "info": {
+            "zoomTip": "Charts support scroll-to-zoom and drag-to-pan",
+            "refreshTip": "Click Refresh to reload the log folder and file list"
+        },
         "showMore": "Show more (+{{count}})",
         "showLess": "Show less"
     },

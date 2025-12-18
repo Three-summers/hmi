@@ -1,26 +1,22 @@
 .setupGrid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+    gap: var(--sp-md);
 }
 
 .section {
-    padding: 16px;
-    background: linear-gradient(
-        180deg,
-        var(--bg-secondary) 0%,
-        var(--bg-tertiary) 100%
-    );
-    border-radius: 10px;
-    border: 1px solid var(--border-color);
+    padding: var(--card-padding);
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--card-border);
 }
 
 .sectionHeader {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
+    gap: calc(var(--sp-sm) + var(--sp-xs));
+    margin-bottom: var(--sp-md);
+    padding-bottom: calc(var(--sp-sm) + var(--sp-xs));
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -31,7 +27,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(65, 105, 225, 0.2);
+    background: var(--overlay-weak);
+    border: 1px solid var(--border-color);
     color: var(--color-processing);
 }
 
@@ -50,27 +47,27 @@
 .sectionDesc {
     font-size: 12px;
     color: var(--text-secondary);
-    margin: 4px 0 0 0;
+    margin: var(--sp-xs) 0 0 0;
 }
 
 .optionRow {
     display: flex;
-    gap: 10px;
+    gap: var(--sp-sm);
     flex-wrap: wrap;
 }
 
 .optionButton {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 18px;
+    gap: var(--sp-sm);
+    padding: calc(var(--sp-sm) + var(--sp-xs)) var(--sp-md);
     background: linear-gradient(
         180deg,
         var(--button-bg) 0%,
         var(--button-bg-active) 100%
     );
     border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border-radius: var(--button-radius);
     color: var(--text-primary);
     font-size: 14px;
     cursor: pointer;
@@ -88,13 +85,9 @@
 }
 
 .optionButton[data-selected="true"] {
-    background: linear-gradient(
-        180deg,
-        var(--color-processing) 0%,
-        #2a4d8e 100%
-    );
-    border-color: var(--color-processing);
-    color: white;
+    background: var(--button-primary-bg);
+    border-color: var(--button-primary-border);
+    color: var(--text-on-accent);
 }
 
 .optionIcon {
@@ -108,7 +101,7 @@
 }
 
 .formGroup {
-    margin-bottom: 14px;
+    margin-bottom: calc(var(--sp-sm) + var(--sp-xs));
 }
 
 .formLabel {
@@ -116,14 +109,14 @@
     font-size: 12px;
     font-weight: 500;
     color: var(--text-secondary);
-    margin-bottom: 6px;
+    margin-bottom: var(--sp-xs);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .formRow {
     display: flex;
-    gap: 12px;
+    gap: calc(var(--sp-sm) + var(--sp-xs));
     align-items: center;
 }
 
@@ -131,74 +124,65 @@
 .input {
     flex: 1;
     width: 100%;
-    padding: 10px 14px;
-    background: #1a2a3a;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    color: #e0e0e0;
-    font-size: 14px;
-    transition: all var(--transition-fast);
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    appearance: none;
 }
 
 .select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+        linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
     background-repeat: no-repeat;
-    background-position: right 12px center;
-    padding-right: 36px;
+    background-position:
+        calc(100% - var(--sp-md)) 50%,
+        calc(100% - var(--sp-md) + var(--sp-xs)) 50%;
+    background-size: var(--sp-xs) var(--sp-xs), var(--sp-xs) var(--sp-xs);
+    padding-right: calc(var(--sp-xl) + var(--sp-xs));
     cursor: pointer;
-}
-
-.select:focus,
-.input:focus {
-    outline: none;
-    border-color: var(--color-processing);
-    box-shadow: 0 0 0 2px rgba(65, 105, 225, 0.2);
 }
 
 .select:disabled,
 .input:disabled {
-    background: #0d1520;
-    color: #666;
+    background: var(--button-bg-disabled);
+    color: var(--text-disabled);
     cursor: not-allowed;
     opacity: 0.7;
 }
 
 /* 下拉选项样式 */
 .select option {
-    background: #1a2a3a;
-    color: #e0e0e0;
-    padding: 10px;
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    padding: var(--sp-sm);
 }
 
 .select option:hover,
 .select option:focus,
 .select option:checked {
-    background: #2a4a6a;
-    color: #fff;
+    background: var(--overlay-mid);
+    color: var(--text-primary);
 }
 
 .connectButton {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 10px 20px;
+    gap: var(--sp-sm);
+    padding: calc(var(--sp-sm) + var(--sp-xs)) calc(var(--sp-md) + var(--sp-xs));
     background: linear-gradient(
         180deg,
         var(--button-bg) 0%,
         var(--button-bg-active) 100%
     );
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: calc(var(--button-radius) - var(--sp-xs));
     color: var(--text-primary);
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
     transition: all var(--transition-fast);
-    margin-top: 14px;
+    margin-top: var(--sp-md);
 }
 
 .connectButton:hover {
@@ -211,13 +195,9 @@
 }
 
 .connectButton[data-connected="true"] {
-    background: linear-gradient(
-        180deg,
-        var(--color-attention) 0%,
-        #228b22 100%
-    );
-    border-color: var(--color-attention);
-    color: white;
+    background: var(--button-success-bg);
+    border-color: var(--button-success-border);
+    color: var(--text-on-attention);
 }
 
 .connectButton svg {
@@ -228,11 +208,11 @@
 .statusIndicator {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
-    margin-bottom: 14px;
+    gap: var(--sp-sm);
+    padding: var(--sp-sm) calc(var(--sp-sm) + var(--sp-xs));
+    background: var(--overlay-weak);
+    border-radius: calc(var(--button-radius) - var(--sp-xs));
+    margin-bottom: var(--sp-md);
 }
 
 .statusDot {

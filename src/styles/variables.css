@@ -14,6 +14,15 @@
     --command-panel-width: 160px;
 
     /* ─────────────────────────────────────────────────────────────────────────
+       Spacing Scale (4px base)
+       ───────────────────────────────────────────────────────────────────────── */
+    --sp-xs: 4px;
+    --sp-sm: 8px;
+    --sp-md: 16px;
+    --sp-lg: 24px;
+    --sp-xl: 32px;
+
+    /* ─────────────────────────────────────────────────────────────────────────
        SEMI E95 Status Colors - Enhanced with Glow Effects
        ───────────────────────────────────────────────────────────────────────── */
     --color-alarm: #ff3b3b;           /* Alarm (Red) - Vibrant */
@@ -48,9 +57,47 @@
        ───────────────────────────────────────────────────────────────────────── */
     --button-min-size: 70px;
     --button-nav-size: 47px;
-    --button-spacing: 8px;
+    --button-spacing: var(--sp-sm);
     --button-radius: 10px;
     --button-radius-lg: 14px;
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       Surface Levels (primary / secondary / tertiary)
+       ───────────────────────────────────────────────────────────────────────── */
+    --card-bg: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+    --card-border: var(--border-color);
+    --card-radius: var(--button-radius);
+    --card-padding: var(--sp-md);
+
+    /* Text on strong color backgrounds (theme-aware) */
+    --text-on-accent: #ffffff;
+    --text-on-warning: #1a1a1a;
+    --text-on-attention: #ffffff;
+    --text-on-alarm: #ffffff;
+
+    /* Button tier backgrounds (avoid hard-coded component colors) */
+    --button-primary-bg: linear-gradient(180deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    --button-primary-bg-hover: var(--accent-primary);
+    --button-primary-bg-active: var(--accent-secondary);
+    --button-primary-border: var(--accent-primary);
+
+    --button-danger-bg: var(--color-alarm);
+    --button-danger-bg-hover: var(--color-alarm);
+    --button-danger-bg-active: var(--color-alarm);
+    --button-danger-border: var(--color-alarm);
+
+    --button-success-bg: var(--color-attention);
+    --button-success-bg-hover: var(--color-attention);
+    --button-success-border: var(--color-attention);
+
+    --button-warning-bg: var(--color-warning);
+    --button-warning-bg-hover: var(--color-warning);
+    --button-warning-border: var(--color-warning);
+
+    /* Shine overlays (used by pseudo elements) */
+    --shine-top-weak: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%);
+    --shine-top-medium: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, transparent 100%);
+    --shine-top-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
 
     /* ─────────────────────────────────────────────────────────────────────────
        DARK THEME (Default) - Deep Space Industrial
@@ -226,6 +273,24 @@
     --color-processing-glow: rgba(2, 132, 199, 0.35);
     --color-attention: #16a34a;
     --color-attention-glow: rgba(22, 163, 74, 0.35);
+
+    /* Highlights - tuned for light backgrounds */
+    --highlight-alarm:
+        0 0 0 2px var(--color-alarm),
+        0 0 20px var(--color-alarm-glow),
+        inset 0 0 15px rgba(220, 38, 38, 0.08);
+    --highlight-warning:
+        0 0 0 2px var(--color-warning),
+        0 0 20px var(--color-warning-glow),
+        inset 0 0 15px rgba(217, 119, 6, 0.08);
+    --highlight-processing:
+        0 0 0 2px var(--color-processing),
+        0 0 20px var(--color-processing-glow),
+        inset 0 0 15px rgba(2, 132, 199, 0.08);
+    --highlight-attention:
+        0 0 0 2px var(--color-attention),
+        0 0 20px var(--color-attention-glow),
+        inset 0 0 15px rgba(22, 163, 74, 0.08);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -299,6 +364,17 @@
     --color-processing-glow: rgba(0, 229, 255, 0.6);
     --color-attention: #00e676;
     --color-attention-glow: rgba(0, 230, 118, 0.6);
+
+    /* Text on strong color backgrounds (maximize contrast) */
+    --text-on-accent: #000000;
+    --text-on-warning: #000000;
+    --text-on-attention: #000000;
+    --text-on-alarm: #ffffff;
+
+    /* Button tier backgrounds (high contrast prefers solid fills) */
+    --button-primary-bg: var(--accent-primary);
+    --button-primary-bg-hover: var(--accent-primary);
+    --button-primary-bg-active: var(--accent-primary);
 
     /* Enhanced Highlights for High Contrast */
     --highlight-alarm:

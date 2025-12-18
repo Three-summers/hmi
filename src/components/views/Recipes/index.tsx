@@ -117,7 +117,7 @@ const demoRecipes: Recipe[] = [
 ];
 
 export default function RecipesView() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [activeTab, setActiveTab] = useState<"overview" | "info">("overview");
     const [selectedRecipe, setSelectedRecipe] = useState<string | null>(
         demoRecipes[0]?.id || null,
@@ -127,7 +127,7 @@ export default function RecipesView() {
     const selectedRecipeData = recipes.find((r) => r.id === selectedRecipe);
 
     const formatDate = (date: Date) => {
-        return date.toLocaleDateString("zh-CN", {
+        return date.toLocaleDateString(i18n.language === "zh" ? "zh-CN" : "en-US", {
             year: "numeric",
             month: "2-digit",
             day: "2-digit",
@@ -158,7 +158,9 @@ export default function RecipesView() {
                                 <div className={styles.recipeList}>
                                     <div className={styles.listHeader}>
                                         <span className={styles.listTitle}>
-                                            Recipes ({recipes.length})
+                                            {t("recipes.listTitle", {
+                                                count: recipes.length,
+                                            })}
                                         </span>
                                     </div>
                                     <div className={styles.listContent}>
@@ -197,9 +199,10 @@ export default function RecipesView() {
                                                     <span
                                                         className={styles.recipeMeta}
                                                     >
-                                                        v{recipe.version} •{" "}
-                                                        {recipe.steps.length}{" "}
-                                                        steps
+                                                        {t("recipes.meta", {
+                                                            version: recipe.version,
+                                                            steps: recipe.steps.length,
+                                                        })}
                                                     </span>
                                                 </div>
                                                 <div
@@ -208,7 +211,7 @@ export default function RecipesView() {
                                                     }
                                                     data-status={recipe.status}
                                                 >
-                                                    {recipe.status.toUpperCase()}
+                                                    {t(`recipes.status.${recipe.status}`)}
                                                 </div>
                                             </div>
                                         ))}
@@ -249,7 +252,9 @@ export default function RecipesView() {
                                                         selectedRecipeData.status
                                                     }
                                                 >
-                                                    {selectedRecipeData.status.toUpperCase()}
+                                                    {t(
+                                                        `recipes.status.${selectedRecipeData.status}`,
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -258,7 +263,7 @@ export default function RecipesView() {
                                                     <span
                                                         className={styles.statLabel}
                                                     >
-                                                        Version
+                                                        {t("recipes.fields.version")}
                                                     </span>
                                                     <span
                                                         className={styles.statValue}
@@ -270,7 +275,7 @@ export default function RecipesView() {
                                                     <span
                                                         className={styles.statLabel}
                                                     >
-                                                        Steps
+                                                        {t("recipes.fields.steps")}
                                                     </span>
                                                     <span
                                                         className={styles.statValue}
@@ -282,7 +287,7 @@ export default function RecipesView() {
                                                     <span
                                                         className={styles.statLabel}
                                                     >
-                                                        Duration
+                                                        {t("recipes.fields.duration")}
                                                     </span>
                                                     <span
                                                         className={styles.statValue}
@@ -298,7 +303,7 @@ export default function RecipesView() {
                                                     <span
                                                         className={styles.statLabel}
                                                     >
-                                                        Modified
+                                                        {t("recipes.fields.modified")}
                                                     </span>
                                                     <span
                                                         className={styles.statValue}
@@ -312,12 +317,12 @@ export default function RecipesView() {
 
                                             <div className={styles.stepsSection}>
                                                 <h4 className={styles.sectionTitle}>
-                                                    Process Steps
+                                                    {t("recipes.steps.title")}
                                                 </h4>
                                                 {selectedRecipeData.steps.length ===
                                                 0 ? (
                                                     <div className={styles.noSteps}>
-                                                        No steps defined
+                                                        {t("recipes.steps.empty")}
                                                     </div>
                                                 ) : (
                                                     <div className={styles.stepsList}>
@@ -387,7 +392,7 @@ export default function RecipesView() {
                                                 <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
                                             </svg>
                                             <span>
-                                                Select a recipe to view details
+                                                {t("recipes.selectRecipe")}
                                             </span>
                                         </div>
                                     )}

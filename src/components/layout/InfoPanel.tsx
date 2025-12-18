@@ -1,5 +1,17 @@
+/**
+ * 信息面板（主视图承载区）
+ *
+ * 负责根据当前视图渲染对应页面组件，并提供“视图缓存（Keep Alive）”能力：
+ * - 首次访问后将视图保持挂载，切换时仅通过 `hidden` 隐藏
+ * - 这样可在返回时保留各页面的本地状态（例如：文件选中、目录展开、图表缩放等）
+ *
+ * @module InfoPanel
+ */
+
 import { memo, Suspense, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { ViewId } from "@/types";
+import { StatusIndicator } from "@/components/common";
 import { HMI_VIEW_COMPONENTS } from "@/hmi/viewRegistry";
 import styles from "./InfoPanel.module.css";
 import { ViewContextProvider } from "./ViewContext";
@@ -18,6 +30,9 @@ interface InfoPanelProps {
  * 副作用控制：
  * - 每个视图外包一层 `ViewContextProvider`，让视图内部可通过 `useIsViewActive()` 判断是否可见；
  * - 建议在不可见时暂停动画/轮询/定时器，避免后台消耗资源。
+ *
+ * @param props - 组件属性
+ * @returns 信息面板 JSX
  */
 export function InfoPanel({ currentView }: InfoPanelProps) {
     const [mountedViews, setMountedViews] = useState<Set<ViewId>>(
@@ -59,6 +74,12 @@ const KeptAliveView = memo(function KeptAliveView({
     viewId: ViewId;
     isActive: boolean;
 }) {
+    const { t } = useTranslation();
+    /**
+     * 视图组件：按 viewId 动态选择
+     *
+     * 注意：此处不直接调用组件，而是通过变量引用以保持类型与渲染逻辑清晰。
+     */
     // 性能优化：InfoPanel 切换视图时，只有“刚切出/刚切入”的两个视图需要更新可见性；
     // 其它隐藏视图不应因父组件重渲染而重复执行渲染逻辑。
     const ViewComponent = HMI_VIEW_COMPONENTS[viewId];
@@ -68,7 +89,12 @@ const KeptAliveView = memo(function KeptAliveView({
             <ViewContextProvider value={{ viewId, isActive }}>
                 <Suspense
                     fallback={
-                        <div className={styles.placeholder}>Loading...</div>
+                        <div className={styles.placeholder}>
+                            <StatusIndicator
+                                status="processing"
+                                label={t("common.loading")}
+                            />
+                        </div>
                     }
                 >
                     <ViewComponent />

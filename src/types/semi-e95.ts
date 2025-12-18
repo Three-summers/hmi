@@ -1,4 +1,11 @@
-/** SEMI E95 UI 类型定义 */
+/**
+ * SEMI E95 UI 类型定义
+ *
+ * 该文件用于描述 HMI 前端的核心 UI 模型（视图 ID、按钮配置、对话框配置等），
+ * 以 TypeScript 类型的方式约束各模块之间的数据契约，降低跨模块联动时的维护成本。
+ *
+ * @module semi-e95
+ */
 
 /** 主导航视图 ID */
 export type ViewId =

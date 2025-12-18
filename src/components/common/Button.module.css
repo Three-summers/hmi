@@ -6,8 +6,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 10px 20px;
+    gap: var(--sp-sm);
+    padding: calc(var(--sp-sm) + var(--sp-xs)) calc(var(--sp-md) + var(--sp-xs));
     background: linear-gradient(
         180deg,
         var(--button-bg-hover) 0%,
@@ -38,11 +38,7 @@
     left: 0;
     right: 0;
     height: 50%;
-    background: linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.1) 0%,
-        transparent 100%
-    );
+    background: var(--shine-top-weak);
     pointer-events: none;
     transition: opacity var(--transition-fast);
 }
@@ -80,14 +76,14 @@
 .button[data-size="small"] {
     min-height: var(--button-nav-size);
     min-width: var(--button-nav-size);
-    padding: 6px 14px;
+    padding: var(--sp-xs) calc(var(--sp-sm) + var(--sp-xs));
     font-size: var(--font-size-small);
 }
 
 .button[data-size="large"] {
     min-height: calc(var(--button-min-size) * 1.2);
     min-width: calc(var(--button-min-size) * 1.5);
-    padding: 14px 28px;
+    padding: calc(var(--sp-md) - var(--sp-xs)) calc(var(--sp-lg) + var(--sp-xs));
     font-size: var(--font-size-large);
     border-radius: var(--button-radius-lg);
 }
@@ -102,7 +98,7 @@
         var(--accent-primary) 0%,
         var(--accent-secondary) 100%
     );
-    color: white;
+    color: var(--text-on-accent);
     border-color: var(--accent-primary);
     box-shadow:
         var(--shadow-inner),
@@ -110,11 +106,7 @@
 }
 
 .button[data-pressed="true"]::before {
-    background: linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.15) 0%,
-        transparent 100%
-    );
+    background: var(--shine-top-medium);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -147,10 +139,7 @@
         box-shadow: var(--highlight-alarm);
     }
     50% {
-        box-shadow:
-            0 0 0 3px var(--color-alarm),
-            0 0 30px var(--color-alarm-glow),
-            inset 0 0 20px rgba(255, 59, 59, 0.15);
+        box-shadow: var(--highlight-alarm), 0 0 35px var(--color-alarm-glow);
     }
 }
 
@@ -159,33 +148,21 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 .button[data-variant="primary"] {
-    background: linear-gradient(
-        180deg,
-        var(--accent-primary) 0%,
-        #0284c7 100%
-    );
-    color: white;
-    border-color: var(--accent-primary);
+    background: var(--button-primary-bg);
+    color: var(--text-on-accent);
+    border-color: var(--button-primary-border);
 }
 
 .button[data-variant="primary"]::before {
-    background: linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.2) 0%,
-        transparent 100%
-    );
+    background: var(--shine-top-strong);
 }
 
 .button[data-variant="primary"]:hover:not(:disabled) {
-    background: #0284c7;
+    background: var(--button-primary-bg-hover);
 }
 
 .button[data-variant="primary"]:active:not(:disabled) {
-    background: linear-gradient(
-        180deg,
-        #0284c7 0%,
-        #0369a1 100%
-    );
+    background: var(--button-primary-bg-active);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -193,33 +170,21 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 .button[data-variant="danger"] {
-    background: linear-gradient(
-        180deg,
-        var(--color-alarm) 0%,
-        #dc2626 100%
-    );
-    color: white;
-    border-color: var(--color-alarm);
+    background: var(--button-danger-bg);
+    color: var(--text-on-alarm);
+    border-color: var(--button-danger-border);
 }
 
 .button[data-variant="danger"]::before {
-    background: linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.2) 0%,
-        transparent 100%
-    );
+    background: var(--shine-top-strong);
 }
 
 .button[data-variant="danger"]:hover:not(:disabled) {
-    background: #dc2626;
+    background: var(--button-danger-bg-hover);
 }
 
 .button[data-variant="danger"]:active:not(:disabled) {
-    background: linear-gradient(
-        180deg,
-        #dc2626 0%,
-        #b91c1c 100%
-    );
+    background: var(--button-danger-bg-active);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -227,17 +192,13 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 .button[data-variant="success"] {
-    background: linear-gradient(
-        180deg,
-        var(--color-attention) 0%,
-        #16a34a 100%
-    );
-    color: white;
-    border-color: var(--color-attention);
+    background: var(--button-success-bg);
+    color: var(--text-on-attention);
+    border-color: var(--button-success-border);
 }
 
 .button[data-variant="success"]:hover:not(:disabled) {
-    background: #16a34a;
+    background: var(--button-success-bg-hover);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -245,17 +206,13 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 .button[data-variant="warning"] {
-    background: linear-gradient(
-        180deg,
-        var(--color-warning) 0%,
-        #d97706 100%
-    );
-    color: #1a1a1a;
-    border-color: var(--color-warning);
+    background: var(--button-warning-bg);
+    color: var(--text-on-warning);
+    border-color: var(--button-warning-border);
 }
 
 .button[data-variant="warning"]:hover:not(:disabled) {
-    background: #d97706;
+    background: var(--button-warning-bg-hover);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

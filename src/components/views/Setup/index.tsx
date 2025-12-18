@@ -13,9 +13,9 @@ import {
     ConnectIcon,
     CloseIcon,
 } from "@/components/common";
-import { useAppStore, useCommStore } from "@/stores";
+import { useAppStore, useCommStore, useNavigationStore } from "@/stores";
 import { useNotify } from "@/hooks";
-import { COMM_CONFIG } from "@/constants";
+import { COMM_CONFIG, THEME_ORDER } from "@/constants";
 import styles from "./Setup.module.css";
 import sharedStyles from "../shared.module.css";
 
@@ -47,46 +47,76 @@ export default function SetupView() {
     const [baudRate, setBaudRate] = useState<number>(COMM_CONFIG.DEFAULT_BAUD_RATE);
     const [tcpHost, setTcpHost] = useState("127.0.0.1");
     const [tcpPort, setTcpPort] = useState("502");
-    const [activeTab, setActiveTab] = useState<"settings" | "communication">(
-        "settings",
-    );
+    const activeTab =
+        useNavigationStore((s) => s.viewDialogStates.setup?.activeTab) ??
+        "settings";
+    const setViewDialogState = useNavigationStore((s) => s.setViewDialogState);
 
     useEffect(() => {
-        getSerialPorts().then(setAvailablePorts);
-    }, [getSerialPorts]);
+        let cancelled = false;
+
+        const loadPorts = async () => {
+            try {
+                const ports = await getSerialPorts();
+                if (!cancelled) setAvailablePorts(ports);
+            } catch (error) {
+                const message =
+                    error instanceof Error ? error.message : String(error);
+                notifyError(t("setup.errors.loadSerialPorts"), message);
+                if (!cancelled) setAvailablePorts([]);
+            }
+        };
+
+        loadPorts();
+        return () => {
+            cancelled = true;
+        };
+    }, [getSerialPorts, notifyError, t]);
 
     const handleSerialConnect = async () => {
-        if (serialConnected) {
-            await disconnectSerial();
-        } else if (selectedPort) {
-            await connectSerial({
-                port: selectedPort,
-                baudRate,
-                dataBits: 8,
-                stopBits: 1,
-                parity: "none",
-            });
+        try {
+            if (serialConnected) {
+                await disconnectSerial();
+            } else if (selectedPort) {
+                await connectSerial({
+                    port: selectedPort,
+                    baudRate,
+                    dataBits: 8,
+                    stopBits: 1,
+                    parity: "none",
+                });
+            }
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : String(error);
+            notifyError(t("setup.errors.serialOperationFailed"), message);
         }
     };
 
     const handleTcpConnect = async () => {
-        if (tcpConnected) {
-            await disconnectTcp();
-        } else {
-            const portNum = parseInt(tcpPort, 10);
-            if (
-                isNaN(portNum) ||
-                portNum < COMM_CONFIG.TCP_PORT_MIN ||
-                portNum > COMM_CONFIG.TCP_PORT_MAX
-            ) {
-                notifyError(t("setup.invalidPort"));
-                return;
+        try {
+            if (tcpConnected) {
+                await disconnectTcp();
+            } else {
+                const portNum = parseInt(tcpPort, 10);
+                if (
+                    isNaN(portNum) ||
+                    portNum < COMM_CONFIG.TCP_PORT_MIN ||
+                    portNum > COMM_CONFIG.TCP_PORT_MAX
+                ) {
+                    notifyError(t("setup.invalidPort"));
+                    return;
+                }
+                await connectTcp({
+                    host: tcpHost,
+                    port: portNum,
+                    timeoutMs: COMM_CONFIG.TCP_TIMEOUT_MS,
+                });
             }
-            await connectTcp({
-                host: tcpHost,
-                port: portNum,
-                timeoutMs: COMM_CONFIG.TCP_TIMEOUT_MS,
-            });
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : String(error);
+            notifyError(t("setup.errors.tcpOperationFailed"), message);
         }
     };
 
@@ -94,7 +124,7 @@ export default function SetupView() {
         <div className={sharedStyles.view}>
             <Tabs
                 activeId={activeTab}
-                onChange={setActiveTab}
+                onChange={(id) => setViewDialogState("setup", { activeTab: id })}
                 tabs={[
                     {
                         id: "settings",
@@ -126,7 +156,7 @@ export default function SetupView() {
                                             <span className={styles.optionIcon}>
                                                 🇨🇳
                                             </span>
-                                            中文
+                                            {t("common.languages.zh")}
                                         </button>
                                         <button
                                             className={styles.optionButton}
@@ -136,7 +166,7 @@ export default function SetupView() {
                                             <span className={styles.optionIcon}>
                                                 🇺🇸
                                             </span>
-                                            English
+                                            {t("common.languages.en")}
                                         </button>
                                     </div>
                                 </div>
@@ -159,7 +189,7 @@ export default function SetupView() {
                                     </div>
                                     <div className={styles.optionRow}>
                                         {(
-                                            ["dark", "light", "high-contrast"] as const
+                                            THEME_ORDER
                                         ).map((id) => (
                                             <button
                                                 key={id}

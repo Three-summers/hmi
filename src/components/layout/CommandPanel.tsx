@@ -1,4 +1,16 @@
+/**
+ * 命令面板
+ *
+ * 根据当前视图渲染对应的“命令按钮”列表，并提供统一的确认弹窗能力：
+ * - 每个视图通过 `viewCommands` 配置其按钮集合（文案 key、行为、状态高亮等）
+ * - 对需要二次确认的操作，通过 `useConfirm` 弹出确认框
+ *
+ * @module CommandPanel
+ */
+
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useShallow } from "zustand/shallow";
 import type { ViewId, CommandButtonConfig } from "@/types";
 import { useAlarmStore } from "@/stores";
 import { useConfirm, useNotify } from "@/hooks";
@@ -17,6 +29,12 @@ interface ConfirmModalProps {
     onCancel: () => void;
 }
 
+/**
+ * 通用确认弹窗（简化版）
+ *
+ * @param props - 弹窗属性
+ * @returns 弹窗 JSX；当 `isOpen=false` 时返回 null
+ */
 function ConfirmModal({
     isOpen,
     title,
@@ -50,16 +68,33 @@ function ConfirmModal({
     );
 }
 
+/**
+ * 命令面板组件
+ *
+ * @param props - 组件属性
+ * @returns 命令面板 JSX
+ */
 export function CommandPanel({ currentView }: CommandPanelProps) {
     const { t } = useTranslation();
-    const { acknowledgeAll, clearAcknowledged, alarms } = useAlarmStore();
+    const { acknowledgeAll, clearAcknowledged, alarms } = useAlarmStore(
+        useShallow((state) => ({
+            acknowledgeAll: state.acknowledgeAll,
+            clearAcknowledged: state.clearAcknowledged,
+            alarms: state.alarms,
+        })),
+    );
     const { success, error, warning, info } = useNotify();
+    // 确认弹窗状态与操作入口
     const { confirmState, showConfirm, closeConfirm, handleConfirm } = useConfirm();
 
-    const unackedCount = alarms.filter((a) => !a.acknowledged).length;
+    const unackedCount = useMemo(
+        () => alarms.filter((a) => !a.acknowledged).length,
+        [alarms],
+    );
 
     // 各页面的命令按钮配置（含实际处理逻辑）
-    const viewCommands: Record<ViewId, CommandButtonConfig[]> = {
+    // 使用 useMemo：保证按钮数组引用稳定，避免无意义的子组件重渲染。
+    const viewCommands: Record<ViewId, CommandButtonConfig[]> = useMemo(() => ({
         jobs: [
             {
                 id: "newJob",
@@ -302,7 +337,17 @@ export function CommandPanel({ currentView }: CommandPanelProps) {
                     info(t("notification.helpRefreshed"), t("notification.helpContentRefreshed")),
             },
         ],
-    };
+    }), [
+        acknowledgeAll,
+        clearAcknowledged,
+        error,
+        info,
+        showConfirm,
+        success,
+        t,
+        unackedCount,
+        warning,
+    ]);
 
     const commands = viewCommands[currentView] || [];
 

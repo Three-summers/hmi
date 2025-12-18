@@ -1,33 +1,85 @@
+/**
+ * 标题面板（顶部栏）
+ *
+ * 展示全局状态与快捷操作入口，包括：
+ * - 通信连接状态（串口/TCP）
+ * - 当前时间
+ * - 当前视图标题
+ * - 主题切换、登录/登出、全屏、退出等快捷按钮
+ * - 最新未确认告警/系统运行提示
+ *
+ * @module TitlePanel
+ */
+
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { ViewId } from "@/types";
+import { useShallow } from "zustand/shallow";
+import type { ViewId, UserSession } from "@/types";
 import { useAlarmStore, useCommStore, useAppStore } from "@/stores";
+import { useNotify } from "@/hooks";
+import { closeWindow, toggleFullscreen } from "@/platform/window";
 import styles from "./TitlePanel.module.css";
 
 interface TitlePanelProps {
+    /** 当前激活视图 */
     currentView: ViewId;
 }
 
+/** 快速登录角色：直接复用 `UserSession.role` 的联合类型 */
+type QuickLoginRole = UserSession["role"];
+
+/**
+ * 标题面板组件
+ *
+ * @param props - 组件属性
+ * @returns 标题面板 JSX
+ */
 export function TitlePanel({ currentView }: TitlePanelProps) {
     const { t, i18n } = useTranslation();
+    const { error: notifyError } = useNotify();
     const [dateTime, setDateTime] = useState(new Date());
-    const { serialConnected, tcpConnected } = useCommStore();
+    const { serialConnected, tcpConnected } = useCommStore(
+        useShallow((state) => ({
+            serialConnected: state.serialConnected,
+            tcpConnected: state.tcpConnected,
+        })),
+    );
     const { unacknowledgedAlarmCount, unacknowledgedWarningCount, alarms } =
-        useAlarmStore();
-    const { user, logout, theme, cycleTheme } = useAppStore();
+        useAlarmStore(
+            useShallow((state) => ({
+                unacknowledgedAlarmCount: state.unacknowledgedAlarmCount,
+                unacknowledgedWarningCount: state.unacknowledgedWarningCount,
+                alarms: state.alarms,
+            })),
+        );
+    const { user, logout, theme, cycleTheme } = useAppStore(
+        useShallow((state) => ({
+            user: state.user,
+            logout: state.logout,
+            theme: state.theme,
+            cycleTheme: state.cycleTheme,
+        })),
+    );
     const [showLoginModal, setShowLoginModal] = useState(false);
 
     const isConnected = serialConnected || tcpConnected;
+    // 展示最新未确认告警（用于顶部消息条），无未确认告警则显示“系统运行中”
     const latestAlarm = alarms.find((a) => !a.acknowledged);
 
     useEffect(() => {
+        // 每秒刷新一次时间显示
         const timer = setInterval(() => {
             setDateTime(new Date());
         }, 1000);
         return () => clearInterval(timer);
     }, []);
 
+    /**
+     * 按当前语言格式化日期
+     *
+     * @param date - 时间对象
+     * @returns 格式化后的日期字符串
+     */
     const formatDate = (date: Date) => {
         return date.toLocaleDateString(
             i18n.language === "zh" ? "zh-CN" : "en-US",
@@ -39,6 +91,12 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
         );
     };
 
+    /**
+     * 按当前语言格式化时间
+     *
+     * @param date - 时间对象
+     * @returns 格式化后的时间字符串
+     */
     const formatTime = (date: Date) => {
         return date.toLocaleTimeString(
             i18n.language === "zh" ? "zh-CN" : "en-US",
@@ -59,26 +117,40 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
         }
     };
 
-    const handleQuickLogin = (role: "operator" | "engineer" | "admin") => {
+    const handleQuickLogin = (role: QuickLoginRole) => {
+        // 使用 getState 直接调用 action，避免为该回调引入额外订阅字段
         useAppStore.getState().login({
             id: role,
-            name: role.charAt(0).toUpperCase() + role.slice(1),
+            name: t(`title.roles.${role}`),
             role,
         });
         setShowLoginModal(false);
     };
 
-    const handleToggleFullscreen = () => {
-        const window = getCurrentWindow();
-        window.isFullscreen().then((isFullscreen) => {
-            window.setFullscreen(!isFullscreen);
-        });
+    const handleToggleFullscreen = async () => {
+        try {
+            await toggleFullscreen();
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : String(error);
+            notifyError(t("title.errors.fullscreenFailed"), message);
+        }
+    };
+
+    const handleCloseWindow = async () => {
+        try {
+            await closeWindow();
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : String(error);
+            notifyError(t("title.errors.closeFailed"), message);
+        }
     };
 
     const getConnectionType = () => {
-        if (serialConnected && tcpConnected) return "Serial + TCP";
-        if (serialConnected) return "Serial";
-        if (tcpConnected) return "TCP";
+        if (serialConnected && tcpConnected) return t("title.commType.serialTcp");
+        if (serialConnected) return t("title.commType.serial");
+        if (tcpConnected) return t("title.commType.tcp");
         return t("title.commStatus.disconnected");
     };
 
@@ -179,7 +251,7 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
                             </span>
                             {user && (
                                 <span className={styles.loginRole}>
-                                    {user.role}
+                                    {t(`title.roles.${user.role}`)}
                                 </span>
                             )}
                         </div>
@@ -187,7 +259,7 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
 
                     <button
                         className={styles.fullscreenButton}
-                        onClick={handleToggleFullscreen}
+                        onClick={() => void handleToggleFullscreen()}
                         title={t("common.fullscreen")}
                     >
                         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -197,7 +269,7 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
 
                     <button
                         className={styles.exitButton}
-                        onClick={() => getCurrentWindow().close()}
+                        onClick={() => void handleCloseWindow()}
                         title={t("common.exit")}
                     >
                         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -257,7 +329,7 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
                                         <path d="M12 6c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2m0 10c2.7 0 5.8 1.29 6 2H6c.23-.72 3.31-2 6-2m0-12C9.79 4 8 5.79 8 8s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 10c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
                                     </svg>
                                 </span>
-                                <span>Operator</span>
+                                <span>{t("title.roles.operator")}</span>
                             </button>
                             <button
                                 className={styles.loginOption}
@@ -271,7 +343,7 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
                                         <path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z" />
                                     </svg>
                                 </span>
-                                <span>Engineer</span>
+                                <span>{t("title.roles.engineer")}</span>
                             </button>
                             <button
                                 className={styles.loginOption}
@@ -286,7 +358,7 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
                                         <path d="M17 13c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 1.38c.62 0 1.12.51 1.12 1.12s-.51 1.12-1.12 1.12-1.12-.51-1.12-1.12.5-1.12 1.12-1.12zm0 5.37c-.93 0-1.74-.46-2.24-1.17.05-.72 1.51-1.08 2.24-1.08s2.19.36 2.24 1.08c-.5.71-1.31 1.17-2.24 1.17z" />
                                     </svg>
                                 </span>
-                                <span>Admin</span>
+                                <span>{t("title.roles.admin")}</span>
                             </button>
                         </div>
                         <button

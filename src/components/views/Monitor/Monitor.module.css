@@ -1,21 +1,19 @@
 .statsGrid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 16px;
+    gap: var(--sp-md);
+    margin-bottom: var(--sp-md);
 }
 
 .statCard {
+    --metric-color: var(--text-primary);
+
     display: flex;
     flex-direction: column;
-    padding: 16px 20px;
-    background: linear-gradient(
-        180deg,
-        var(--bg-secondary) 0%,
-        var(--bg-tertiary) 100%
-    );
-    border-radius: 10px;
-    border: 1px solid var(--border-color);
+    padding: var(--card-padding);
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--card-border);
     position: relative;
     overflow: hidden;
     transition: all var(--transition-fast);
@@ -26,30 +24,33 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 4px;
+    width: var(--sp-xs);
     height: 100%;
-    background: var(--border-color);
+    background: var(--metric-color);
 }
 
-.statCard[data-type="temperature"]::before {
-    background: #ff6b6b;
-}
-.statCard[data-type="pressure"]::before {
-    background: #4ecdc4;
-}
-.statCard[data-type="humidity"]::before {
-    background: #45b7d1;
+.statCard[data-type="temperature"] {
+    --metric-color: var(--color-alarm);
 }
 
-/* 频谱图统计卡片样式 */
-.statCard[data-type="peak-freq"]::before {
-    background: linear-gradient(180deg, #00d4ff, #0066ff);
+.statCard[data-type="pressure"] {
+    --metric-color: var(--accent-secondary);
 }
-.statCard[data-type="peak-amp"]::before {
-    background: linear-gradient(180deg, #ff6b6b, #ff3366);
+
+.statCard[data-type="humidity"] {
+    --metric-color: var(--accent-tertiary);
 }
-.statCard[data-type="bandwidth"]::before {
-    background: linear-gradient(180deg, #00ff88, #00cc66);
+
+.statCard[data-type="peak-freq"] {
+    --metric-color: var(--color-processing);
+}
+
+.statCard[data-type="peak-amp"] {
+    --metric-color: var(--color-alarm);
+}
+
+.statCard[data-type="bandwidth"] {
+    --metric-color: var(--color-attention);
 }
 
 .statCard[data-status="warning"] {
@@ -58,24 +59,17 @@
 
 .statCard[data-status="alarm"] {
     border-color: var(--color-alarm);
+    box-shadow: var(--highlight-alarm);
     animation: alarmPulse 1.5s ease-in-out infinite;
 }
 
 @keyframes alarmPulse {
     0%,
     100% {
-        background: linear-gradient(
-            180deg,
-            var(--bg-secondary) 0%,
-            var(--bg-tertiary) 100%
-        );
+        box-shadow: var(--highlight-alarm);
     }
     50% {
-        background: linear-gradient(
-            180deg,
-            rgba(255, 0, 0, 0.15) 0%,
-            rgba(255, 0, 0, 0.05) 100%
-        );
+        box-shadow: var(--highlight-alarm), 0 0 35px var(--color-alarm-glow);
     }
 }
 
@@ -83,7 +77,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 10px;
+    margin-bottom: var(--sp-sm);
 }
 
 .cardIcon {
@@ -93,7 +87,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(255, 255, 255, 0.1);
+    color: var(--metric-color);
+    background: var(--overlay-weak);
 }
 
 .cardIcon svg {
@@ -101,72 +96,37 @@
     height: 18px;
 }
 
-.statCard[data-type="temperature"] .cardIcon {
-    color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.2);
-}
-.statCard[data-type="pressure"] .cardIcon {
-    color: #4ecdc4;
-    background: rgba(78, 205, 196, 0.2);
-}
-.statCard[data-type="humidity"] .cardIcon {
-    color: #45b7d1;
-    background: rgba(69, 183, 209, 0.2);
-}
-
-/* 频谱图统计卡片图标样式 */
-.statCard[data-type="peak-freq"] .cardIcon {
-    color: #00d4ff;
-    background: rgba(0, 212, 255, 0.2);
-}
-.statCard[data-type="peak-amp"] .cardIcon {
-    color: #ff6b6b;
-    background: rgba(255, 107, 107, 0.2);
-}
-.statCard[data-type="bandwidth"] .cardIcon {
-    color: #00ff88;
-    background: rgba(0, 255, 136, 0.2);
-}
-
-/* 频谱图统计值颜色 */
-.statCard[data-type="peak-freq"] .statValue {
-    color: #00d4ff;
-}
-.statCard[data-type="peak-amp"] .statValue {
-    color: #ff6b6b;
-}
-.statCard[data-type="bandwidth"] .statValue {
-    color: #00ff88;
-}
-
 .statusBadge {
     font-size: 9px;
     font-weight: 700;
-    padding: 3px 8px;
-    border-radius: 4px;
+    padding: var(--sp-xs) var(--sp-sm);
+    border-radius: var(--sp-xs);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    background: var(--overlay-weak);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
 }
 
 .statusBadge[data-status="normal"] {
-    background: rgba(50, 205, 50, 0.2);
+    border-color: var(--color-attention);
     color: var(--color-attention);
 }
 
 .statusBadge[data-status="warning"] {
-    background: rgba(255, 255, 0, 0.2);
+    border-color: var(--color-warning);
     color: var(--color-warning);
 }
 
 .statusBadge[data-status="alarm"] {
-    background: rgba(255, 0, 0, 0.2);
+    border-color: var(--color-alarm);
     color: var(--color-alarm);
 }
 
 .statLabel {
     font-size: 11px;
     color: var(--text-secondary);
-    margin-bottom: 4px;
+    margin-bottom: var(--sp-xs);
     text-transform: uppercase;
     letter-spacing: 1px;
     font-weight: 600;
@@ -178,38 +138,28 @@
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
     line-height: 1;
-    margin-bottom: 8px;
+    margin-bottom: var(--sp-sm);
 }
 
-.statCard[data-type="temperature"] .statValue {
-    color: #ff6b6b;
-}
-.statCard[data-type="pressure"] .statValue {
-    color: #4ecdc4;
-}
-.statCard[data-type="humidity"] .statValue {
-    color: #45b7d1;
+.statCard .statValue {
+    color: var(--metric-color);
 }
 
 .statMeta {
     display: flex;
-    gap: 12px;
+    gap: calc(var(--sp-sm) + var(--sp-xs));
     font-size: 10px;
     color: var(--text-secondary);
-    padding-top: 8px;
+    padding-top: var(--sp-sm);
     border-top: 1px solid var(--border-color);
 }
 
 .chartContainer {
     flex: 1;
-    background: linear-gradient(
-        180deg,
-        var(--bg-secondary) 0%,
-        var(--bg-tertiary) 100%
-    );
-    border-radius: 10px;
-    border: 1px solid var(--border-color);
-    padding: 16px;
+    background: var(--card-bg);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--card-border);
+    padding: var(--card-padding);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -219,15 +169,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 12px;
-    padding-bottom: 12px;
+    margin-bottom: calc(var(--sp-sm) + var(--sp-xs));
+    padding-bottom: calc(var(--sp-sm) + var(--sp-xs));
     border-bottom: 1px solid var(--border-color);
 }
 
 .chartTitle {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-sm);
     font-size: 14px;
     font-weight: 600;
     color: var(--text-primary);
@@ -242,7 +192,7 @@
 .chartControls {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-sm);
 }
 
 .timeRangeGroup {
@@ -253,7 +203,7 @@
 }
 
 .timeRangeBtn {
-    padding: 6px 12px;
+    padding: var(--sp-xs) calc(var(--sp-sm) + var(--sp-xs));
     background: transparent;
     border: none;
     border-radius: 4px;
@@ -270,21 +220,21 @@
 
 .timeRangeBtn[data-active="true"] {
     background: var(--color-processing);
-    color: white;
+    color: var(--text-on-accent);
 }
 
 .controlBtn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) calc(var(--sp-sm) + var(--sp-xs));
     background: linear-gradient(
         180deg,
         var(--button-bg) 0%,
         var(--button-bg-active) 100%
     );
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: calc(var(--card-radius) - var(--sp-xs));
     color: var(--text-primary);
     font-size: 12px;
     font-weight: 500;
@@ -302,9 +252,9 @@
 }
 
 .controlBtn[data-active="true"] {
-    background: linear-gradient(180deg, var(--color-warning) 0%, #c5a700 100%);
-    border-color: var(--color-warning);
-    color: #000;
+    background: var(--button-warning-bg);
+    border-color: var(--button-warning-border);
+    color: var(--text-on-warning);
 }
 
 .controlBtn svg {
@@ -321,45 +271,51 @@
 .chartLegend {
     display: flex;
     justify-content: center;
-    gap: 24px;
-    margin-top: 12px;
-    padding-top: 12px;
+    gap: var(--sp-lg);
+    margin-top: calc(var(--sp-sm) + var(--sp-xs));
+    padding-top: calc(var(--sp-sm) + var(--sp-xs));
     border-top: 1px solid var(--border-color);
 }
 
 .legendItem {
+    --legend-dot-bg: var(--text-secondary);
+
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-sm);
     font-size: 12px;
     color: var(--text-secondary);
 }
 
 .legendDot {
-    width: 12px;
-    height: 12px;
+    width: calc(var(--sp-sm) + var(--sp-xs));
+    height: calc(var(--sp-sm) + var(--sp-xs));
     border-radius: 50%;
+    background: var(--legend-dot-bg);
 }
 
-.legendItem[data-type="temperature"] .legendDot {
-    background: #ff6b6b;
-}
-.legendItem[data-type="pressure"] .legendDot {
-    background: #4ecdc4;
-}
-.legendItem[data-type="humidity"] .legendDot {
-    background: #45b7d1;
+.legendItem[data-type="temperature"] {
+    --legend-dot-bg: var(--color-alarm);
 }
 
-/* 频谱图图例样式 */
-.legendItem[data-type="spectrum"] .legendDot {
-    background: linear-gradient(180deg, #00d4ff, #00ff88);
+.legendItem[data-type="pressure"] {
+    --legend-dot-bg: var(--accent-secondary);
 }
-.legendItem[data-type="peak"] .legendDot {
-    background: #ff4444;
+
+.legendItem[data-type="humidity"] {
+    --legend-dot-bg: var(--accent-tertiary);
 }
-.legendItem[data-type="noise"] .legendDot {
-    background: rgba(100, 150, 200, 0.5);
+
+.legendItem[data-type="spectrum"] {
+    --legend-dot-bg: linear-gradient(180deg, var(--color-processing), var(--color-attention));
+}
+
+.legendItem[data-type="peak"] {
+    --legend-dot-bg: var(--color-alarm);
+}
+
+.legendItem[data-type="noise"] {
+    --legend-dot-bg: var(--text-secondary);
 }
 
 /* 频谱图画布样式 */
@@ -367,7 +323,7 @@
     width: 100%;
     height: 100%;
     display: block;
-    border-radius: 6px;
+    border-radius: calc(var(--card-radius) - var(--sp-xs));
 }
 
 /* uPlot 样式覆盖（适配暗色视觉） */
@@ -383,16 +339,16 @@
 .monitorInfo {
     height: 100%;
     min-height: 160px;
-    padding: 16px;
-    border-radius: 10px;
-    border: 1px solid var(--border-color);
+    padding: var(--card-padding);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--card-border);
     background: var(--overlay-mid);
     color: var(--text-secondary);
     overflow: auto;
 }
 
 .monitorInfoTitle {
-    margin: 0 0 10px 0;
+    margin: 0 0 var(--sp-sm) 0;
     font-size: 14px;
     font-weight: 700;
     color: var(--text-primary);
@@ -400,10 +356,10 @@
 
 .monitorInfoList {
     margin: 0;
-    padding-left: 18px;
+    padding-left: calc(var(--sp-md) + var(--sp-xs));
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--sp-sm);
     font-size: 13px;
     line-height: 1.6;
 }
@@ -419,7 +375,7 @@
 
     .chartHeader {
         flex-direction: column;
-        gap: 12px;
+        gap: calc(var(--sp-sm) + var(--sp-xs));
         align-items: flex-start;
     }
 
@@ -430,6 +386,6 @@
 
     .chartLegend {
         flex-wrap: wrap;
-        gap: 12px;
+        gap: calc(var(--sp-sm) + var(--sp-xs));
     }
 }

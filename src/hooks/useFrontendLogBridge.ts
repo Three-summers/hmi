@@ -1,3 +1,13 @@
+/**
+ * 前端日志桥接 Hook（可选）
+ *
+ * 将 WebView 内的 console 输出与全局错误事件聚合后，通过 Tauri `invoke` 转发到后端日志系统。
+ *
+ * 该能力主要用于调试：默认关闭，避免影响正常使用的性能与噪音。
+ *
+ * @module useFrontendLogBridge
+ */
+
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useNavigationStore, useAppStore } from "@/stores";
@@ -16,6 +26,14 @@ const { MAX_BATCH_SIZE, FLUSH_INTERVAL_MS, MAX_MESSAGE_LENGTH } = LOG_BRIDGE_CON
 const consoleLevels = ["log", "info", "warn", "error", "debug"] as const;
 type ConsoleLevel = (typeof consoleLevels)[number];
 
+/**
+ * 将未知值格式化为可读字符串
+ *
+ * @param value - 需要格式化的值
+ * @param depth - 最大递归深度（避免深层对象导致性能问题）
+ * @param seen - 循环引用检测集合
+ * @returns 格式化后的字符串
+ */
 function formatUnknown(value: unknown, depth: number, seen: WeakSet<object>): string {
     if (depth <= 0) return "[Object]";
     if (value === null) return "null";
@@ -80,6 +98,12 @@ function formatConsoleArgs(args: unknown[]): string {
     return `${message.slice(0, MAX_MESSAGE_LENGTH)}…(truncated)`;
 }
 
+/**
+ * 将不同来源的日志等级归一化为后端可识别的等级
+ *
+ * @param level - console 等级或窗口事件来源
+ * @returns 归一化后的等级字符串
+ */
 function normalizeLevel(level: ConsoleLevel | "window" | "promise"): string {
     if (level === "error") return "error";
     if (level === "warn") return "warn";
@@ -99,6 +123,8 @@ function normalizeLevel(level: ConsoleLevel | "window" | "promise"): string {
  * 性能策略：
  * - 批量发送：合并一段时间内的日志，减少 invoke 次数
  * - 失败降级：转发失败时不抛异常，不影响业务流程
+ *
+ * @returns void
  */
 export function useFrontendLogBridge() {
     const enabled = useAppStore((s) => s.debugLogBridgeEnabled);
@@ -109,6 +135,7 @@ export function useFrontendLogBridge() {
         currentViewRef.current = currentView;
     }, [currentView]);
 
+    // 用于保存“卸载/还原”函数，确保 Hook 多次启停时不会重复 patch console
     const installedRef = useRef<null | (() => void)>(null);
 
     useEffect(() => {
@@ -122,6 +149,7 @@ export function useFrontendLogBridge() {
         if (installedRef.current) return;
 
         const originals: Partial<Record<ConsoleLevel, (...args: unknown[]) => void>> = {};
+        // 待发送队列：通过批量 flush 降低 invoke 次数
         const queue: FrontendLogEntry[] = [];
         let flushTimer: number | null = null;
         let inFlush = false;
@@ -143,6 +171,7 @@ export function useFrontendLogBridge() {
             });
 
             if (queue.length >= MAX_BATCH_SIZE) {
+                // 达到批量阈值时立即发送，减少堆积延迟
                 void flush();
             } else {
                 scheduleFlush();

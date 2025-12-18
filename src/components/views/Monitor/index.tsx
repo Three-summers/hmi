@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Tabs } from "@/components/common";
+import { Tabs, StatusIndicator } from "@/components/common";
 import { useIsViewActive } from "@/components/layout/ViewContext";
+import { invoke } from "@/platform/invoke";
 import { isTauri } from "@/platform/tauri";
 import styles from "../shared.module.css";
 import monitorStyles from "./Monitor.module.css";
@@ -52,6 +52,19 @@ export default function MonitorView() {
     const isViewActiveRef = useRef(true);
     const spectrumDataRef = useRef<SpectrumData | null>(null);
     const prevAmplitudesRef = useRef<number[]>([]);
+    const canvasSizeRef = useRef<{ width: number; height: number; dpr: number } | null>(
+        null,
+    );
+    const gradientCacheRef = useRef<{ key: string; gradient: CanvasGradient } | null>(
+        null,
+    );
+    const lastDrawAtRef = useRef<number>(0);
+    const hasReceivedDataRef = useRef(false);
+
+    type SpectrumStatus = "unavailable" | "loading" | "ready" | "error";
+    const [spectrumStatus, setSpectrumStatus] = useState<SpectrumStatus>("loading");
+    const [spectrumError, setSpectrumError] = useState<string | null>(null);
+    const [retryToken, setRetryToken] = useState(0);
 
     const [isPaused, setIsPaused] = useState(false);
     const [displayMode, setDisplayMode] = useState<"bars" | "fill" | "line">("fill");
@@ -93,8 +106,13 @@ export default function MonitorView() {
         // 视图在后台时不重绘，避免占用 CPU；状态仍然保留在内存中
         if (!isViewActiveRef.current) return;
 
+        // requestAnimationFrame 回调触发后，先清空句柄，便于外部判断当前是否仍有排队的绘制任务
+        animationRef.current = 0;
+
         const scheduleNextFrame = () => {
             if (!isViewActiveRef.current) return;
+            // 暂停时只保留静态画面，不持续占用 CPU
+            if (isPaused) return;
             animationRef.current = requestAnimationFrame(drawSpectrum);
         };
 
@@ -111,23 +129,49 @@ export default function MonitorView() {
             return;
         }
 
-        const dpr = window.devicePixelRatio || 1;
-        const rect = container.getBoundingClientRect();
+        // 从 ResizeObserver 缓存的尺寸读取，避免每帧触发 layout 测量
+        let size = canvasSizeRef.current;
+        if (!size) {
+            const rect = container.getBoundingClientRect();
+            const width = Math.floor(rect.width);
+            const height = Math.floor(rect.height);
+            const dpr = window.devicePixelRatio || 1;
+            if (width > 0 && height > 0) {
+                size = { width, height, dpr };
+                canvasSizeRef.current = size;
+            }
+        }
 
-        if (rect.width === 0 || rect.height === 0) {
+        if (!size || size.width <= 0 || size.height <= 0) {
             scheduleNextFrame();
             return;
         }
 
-        // 设置画布尺寸
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        canvas.style.width = `${rect.width}px`;
-        canvas.style.height = `${rect.height}px`;
-        ctx.scale(dpr, dpr);
+        const { width, height, dpr } = size;
 
-        const width = rect.width;
-        const height = rect.height;
+        // 避免首帧在 ResizeObserver 回调之前触发时画布尺寸不匹配
+        const nextCanvasWidth = Math.max(1, Math.floor(width * dpr));
+        const nextCanvasHeight = Math.max(1, Math.floor(height * dpr));
+        if (canvas.width !== nextCanvasWidth || canvas.height !== nextCanvasHeight) {
+            canvas.width = nextCanvasWidth;
+            canvas.height = nextCanvasHeight;
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+            gradientCacheRef.current = null;
+        }
+
+        // 使用 setTransform 替代 scale，避免累积变换与重复缩放风险
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // 控制绘制频率（默认约 30 FPS），避免不必要的满速重绘
+        if (!isPaused) {
+            const now = performance.now();
+            if (now - lastDrawAtRef.current < 33) {
+                scheduleNextFrame();
+                return;
+            }
+            lastDrawAtRef.current = now;
+        }
         // 增加左侧 padding 以显示完整的 dB 标签
         const padding = { top: 40, right: 30, bottom: 60, left: 80 };
         const chartWidth = width - padding.left - padding.right;
@@ -143,7 +187,7 @@ export default function MonitorView() {
             ctx.fillStyle = SPECTRUM_COLORS.text;
             ctx.font = "16px system-ui, sans-serif";
             ctx.textAlign = "center";
-            ctx.fillText("等待频谱数据...", width / 2, height / 2);
+            ctx.fillText(t("monitor.canvas.waiting"), width / 2, height / 2);
 
             // 绘制空白网格
             drawGrid(ctx, padding, chartWidth, chartHeight, width, height);
@@ -156,30 +200,34 @@ export default function MonitorView() {
         const minAmp = -100;
         const maxAmp = 0;
 
-        // 平滑动画：与前一帧数据插值（只在非暂停时更新）
-        let smoothedAmps = amplitudes;
-        if (prevAmplitudesRef.current.length === amplitudes.length) {
-            if (!isPaused) {
-                // 非暂停时，进行平滑插值
-                smoothedAmps = amplitudes.map((amp, i) => {
-                    const prev = prevAmplitudesRef.current[i];
-                    return prev + (amp - prev) * 0.4;
-                });
-                prevAmplitudesRef.current = [...smoothedAmps];
-            } else {
-                // 暂停时，使用上一帧的数据
-                smoothedAmps = prevAmplitudesRef.current;
+        // 平滑动画：复用同一个缓冲数组进行增量更新，避免每帧 map/拷贝产生大量分配
+        let smoothedAmps = prevAmplitudesRef.current;
+        if (smoothedAmps.length !== amplitudes.length) {
+            smoothedAmps = amplitudes.slice();
+            prevAmplitudesRef.current = smoothedAmps;
+        } else if (!isPaused) {
+            for (let i = 0; i < amplitudes.length; i++) {
+                smoothedAmps[i] =
+                    smoothedAmps[i] + (amplitudes[i] - smoothedAmps[i]) * 0.4;
             }
-        } else {
-            // 首次，直接使用当前数据
-            prevAmplitudesRef.current = [...amplitudes];
         }
 
-        // 创建渐变
-        const gradient = ctx.createLinearGradient(0, padding.top + chartHeight, 0, padding.top);
-        SPECTRUM_COLORS.gradient.forEach(stop => {
-            gradient.addColorStop(stop.pos, stop.color);
-        });
+        // 创建渐变（按尺寸缓存，避免每帧重复构建）
+        const gradientKey = `${padding.top}-${chartHeight}`;
+        let gradient = gradientCacheRef.current?.gradient;
+        if (gradientCacheRef.current?.key !== gradientKey || !gradient) {
+            const newGradient = ctx.createLinearGradient(
+                0,
+                padding.top + chartHeight,
+                0,
+                padding.top,
+            );
+            for (const stop of SPECTRUM_COLORS.gradient) {
+                newGradient.addColorStop(stop.pos, stop.color);
+            }
+            gradient = newGradient;
+            gradientCacheRef.current = { key: gradientKey, gradient: newGradient };
+        }
 
         // 绘制网格
         drawGrid(ctx, padding, chartWidth, chartHeight, width, height);
@@ -211,13 +259,13 @@ export default function MonitorView() {
         ctx.font = "13px system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillText("频率 (kHz)", padding.left + chartWidth / 2, height - 20);
+        ctx.fillText(t("monitor.canvas.axisFrequency"), padding.left + chartWidth / 2, height - 20);
 
         ctx.save();
         ctx.translate(20, padding.top + chartHeight / 2);
         ctx.rotate(-Math.PI / 2);
         ctx.textBaseline = "middle";
-        ctx.fillText("幅值 (dB)", 0, 0);
+        ctx.fillText(t("monitor.canvas.axisAmplitude"), 0, 0);
         ctx.restore();
 
         // 绘制频谱
@@ -364,7 +412,7 @@ export default function MonitorView() {
         ctx.font = "bold 15px system-ui, sans-serif";
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
-        ctx.fillText("实时频谱分析", padding.left, 20);
+        ctx.fillText(t("monitor.spectrum.title"), padding.left, 20);
 
         // 时间戳
         ctx.fillStyle = SPECTRUM_COLORS.text;
@@ -375,7 +423,62 @@ export default function MonitorView() {
 
         // 继续动画循环
         scheduleNextFrame();
-    }, [displayMode, isPaused]);
+    }, [displayMode, isPaused, t]);
+
+    // 仅在容器尺寸变化时调整 Canvas backing store，避免每帧重复 resize 导致性能抖动
+    useEffect(() => {
+        if (spectrumStatus !== "ready") return;
+
+        const canvas = canvasRef.current;
+        const container = containerRef.current;
+        if (!canvas || !container) return;
+
+        const updateCanvasSize = () => {
+            const rect = container.getBoundingClientRect();
+            const width = Math.floor(rect.width);
+            const height = Math.floor(rect.height);
+
+            // 视图缓存 + 标签页模式下，隐藏面板可能为 0 尺寸；此时不把画布缩放到 0，避免切回显示空白。
+            if (width <= 0 || height <= 0) return;
+
+            const dpr = window.devicePixelRatio || 1;
+            const prev = canvasSizeRef.current;
+            if (
+                prev &&
+                prev.width === width &&
+                prev.height === height &&
+                prev.dpr === dpr
+            ) {
+                return;
+            }
+
+            canvasSizeRef.current = { width, height, dpr };
+            gradientCacheRef.current = null;
+
+            canvas.width = Math.max(1, Math.floor(width * dpr));
+            canvas.height = Math.max(1, Math.floor(height * dpr));
+            canvas.style.width = `${width}px`;
+            canvas.style.height = `${height}px`;
+
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+
+            // 暂停状态下不会持续动画，resize 后主动触发一次重绘
+            if (isViewActiveRef.current && !animationRef.current) {
+                animationRef.current = requestAnimationFrame(drawSpectrum);
+            }
+        };
+
+        updateCanvasSize();
+        const observer = new ResizeObserver(() => updateCanvasSize());
+        observer.observe(container);
+
+        return () => {
+            observer.disconnect();
+        };
+    }, [drawSpectrum, spectrumStatus]);
 
     // 绘制网格的辅助函数
     const drawGrid = (
@@ -414,6 +517,13 @@ export default function MonitorView() {
         // 始终更新数据引用，这样动画循环可以显示最新数据
         spectrumDataRef.current = data;
 
+        // 首次收到数据时，切换到 ready 状态（用于控制占位符/Canvas 绘制）
+        if (!hasReceivedDataRef.current) {
+            hasReceivedDataRef.current = true;
+            setSpectrumStatus("ready");
+            setSpectrumError(null);
+        }
+
         // 只有在非暂停状态下才更新统计信息
         if (!isPaused) {
             const bandwidth = calculateBandwidth(
@@ -438,29 +548,39 @@ export default function MonitorView() {
     }, [updateSpectrum]);
 
     useEffect(() => {
-        isViewActiveRef.current = isSpectrumActive;
+        const shouldDrawSpectrum = isSpectrumActive && spectrumStatus === "ready";
+        isViewActiveRef.current = shouldDrawSpectrum;
 
-        if (!isSpectrumActive) {
+        if (!shouldDrawSpectrum) {
             if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            animationRef.current = 0;
             return;
         }
 
-        animationRef.current = requestAnimationFrame(drawSpectrum);
+        if (!animationRef.current) {
+            animationRef.current = requestAnimationFrame(drawSpectrum);
+        }
+
         return () => {
-            if (animationRef.current) {
-                cancelAnimationFrame(animationRef.current);
-            }
+            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            animationRef.current = 0;
         };
-    }, [drawSpectrum, isSpectrumActive]);
+    }, [drawSpectrum, isSpectrumActive, spectrumStatus]);
 
     // 仅在“监控页可见 + 当前子页为概览”时启动数据订阅，避免后台页面持续消耗资源
     useEffect(() => {
         if (!isSpectrumActive) return;
 
         if (!isTauri()) {
+            setSpectrumStatus("unavailable");
+            setSpectrumError(null);
             console.warn("Not running in Tauri environment - spectrum data will not be available");
             return;
         }
+
+        setSpectrumStatus("loading");
+        setSpectrumError(null);
+        hasReceivedDataRef.current = false;
 
         let unlisten: (() => void) | null = null;
         let cancelled = false;
@@ -477,12 +597,17 @@ export default function MonitorView() {
                     return;
                 }
                 unlisten = unlistenFn;
-                console.log("Spectrum listener setup complete");
 
                 await invoke("start_sensor_simulation");
-                console.log("Spectrum simulation started");
             } catch (err) {
                 console.error("Failed to setup spectrum monitoring:", err);
+                if (cancelled) return;
+                const message =
+                    err instanceof Error ? err.message : String(err);
+                setSpectrumStatus("error");
+                setSpectrumError(message);
+                spectrumDataRef.current = null;
+                prevAmplitudesRef.current = [];
             }
         };
 
@@ -495,17 +620,35 @@ export default function MonitorView() {
             }
             unlisten?.();
         };
-    }, [isSpectrumActive]);
+    }, [isSpectrumActive, retryToken]);
 
     const handleClearData = () => {
         spectrumDataRef.current = null;
         prevAmplitudesRef.current = [];
+        hasReceivedDataRef.current = false;
+        setSpectrumStatus(isTauri() ? "loading" : "unavailable");
+        setSpectrumError(null);
         setStats({
             peak_frequency: 0,
             peak_amplitude: -90,
             average_amplitude: -90,
             bandwidth: 0,
         });
+    };
+
+    const handleRetrySpectrum = () => {
+        spectrumDataRef.current = null;
+        prevAmplitudesRef.current = [];
+        hasReceivedDataRef.current = false;
+        setStats({
+            peak_frequency: 0,
+            peak_amplitude: -90,
+            average_amplitude: -90,
+            bandwidth: 0,
+        });
+        setSpectrumStatus(isTauri() ? "loading" : "unavailable");
+        setSpectrumError(null);
+        setRetryToken((prev) => prev + 1);
     };
 
     const formatFrequency = (freq: number) => {
@@ -541,17 +684,19 @@ export default function MonitorView() {
                                                 className={monitorStyles.statusBadge}
                                                 data-status="normal"
                                             >
-                                                PEAK
+                                                {t("monitor.badges.peak")}
                                             </span>
                                         </div>
                                         <span className={monitorStyles.statLabel}>
-                                            峰值频率
+                                            {t("monitor.stats.peakFrequency")}
                                         </span>
                                         <span className={monitorStyles.statValue}>
                                             {formatFrequency(stats.peak_frequency)}
                                         </span>
                                         <div className={monitorStyles.statMeta}>
-                                            <span>中心频率分析</span>
+                                            <span>
+                                                {t("monitor.stats.centerFrequencyAnalysis")}
+                                            </span>
                                         </div>
                                     </div>
 
@@ -573,17 +718,19 @@ export default function MonitorView() {
                                                         : "normal"
                                                 }
                                             >
-                                                {stats.peak_amplitude > -30 ? "HIGH" : "NORMAL"}
+                                                {stats.peak_amplitude > -30
+                                                    ? t("monitor.badges.high")
+                                                    : t("monitor.badges.normal")}
                                             </span>
                                         </div>
                                         <span className={monitorStyles.statLabel}>
-                                            峰值幅值
+                                            {t("monitor.stats.peakAmplitude")}
                                         </span>
                                         <span className={monitorStyles.statValue}>
                                             {stats.peak_amplitude.toFixed(1)} dB
                                         </span>
                                         <div className={monitorStyles.statMeta}>
-                                            <span>信号强度</span>
+                                            <span>{t("monitor.stats.signalStrength")}</span>
                                         </div>
                                     </div>
 
@@ -601,18 +748,20 @@ export default function MonitorView() {
                                                 className={monitorStyles.statusBadge}
                                                 data-status="normal"
                                             >
-                                                BW
+                                                {t("monitor.badges.bandwidth")}
                                             </span>
                                         </div>
                                         <span className={monitorStyles.statLabel}>
-                                            信号带宽 (-3dB)
+                                            {t("monitor.stats.bandwidth")}
                                         </span>
                                         <span className={monitorStyles.statValue}>
                                             {formatFrequency(stats.bandwidth)}
                                         </span>
                                         <div className={monitorStyles.statMeta}>
                                             <span>
-                                                Avg: {stats.average_amplitude.toFixed(1)} dB
+                                                {t("monitor.stats.averageAmplitude", {
+                                                    value: stats.average_amplitude.toFixed(1),
+                                                })}
                                             </span>
                                         </div>
                                     </div>
@@ -624,7 +773,7 @@ export default function MonitorView() {
                                             <svg viewBox="0 0 24 24" fill="currentColor">
                                                 <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z" />
                                             </svg>
-                                            实时频谱分析
+                                            {t("monitor.spectrum.title")}
                                         </div>
                                         <div className={monitorStyles.chartControls}>
                                             <div className={monitorStyles.timeRangeGroup}>
@@ -641,10 +790,10 @@ export default function MonitorView() {
                                                             }
                                                         >
                                                             {mode === "fill"
-                                                                ? "填充"
+                                                                ? t("monitor.displayMode.fill")
                                                                 : mode === "bars"
-                                                                  ? "柱状"
-                                                                  : "线条"}
+                                                                  ? t("monitor.displayMode.bars")
+                                                                  : t("monitor.displayMode.line")}
                                                         </button>
                                                     ),
                                                 )}
@@ -663,7 +812,9 @@ export default function MonitorView() {
                                                         <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                                                     </svg>
                                                 )}
-                                                {isPaused ? "继续" : "暂停"}
+                                                {isPaused
+                                                    ? t("common.resume")
+                                                    : t("common.pause")}
                                             </button>
                                             <button
                                                 className={monitorStyles.controlBtn}
@@ -672,7 +823,7 @@ export default function MonitorView() {
                                                 <svg viewBox="0 0 24 24" fill="currentColor">
                                                     <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
                                                 </svg>
-                                                清除
+                                                {t("common.clear")}
                                             </button>
                                         </div>
                                     </div>
@@ -680,10 +831,64 @@ export default function MonitorView() {
                                         ref={containerRef}
                                         className={monitorStyles.chart}
                                     >
-                                        <canvas
-                                            ref={canvasRef}
-                                            className={monitorStyles.spectrumCanvas}
-                                        />
+                                        {spectrumStatus === "ready" ? (
+                                            <canvas
+                                                ref={canvasRef}
+                                                className={monitorStyles.spectrumCanvas}
+                                            />
+                                        ) : (
+                                            <div
+                                                className={styles.emptyState}
+                                                style={{ height: "100%" }}
+                                            >
+                                                <StatusIndicator
+                                                    status={
+                                                        spectrumStatus === "error"
+                                                            ? "alarm"
+                                                            : spectrumStatus ===
+                                                                "unavailable"
+                                                              ? "idle"
+                                                              : "processing"
+                                                    }
+                                                    label={
+                                                        spectrumStatus === "error"
+                                                            ? t(
+                                                                  "monitor.status.error",
+                                                              )
+                                                            : spectrumStatus ===
+                                                                "unavailable"
+                                                              ? t(
+                                                                    "monitor.status.unavailable",
+                                                                )
+                                                              : t(
+                                                                    "monitor.status.loading",
+                                                                )
+                                                    }
+                                                />
+                                                {spectrumError && (
+                                                    <div
+                                                        style={{
+                                                            marginTop: 8,
+                                                            fontSize: 12,
+                                                            color: "var(--text-secondary)",
+                                                            textAlign: "center",
+                                                            maxWidth: 520,
+                                                        }}
+                                                    >
+                                                        {spectrumError}
+                                                    </div>
+                                                )}
+                                                {spectrumStatus === "error" && (
+                                                    <button
+                                                        className={monitorStyles.controlBtn}
+                                                        onClick={handleRetrySpectrum}
+                                                        style={{ marginTop: 12 }}
+                                                    >
+                                                        {t("common.retry")}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className={monitorStyles.chartLegend}>
                                         <div
@@ -691,21 +896,21 @@ export default function MonitorView() {
                                             data-type="spectrum"
                                         >
                                             <span className={monitorStyles.legendDot} />
-                                            频谱幅值
+                                            {t("monitor.legend.spectrumAmplitude")}
                                         </div>
                                         <div
                                             className={monitorStyles.legendItem}
                                             data-type="peak"
                                         >
                                             <span className={monitorStyles.legendDot} />
-                                            峰值标记
+                                            {t("monitor.legend.peakMarker")}
                                         </div>
                                         <div
                                             className={monitorStyles.legendItem}
                                             data-type="noise"
                                         >
                                             <span className={monitorStyles.legendDot} />
-                                            底噪
+                                            {t("monitor.legend.noiseFloor")}
                                         </div>
                                     </div>
                                 </div>
@@ -722,13 +927,13 @@ export default function MonitorView() {
                                 </h3>
                                 <ul className={monitorStyles.monitorInfoList}>
                                     <li>
-                                        “概览”子页会订阅频谱数据并实时绘制；切到其它子页或切换主页面时会自动暂停订阅与绘制。
+                                        {t("monitor.info.autoPause")}
                                     </li>
                                     <li>
-                                        点击上方“填充/柱状/线条”可切换显示模式；“暂停”会冻结统计值与曲线平滑。
+                                        {t("monitor.info.displayModeTip")}
                                     </li>
                                     <li>
-                                        若当前不在 Tauri 环境（浏览器开发模式），此页不会收到后端频谱事件。
+                                        {t("monitor.info.browserModeTip")}
                                     </li>
                                 </ul>
                             </div>

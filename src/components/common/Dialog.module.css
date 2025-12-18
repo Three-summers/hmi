@@ -15,12 +15,7 @@
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    animation: overlayFadeIn 0.2s ease-out;
-}
-
-@keyframes overlayFadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    animation: fade-in var(--transition-fast);
 }
 
 .dialog {
@@ -40,19 +35,8 @@
     max-width: 90%;
     max-height: 90%;
     overflow: hidden;
-    animation: dialogSlideIn 0.25s ease-out;
+    animation: scale-in var(--transition-fast);
     position: relative;
-}
-
-@keyframes dialogSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px) scale(0.98);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
 }
 
 /* Decorative top edge */
@@ -138,7 +122,6 @@
 
 .messageIcon[data-type="progress"] {
     color: var(--color-processing);
-    animation: iconPulse 2s ease-in-out infinite;
 }
 
 .messageIcon[data-type="attention"] {
@@ -148,11 +131,6 @@
 .messageIcon[data-type="error"] {
     color: var(--color-alarm);
     animation: iconShake 0.5s ease-in-out;
-}
-
-@keyframes iconPulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.7; transform: scale(0.95); }
 }
 
 @keyframes iconShake {

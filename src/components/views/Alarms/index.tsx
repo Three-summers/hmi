@@ -6,7 +6,7 @@ import styles from "./Alarms.module.css";
 import sharedStyles from "../shared.module.css";
 
 export default function AlarmsView() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const {
         alarms,
         acknowledgeAlarm,
@@ -38,7 +38,7 @@ export default function AlarmsView() {
     };
 
     const formatTime = (date: Date) => {
-        return date.toLocaleTimeString("zh-CN", {
+        return date.toLocaleTimeString(i18n.language === "zh" ? "zh-CN" : "en-US", {
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit",
@@ -46,7 +46,7 @@ export default function AlarmsView() {
     };
 
     const formatDate = (date: Date) => {
-        return date.toLocaleDateString("zh-CN", {
+        return date.toLocaleDateString(i18n.language === "zh" ? "zh-CN" : "en-US", {
             month: "2-digit",
             day: "2-digit",
         });
@@ -122,7 +122,9 @@ export default function AlarmsView() {
                                 ) : (
                                     <div className={styles.alarmSection}>
                                         <h3 className={styles.sectionTitle}>
-                                            Active ({activeAlarms.length})
+                                            {t("alarm.section.active", {
+                                                count: activeAlarms.length,
+                                            })}
                                         </h3>
                                         <div className={styles.alarmsList}>
                                             {activeAlarms.map((alarm) => (
@@ -184,7 +186,9 @@ export default function AlarmsView() {
                                                                     alarm.severity
                                                                 }
                                                             >
-                                                                {alarm.severity.toUpperCase()}
+                                                                {t(
+                                                                    `alarm.severity.${alarm.severity}`,
+                                                                )}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -204,7 +208,7 @@ export default function AlarmsView() {
                                                         >
                                                             <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                                                         </svg>
-                                                        ACK
+                                                        {t("alarm.actions.ack")}
                                                     </button>
                                                 </div>
                                             ))}
@@ -236,8 +240,9 @@ export default function AlarmsView() {
                                 ) : (
                                     <div className={styles.alarmSection}>
                                         <h3 className={styles.sectionTitle}>
-                                            History ({acknowledgedAlarms.length}
-                                            )
+                                            {t("alarm.section.history", {
+                                                count: acknowledgedAlarms.length,
+                                            })}
                                         </h3>
                                         <div className={styles.alarmsList}>
                                             {acknowledgedAlarms.map((alarm) => (
@@ -297,7 +302,7 @@ export default function AlarmsView() {
                                                                     styles.alarmAcked
                                                                 }
                                                             >
-                                                                ACKNOWLEDGED
+                                                                {t("alarm.acknowledged")}
                                                             </span>
                                                         </div>
                                                     </div>

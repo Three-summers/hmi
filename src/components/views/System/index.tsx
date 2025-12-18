@@ -1,15 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Tabs } from "@/components/common";
+import { Tabs, StatusIndicator, Button } from "@/components/common";
 import { useIsViewActive } from "@/components/layout/ViewContext";
 import styles from "./System.module.css";
 import sharedStyles from "../shared.module.css";
 
 interface Subsystem {
     id: string;
-    name: string;
+    nameKey: string;
     status: "online" | "offline" | "warning" | "error";
-    value?: string | number;
+    value?: number;
+    valueKey?: string;
     unit?: string;
 }
 
@@ -21,39 +22,70 @@ interface SystemInfo {
     temperature: number;
 }
 
+type SystemStatus = "loading" | "ready" | "error";
+
 const demoSubsystems: Subsystem[] = [
     {
         id: "chamber",
-        name: "Process Chamber",
+        nameKey: "system.subsystemsDemo.chamber",
         status: "online",
-        value: "Ready",
+        valueKey: "system.subsystemValues.ready",
     },
     {
         id: "vacuum",
-        name: "Vacuum System",
+        nameKey: "system.subsystemsDemo.vacuum",
         status: "online",
         value: 2.5e-6,
         unit: "Torr",
     },
-    { id: "rf", name: "RF Generator", status: "online", value: 500, unit: "W" },
-    { id: "gas", name: "Gas Delivery", status: "online", value: "Active" },
+    {
+        id: "rf",
+        nameKey: "system.subsystemsDemo.rf",
+        status: "online",
+        value: 500,
+        unit: "W",
+    },
+    {
+        id: "gas",
+        nameKey: "system.subsystemsDemo.gas",
+        status: "online",
+        valueKey: "system.subsystemValues.active",
+    },
     {
         id: "exhaust",
-        name: "Exhaust System",
+        nameKey: "system.subsystemsDemo.exhaust",
         status: "online",
         value: 85,
         unit: "%",
     },
     {
         id: "cooling",
-        name: "Cooling System",
+        nameKey: "system.subsystemsDemo.cooling",
         status: "warning",
         value: 42,
         unit: "°C",
     },
-    { id: "loader", name: "Wafer Loader", status: "online", value: "Home" },
-    { id: "plc", name: "PLC Controller", status: "online", value: "Run" },
+    {
+        id: "loader",
+        nameKey: "system.subsystemsDemo.loader",
+        status: "online",
+        valueKey: "system.subsystemValues.home",
+    },
+    {
+        id: "plc",
+        nameKey: "system.subsystemsDemo.plc",
+        status: "online",
+        valueKey: "system.subsystemValues.run",
+    },
 ];
+
+const INITIAL_SYSTEM_INFO: SystemInfo = {
+    uptime: 86400,
+    cpuUsage: 45,
+    memoryUsage: 62,
+    diskUsage: 35,
+    temperature: 48,
+};
 
 export default function SystemView() {
     const { t } = useTranslation();
@@ -61,47 +93,88 @@ export default function SystemView() {
     const [activeTab, setActiveTab] = useState<"overview" | "subsystems">(
         "overview",
     );
-    const [systemInfo, setSystemInfo] = useState<SystemInfo>({
-        uptime: 86400,
-        cpuUsage: 45,
-        memoryUsage: 62,
-        diskUsage: 35,
-        temperature: 48,
-    });
+    const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+    const [systemStatus, setSystemStatus] = useState<SystemStatus>("loading");
+    const [systemError, setSystemError] = useState<string | null>(null);
+
+    const refreshSystemInfo = useCallback(
+        async () => {
+            try {
+                if (!systemInfo) {
+                    setSystemStatus("loading");
+                }
+                setSystemError(null);
+                await Promise.resolve();
+                setSystemInfo((prev) => {
+                    const base = prev ?? INITIAL_SYSTEM_INFO;
+                    return {
+                        ...base,
+                        cpuUsage: Math.min(
+                            100,
+                            Math.max(
+                                20,
+                                base.cpuUsage + (Math.random() - 0.5) * 10,
+                            ),
+                        ),
+                        memoryUsage: Math.min(
+                            100,
+                            Math.max(
+                                40,
+                                base.memoryUsage + (Math.random() - 0.5) * 5,
+                            ),
+                        ),
+                        temperature: Math.min(
+                            80,
+                            Math.max(
+                                35,
+                                base.temperature + (Math.random() - 0.5) * 2,
+                            ),
+                        ),
+                        uptime: base.uptime + 1,
+                    };
+                });
+                setSystemStatus("ready");
+            } catch (error) {
+                console.error("Failed to load system info:", error);
+                const message =
+                    error instanceof Error ? error.message : String(error);
+                setSystemStatus("error");
+                setSystemError(message);
+            }
+        },
+        [systemInfo],
+    );
+
+    useEffect(() => {
+        void refreshSystemInfo();
+    }, [refreshSystemInfo]);
 
     useEffect(() => {
         // 视图缓存（Keep Alive）模式下，页面不会被卸载；这里在页面不可见时暂停定时刷新，避免后台占用资源。
         if (!isViewActive) return;
+        // 出错/加载中时暂停自动刷新，避免后台反复失败；由用户点击重试恢复
+        if (systemStatus !== "ready") return;
 
         const interval = setInterval(() => {
-            setSystemInfo((prev) => ({
-                ...prev,
-                cpuUsage: Math.min(
-                    100,
-                    Math.max(20, prev.cpuUsage + (Math.random() - 0.5) * 10),
-                ),
-                memoryUsage: Math.min(
-                    100,
-                    Math.max(40, prev.memoryUsage + (Math.random() - 0.5) * 5),
-                ),
-                temperature: Math.min(
-                    80,
-                    Math.max(35, prev.temperature + (Math.random() - 0.5) * 2),
-                ),
-                uptime: prev.uptime + 1,
-            }));
+            void refreshSystemInfo();
         }, 1000);
         return () => clearInterval(interval);
-    }, [isViewActive]);
+    }, [isViewActive, refreshSystemInfo, systemStatus]);
 
     const formatUptime = (seconds: number) => {
         const days = Math.floor(seconds / 86400);
         const hours = Math.floor((seconds % 86400) / 3600);
         const mins = Math.floor((seconds % 3600) / 60);
-        return `${days}d ${hours}h ${mins}m`;
+        return t("system.uptimeFormat", { days, hours, mins });
     };
 
     const formatValue = (sub: Subsystem) => {
+        if (typeof sub.valueKey === "string") {
+            return (
+                t(sub.valueKey) + (sub.unit ? ` ${sub.unit}` : "")
+            );
+        }
+
         if (typeof sub.value === "number") {
             if (sub.value < 0.001) {
                 return (
@@ -111,7 +184,7 @@ export default function SystemView() {
             }
             return sub.value.toFixed(1) + (sub.unit ? ` ${sub.unit}` : "");
         }
-        return sub.value || "--";
+        return "--";
     };
 
     const getStatusColor = (status: Subsystem["status"]) => {
@@ -131,8 +204,82 @@ export default function SystemView() {
         (s) => s.status === "online",
     ).length;
 
+    const handleRetry = () => {
+        setSystemStatus("loading");
+        void refreshSystemInfo();
+    };
+
+    const renderStatusPlaceholder = () => {
+        if (systemStatus !== "error") {
+            return (
+                <div className={sharedStyles.emptyState}>
+                    <StatusIndicator
+                        status="processing"
+                        label={t("system.loading")}
+                    />
+                </div>
+            );
+        }
+
+        return (
+            <div className={sharedStyles.emptyState}>
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: 12,
+                    }}
+                >
+                    <StatusIndicator
+                        status="alarm"
+                        label={t("system.errors.loadFailed")}
+                    />
+                    {systemError && (
+                        <div
+                            style={{
+                                maxWidth: 560,
+                                fontSize: 12,
+                                color: "var(--text-secondary)",
+                                textAlign: "center",
+                            }}
+                        >
+                            {systemError}
+                        </div>
+                    )}
+                    <Button onClick={handleRetry}>{t("common.retry")}</Button>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className={sharedStyles.view}>
+            {systemStatus === "error" && systemInfo && (
+                <div
+                    style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        marginBottom: 12,
+                    }}
+                >
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 12,
+                            flexWrap: "wrap",
+                            justifyContent: "center",
+                        }}
+                    >
+                        <StatusIndicator
+                            status="alarm"
+                            label={t("system.errors.loadFailed")}
+                        />
+                        <Button onClick={handleRetry}>{t("common.retry")}</Button>
+                    </div>
+                </div>
+            )}
             <Tabs
                 activeId={activeTab}
                 onChange={setActiveTab}
@@ -141,6 +288,9 @@ export default function SystemView() {
                         id: "overview",
                         label: t("system.overview"),
                         content: (
+                            !systemInfo ? (
+                                renderStatusPlaceholder()
+                            ) : (
                             <div
                                 className={styles.systemGrid}
                                 data-layout="single"
@@ -169,7 +319,7 @@ export default function SystemView() {
                                                         styles.overviewLabel
                                                     }
                                                 >
-                                                    Uptime
+                                                    {t("system.labels.uptime")}
                                                 </span>
                                                 <span
                                                     className={
@@ -203,16 +353,20 @@ export default function SystemView() {
                                                         styles.overviewLabel
                                                     }
                                                 >
-                                                    Subsystems
+                                                    {t("system.subsystems")}
                                                 </span>
                                                 <span
                                                     className={
                                                         styles.overviewValue
                                                     }
                                                 >
-                                                    {onlineCount}/
-                                                    {demoSubsystems.length}{" "}
-                                                    Online
+                                                    {t(
+                                                        "system.subsystemsOnlineCount",
+                                                        {
+                                                            online: onlineCount,
+                                                            total: demoSubsystems.length,
+                                                        },
+                                                    )}
                                                 </span>
                                             </div>
                                         </div>
@@ -232,7 +386,7 @@ export default function SystemView() {
                                                         styles.resourceLabel
                                                     }
                                                 >
-                                                    CPU
+                                                    {t("system.resources.cpu")}
                                                 </span>
                                                 <span
                                                     className={
@@ -281,7 +435,7 @@ export default function SystemView() {
                                                         styles.resourceLabel
                                                     }
                                                 >
-                                                    Memory
+                                                    {t("system.resources.memory")}
                                                 </span>
                                                 <span
                                                     className={
@@ -330,7 +484,7 @@ export default function SystemView() {
                                                         styles.resourceLabel
                                                     }
                                                 >
-                                                    Disk
+                                                    {t("system.resources.disk")}
                                                 </span>
                                                 <span
                                                     className={
@@ -379,7 +533,7 @@ export default function SystemView() {
                                                         styles.resourceLabel
                                                     }
                                                 >
-                                                    Temp
+                                                    {t("system.resources.temperature")}
                                                 </span>
                                                 <span
                                                     className={
@@ -417,12 +571,16 @@ export default function SystemView() {
                                     </div>
                                 </div>
                             </div>
+                            )
                         ),
                     },
                     {
                         id: "subsystems",
                         label: t("system.subsystems"),
                         content: (
+                            !systemInfo ? (
+                                renderStatusPlaceholder()
+                            ) : (
                             <div
                                 className={styles.systemGrid}
                                 data-layout="single"
@@ -460,7 +618,7 @@ export default function SystemView() {
                                                             styles.subsystemName
                                                         }
                                                     >
-                                                        {sub.name}
+                                                        {t(sub.nameKey)}
                                                     </span>
                                                     <span
                                                         className={
@@ -478,13 +636,16 @@ export default function SystemView() {
                                                         sub.status,
                                                     )}
                                                 >
-                                                    {sub.status.toUpperCase()}
+                                                    {t(
+                                                        `system.subsystemStatus.${sub.status}`,
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             </div>
+                            )
                         ),
                     },
                 ]}

@@ -17,6 +17,13 @@
         "resume": "恢复",
         "reset": "重置",
         "theme": "主题",
+        "clear": "清空",
+        "retry": "重试",
+        "loading": "加载中...",
+        "languages": {
+            "zh": "中文",
+            "en": "English"
+        },
         "tabs": {
             "overview": "概览",
             "details": "详情",
@@ -50,6 +57,20 @@
             "disconnected": "已断开",
             "local": "本地",
             "remote": "远程"
+        },
+        "commType": {
+            "serialTcp": "串口 + TCP",
+            "serial": "串口",
+            "tcp": "TCP"
+        },
+        "roles": {
+            "operator": "操作员",
+            "engineer": "工程师",
+            "admin": "管理员"
+        },
+        "errors": {
+            "fullscreenFailed": "切换全屏失败",
+            "closeFailed": "关闭窗口失败"
         }
     },
     "dialog": {
@@ -73,17 +94,62 @@
         "tabs": {
             "active": "当前报警",
             "history": "历史记录"
-        }
+        },
+        "section": {
+            "active": "当前报警 ({{count}})",
+            "history": "历史记录 ({{count}})"
+        },
+        "actions": {
+            "ack": "确认"
+        },
+        "acknowledged": "已确认"
     },
     "system": {
         "title": "系统状态",
         "overview": "概览",
         "subsystems": "子系统",
+        "labels": {
+            "uptime": "运行时间"
+        },
+        "subsystemsOnlineCount": "{{online}}/{{total}} 在线",
+        "resources": {
+            "cpu": "CPU",
+            "memory": "内存",
+            "disk": "磁盘",
+            "temperature": "温度"
+        },
+        "subsystemStatus": {
+            "online": "在线",
+            "offline": "离线",
+            "warning": "警告",
+            "error": "错误"
+        },
+        "subsystemsDemo": {
+            "chamber": "腔体",
+            "vacuum": "真空",
+            "rf": "射频",
+            "gas": "气体",
+            "exhaust": "排气",
+            "cooling": "冷却",
+            "loader": "传片",
+            "plc": "PLC"
+        },
+        "subsystemValues": {
+            "ready": "就绪",
+            "active": "运行中",
+            "home": "原点",
+            "run": "运行"
+        },
         "status": "状态",
         "running": "运行中",
         "stopped": "已停止",
         "idle": "空闲",
         "error": "错误",
+        "loading": "加载中...",
+        "uptimeFormat": "{{days}}天 {{hours}}小时 {{mins}}分钟",
+        "errors": {
+            "loadFailed": "系统信息加载失败"
+        },
         "emergencyStop": "紧急停止",
         "emergencyStopConfirm": "这将立即停止所有操作。是否继续？"
     },
@@ -96,6 +162,23 @@
         "noJobs": "暂无作业",
         "selectJob": "请选择一个作业查看详情",
         "total": "总数",
+        "running": "运行中",
+        "completed": "已完成",
+        "errors": "错误",
+        "fields": {
+            "recipe": "配方",
+            "progress": "进度",
+            "wafers": "晶圆",
+            "start": "开始",
+            "eta": "预计结束"
+        },
+        "status": {
+            "idle": "空闲",
+            "running": "运行中",
+            "completed": "已完成",
+            "error": "错误",
+            "paused": "已暂停"
+        },
         "stopConfirm": "确定要停止当前作业吗？"
     },
     "recipes": {
@@ -106,7 +189,25 @@
         "loadRecipe": "加载配方",
         "recipeList": "配方列表",
         "noRecipes": "暂无配方",
-        "deleteConfirm": "确定要删除此配方吗？"
+        "deleteConfirm": "确定要删除此配方吗？",
+        "listTitle": "配方 ({{count}})",
+        "meta": "v{{version}} • {{steps}} 步",
+        "selectRecipe": "请选择一个配方查看详情",
+        "fields": {
+            "version": "版本",
+            "steps": "步骤",
+            "duration": "时长",
+            "modified": "修改"
+        },
+        "steps": {
+            "title": "工艺步骤",
+            "empty": "暂无步骤"
+        },
+        "status": {
+            "active": "启用",
+            "draft": "草稿",
+            "archived": "归档"
+        }
     },
     "setup": {
         "title": "系统设置",
@@ -137,7 +238,12 @@
         "selectPort": "选择端口...",
         "invalidPort": "无效的端口号",
         "resetSettings": "重置设置",
-        "resetConfirm": "将所有设置恢复为默认值？"
+        "resetConfirm": "将所有设置恢复为默认值？",
+        "errors": {
+            "loadSerialPorts": "加载串口列表失败",
+            "serialOperationFailed": "串口操作失败",
+            "tcpOperationFailed": "TCP 操作失败"
+        }
     },
     "help": {
         "title": "帮助",
@@ -151,6 +257,114 @@
             "semi": "SEMI E95",
             "faq": "常见问题",
             "support": "支持"
+        },
+        "aboutInfo": {
+            "applicationLabel": "应用",
+            "applicationValue": "工业 HMI",
+            "frameworkLabel": "框架",
+            "frameworkValue": "Tauri 2.x + React 18",
+            "standardLabel": "标准",
+            "standardValue": "SEMI E95-1101",
+            "platformLabel": "平台",
+            "platformValue": "Raspberry Pi CM5",
+            "displayLabel": "显示",
+            "displayValue": "1280x800 触控",
+            "description": "本 HMI（人机界面）用于工业半导体设备控制，遵循 SEMI E95 规范以实现统一的交互与视觉语义。提供实时监控、过程控制、报警管理与配方执行等能力。"
+        },
+        "colors": {
+            "title": "SEMI E95 色标",
+            "description": "色彩遵循 SEMI E95 规范，用于在不同设备界面中提供一致的视觉反馈。",
+            "items": {
+                "alarm": {
+                    "name": "报警（红）",
+                    "desc": "严重故障，需要立即处理"
+                },
+                "warning": {
+                    "name": "警告（黄）",
+                    "desc": "需要关注，建议持续监控"
+                },
+                "processing": {
+                    "name": "处理中（蓝）",
+                    "desc": "正在执行操作"
+                },
+                "attention": {
+                    "name": "关注（绿）",
+                    "desc": "正常状态，设备就绪"
+                }
+            }
+        },
+        "shortcuts": {
+            "title": "快捷键",
+            "actions": {
+                "emergencyStop": "紧急停止",
+                "acknowledgeAlarms": "确认报警",
+                "startProcess": "启动流程",
+                "stopProcess": "停止流程",
+                "navigateViews": "切换视图",
+                "toggleFullscreen": "切换全屏"
+            }
+        },
+        "semi": {
+            "title": "SEMI E95 规范",
+            "description": "SEMI E95-1101 定义了半导体制造设备人机界面的标准，确保不同厂商设备间一致的用户体验。",
+            "cards": {
+                "layout": {
+                    "title": "布局",
+                    "value": "四区架构：标题、导航、主视图、命令"
+                },
+                "buttonSize": {
+                    "title": "按钮尺寸",
+                    "value": "触控目标最小 70px（约 1.5cm）"
+                },
+                "fontSize": {
+                    "title": "字体尺寸",
+                    "value": "可读性最小 12px"
+                },
+                "colorCoding": {
+                    "title": "色彩语义",
+                    "value": "标准化状态色（红/黄/蓝/绿）"
+                },
+                "alarmManagement": {
+                    "title": "报警管理",
+                    "value": "可视/可听告警与确认流程"
+                },
+                "userLevels": {
+                    "title": "用户级别",
+                    "value": "操作员/工程师/管理员的权限区分"
+                }
+            }
+        },
+        "faq": {
+            "title": "常见问题",
+            "items": {
+                "connect": {
+                    "question": "如何连接设备？",
+                    "answer": "进入“设置”页面配置串口或 TCP 连接。串口请选择端口与波特率，TCP 请输入 IP 地址与端口。"
+                },
+                "colors": {
+                    "question": "不同报警颜色代表什么？",
+                    "answer": "红色表示需要立即处理的严重报警；黄色表示需要关注的警告；蓝色表示处理中状态；绿色表示正常就绪。"
+                },
+                "recipe": {
+                    "question": "如何运行配方？",
+                    "answer": "进入“配方”页面选择配方，查看工艺步骤与参数，然后在命令面板中加载并启动执行。"
+                },
+                "language": {
+                    "question": "如何切换语言？",
+                    "answer": "进入“设置”页面，在“语言”区域选择需要的语言，界面将立即切换。"
+                }
+            }
+        },
+        "support": {
+            "title": "技术支持",
+            "needHelpTitle": "需要帮助？",
+            "needHelpDesc": "如需技术支持，请联系设备管理员或查阅设备文档。",
+            "info": {
+                "documentationLabel": "文档",
+                "documentationValue": "设备手册",
+                "logFilesLabel": "日志文件",
+                "configFilesLabel": "配置文件"
+            }
         }
     },
     "monitor": {
@@ -158,16 +372,67 @@
         "temperature": "温度",
         "pressure": "压力",
         "humidity": "湿度",
-        "exportData": "导出数据"
+        "exportData": "导出数据",
+        "spectrum": {
+            "title": "频谱"
+        },
+        "displayMode": {
+            "fill": "填充",
+            "bars": "柱状",
+            "line": "折线"
+        },
+        "stats": {
+            "peakFrequency": "峰值频率",
+            "centerFrequencyAnalysis": "中心频率分析",
+            "peakAmplitude": "峰值幅度",
+            "signalStrength": "信号强度",
+            "bandwidth": "带宽",
+            "averageAmplitude": "平均幅度 {{value}} dB"
+        },
+        "badges": {
+            "peak": "峰值",
+            "high": "高",
+            "normal": "正常",
+            "bandwidth": "带宽"
+        },
+        "canvas": {
+            "waiting": "等待数据...",
+            "axisFrequency": "频率 (kHz)",
+            "axisAmplitude": "幅度 (dB)"
+        },
+        "legend": {
+            "spectrumAmplitude": "频谱幅度",
+            "peakMarker": "峰值标记",
+            "noiseFloor": "噪声底"
+        },
+        "info": {
+            "autoPause": "当页面不可见时自动暂停绘制",
+            "displayModeTip": "可在右上角切换显示模式：填充/柱状/折线",
+            "browserModeTip": "浏览器模式下无法获取实时数据，请在 Tauri 中运行"
+        },
+        "status": {
+            "loading": "加载中...",
+            "error": "数据获取失败",
+            "unavailable": "当前环境不可用"
+        }
     },
     "files": {
         "title": "文件浏览",
         "logFolder": "日志文件夹",
         "noLogFolder": "Log 文件夹不存在或无法访问",
+        "unavailableInBrowser": "浏览器环境不可用（请在 Tauri 中运行）",
+        "loadTimeout": "加载超时，请重试",
         "loading": "加载中...",
         "empty": "文件夹为空",
         "selectFile": "请选择一个文件进行预览",
         "readError": "读取文件失败",
+        "chart": {
+            "zoomHint": "滚轮缩放，拖拽平移，双击复位"
+        },
+        "info": {
+            "zoomTip": "图表支持滚轮缩放与拖拽平移",
+            "refreshTip": "点击“刷新”重新加载日志目录与文件列表"
+        },
         "showMore": "显示更多 (+{{count}})",
         "showLess": "收起"
     },

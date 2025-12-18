@@ -165,7 +165,6 @@
         0 0 0 2px rgba(255, 59, 59, 0.3),
         0 0 15px var(--color-alarm-glow),
         inset 0 0 12px rgba(255, 59, 59, 0.08);
-    animation: cmdAlarmPulse 1.2s ease-in-out infinite;
 }
 
 .commandButton[data-highlight="warning"] {
@@ -187,21 +186,6 @@
     box-shadow:
         0 0 0 2px rgba(34, 197, 94, 0.3),
         0 0 12px var(--color-attention-glow);
-}
-
-@keyframes cmdAlarmPulse {
-    0%, 100% {
-        box-shadow:
-            0 0 0 2px rgba(255, 59, 59, 0.3),
-            0 0 15px var(--color-alarm-glow),
-            inset 0 0 12px rgba(255, 59, 59, 0.08);
-    }
-    50% {
-        box-shadow:
-            0 0 0 3px rgba(255, 59, 59, 0.4),
-            0 0 25px var(--color-alarm-glow),
-            inset 0 0 18px rgba(255, 59, 59, 0.12);
-    }
 }
 
 .commandIcon {
@@ -285,12 +269,7 @@
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    animation: fadeIn 0.2s ease-out;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    animation: fade-in var(--transition-fast);
 }
 
 .modal {
@@ -307,7 +286,7 @@
     box-shadow:
         var(--shadow-xl),
         0 0 40px rgba(14, 165, 233, 0.15);
-    animation: slideUp 0.25s ease-out;
+    animation: scale-in var(--transition-fast);
     position: relative;
     overflow: hidden;
 }
@@ -324,17 +303,6 @@
         var(--color-warning),
         var(--color-warning)
     );
-}
-
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 .modalHeader {

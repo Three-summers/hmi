@@ -72,10 +72,10 @@ export default function HelpView() {
                             <div className={styles.infoCard}>
                                 <div className={styles.infoRow}>
                                     <span className={styles.infoLabel}>
-                                        Application
+                                        {t("help.aboutInfo.applicationLabel")}
                                     </span>
                                     <span className={styles.infoValue}>
-                                        Industrial HMI
+                                        {t("help.aboutInfo.applicationValue")}
                                     </span>
                                 </div>
                                 <div className={styles.infoRow}>
@@ -88,34 +88,34 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.infoRow}>
                                     <span className={styles.infoLabel}>
-                                        Framework
+                                        {t("help.aboutInfo.frameworkLabel")}
                                     </span>
                                     <span className={styles.infoValue}>
-                                        Tauri 2.x + React 18
+                                        {t("help.aboutInfo.frameworkValue")}
                                     </span>
                                 </div>
                                 <div className={styles.infoRow}>
                                     <span className={styles.infoLabel}>
-                                        Standard
+                                        {t("help.aboutInfo.standardLabel")}
                                     </span>
                                     <span className={styles.infoValue}>
-                                        SEMI E95-1101
+                                        {t("help.aboutInfo.standardValue")}
                                     </span>
                                 </div>
                                 <div className={styles.infoRow}>
                                     <span className={styles.infoLabel}>
-                                        Platform
+                                        {t("help.aboutInfo.platformLabel")}
                                     </span>
                                     <span className={styles.infoValue}>
-                                        Raspberry Pi CM5
+                                        {t("help.aboutInfo.platformValue")}
                                     </span>
                                 </div>
                                 <div className={styles.infoRow}>
                                     <span className={styles.infoLabel}>
-                                        Display
+                                        {t("help.aboutInfo.displayLabel")}
                                     </span>
                                     <span className={styles.infoValue}>
-                                        1280x800 Touch
+                                        {t("help.aboutInfo.displayValue")}
                                     </span>
                                 </div>
                             </div>
@@ -126,13 +126,7 @@ export default function HelpView() {
                                     lineHeight: 1.6,
                                 }}
                             >
-                                This Human-Machine Interface (HMI) application
-                                is designed for industrial semiconductor
-                                equipment control, following the SEMI E95
-                                specification for standardized user interfaces.
-                                It provides real-time monitoring, process
-                                control, alarm management, and recipe execution
-                                capabilities.
+                                {t("help.aboutInfo.description")}
                             </p>
                         </div>
                     </>
@@ -143,7 +137,7 @@ export default function HelpView() {
                     <>
                         <h2 className={styles.sectionTitle}>
                             {icons.palette}
-                            SEMI E95 Color Legend
+                            {t("help.colors.title")}
                         </h2>
                         <div className={styles.sectionContent}>
                             <p
@@ -153,9 +147,7 @@ export default function HelpView() {
                                     marginBottom: "16px",
                                 }}
                             >
-                                Colors follow the SEMI E95 specification for
-                                consistent visual feedback across all
-                                semiconductor equipment interfaces.
+                                {t("help.colors.description")}
                             </p>
                             <div className={styles.colorLegend}>
                                 <div className={styles.colorItem}>
@@ -165,11 +157,10 @@ export default function HelpView() {
                                     />
                                     <div className={styles.colorInfo}>
                                         <span className={styles.colorName}>
-                                            Alarm (Red)
+                                            {t("help.colors.items.alarm.name")}
                                         </span>
                                         <span className={styles.colorDesc}>
-                                            Critical fault, immediate attention
-                                            required
+                                            {t("help.colors.items.alarm.desc")}
                                         </span>
                                     </div>
                                 </div>
@@ -180,11 +171,10 @@ export default function HelpView() {
                                     />
                                     <div className={styles.colorInfo}>
                                         <span className={styles.colorName}>
-                                            Warning (Yellow)
+                                            {t("help.colors.items.warning.name")}
                                         </span>
                                         <span className={styles.colorDesc}>
-                                            Caution state, monitoring
-                                            recommended
+                                            {t("help.colors.items.warning.desc")}
                                         </span>
                                     </div>
                                 </div>
@@ -195,10 +185,10 @@ export default function HelpView() {
                                     />
                                     <div className={styles.colorInfo}>
                                         <span className={styles.colorName}>
-                                            Processing (Blue)
+                                            {t("help.colors.items.processing.name")}
                                         </span>
                                         <span className={styles.colorDesc}>
-                                            Active operation in progress
+                                            {t("help.colors.items.processing.desc")}
                                         </span>
                                     </div>
                                 </div>
@@ -209,10 +199,10 @@ export default function HelpView() {
                                     />
                                     <div className={styles.colorInfo}>
                                         <span className={styles.colorName}>
-                                            Attention (Green)
+                                            {t("help.colors.items.attention.name")}
                                         </span>
                                         <span className={styles.colorDesc}>
-                                            Normal operation, ready state
+                                            {t("help.colors.items.attention.desc")}
                                         </span>
                                     </div>
                                 </div>
@@ -226,13 +216,13 @@ export default function HelpView() {
                     <>
                         <h2 className={styles.sectionTitle}>
                             {icons.keyboard}
-                            Keyboard Shortcuts
+                            {t("help.shortcuts.title")}
                         </h2>
                         <div className={styles.sectionContent}>
                             <div className={styles.shortcutList}>
                                 <div className={styles.shortcutItem}>
                                     <span className={styles.shortcutAction}>
-                                        Emergency Stop
+                                        {t("help.shortcuts.actions.emergencyStop")}
                                     </span>
                                     <div className={styles.shortcutKey}>
                                         <span className={styles.key}>ESC</span>
@@ -240,7 +230,7 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.shortcutItem}>
                                     <span className={styles.shortcutAction}>
-                                        Acknowledge Alarms
+                                        {t("help.shortcuts.actions.acknowledgeAlarms")}
                                     </span>
                                     <div className={styles.shortcutKey}>
                                         <span className={styles.key}>Ctrl</span>
@@ -249,7 +239,7 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.shortcutItem}>
                                     <span className={styles.shortcutAction}>
-                                        Start Process
+                                        {t("help.shortcuts.actions.startProcess")}
                                     </span>
                                     <div className={styles.shortcutKey}>
                                         <span className={styles.key}>F5</span>
@@ -257,7 +247,7 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.shortcutItem}>
                                     <span className={styles.shortcutAction}>
-                                        Stop Process
+                                        {t("help.shortcuts.actions.stopProcess")}
                                     </span>
                                     <div className={styles.shortcutKey}>
                                         <span className={styles.key}>F6</span>
@@ -265,7 +255,7 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.shortcutItem}>
                                     <span className={styles.shortcutAction}>
-                                        Navigate Views
+                                        {t("help.shortcuts.actions.navigateViews")}
                                     </span>
                                     <div className={styles.shortcutKey}>
                                         <span className={styles.key}>F1</span>
@@ -275,7 +265,7 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.shortcutItem}>
                                     <span className={styles.shortcutAction}>
-                                        Toggle Fullscreen
+                                        {t("help.shortcuts.actions.toggleFullscreen")}
                                     </span>
                                     <div className={styles.shortcutKey}>
                                         <span className={styles.key}>F11</span>
@@ -291,7 +281,7 @@ export default function HelpView() {
                     <>
                         <h2 className={styles.sectionTitle}>
                             {icons.standard}
-                            SEMI E95 Specification
+                            {t("help.semi.title")}
                         </h2>
                         <div className={styles.sectionContent}>
                             <p
@@ -301,58 +291,55 @@ export default function HelpView() {
                                     marginBottom: "16px",
                                 }}
                             >
-                                SEMI E95-1101 defines the standard for Human
-                                Interface for Semiconductor Manufacturing
-                                Equipment, ensuring consistent user experience
-                                across different equipment manufacturers.
+                                {t("help.semi.description")}
                             </p>
                             <div className={styles.specList}>
                                 <div className={styles.specCard}>
-                                    <h4 className={styles.specTitle}>Layout</h4>
+                                    <h4 className={styles.specTitle}>
+                                        {t("help.semi.cards.layout.title")}
+                                    </h4>
                                     <p className={styles.specValue}>
-                                        4-panel architecture: Title, Navigation,
-                                        Main, Command
+                                        {t("help.semi.cards.layout.value")}
                                     </p>
                                 </div>
                                 <div className={styles.specCard}>
                                     <h4 className={styles.specTitle}>
-                                        Button Size
+                                        {t("help.semi.cards.buttonSize.title")}
                                     </h4>
                                     <p className={styles.specValue}>
-                                        Minimum 70px (1.5cm) for touch targets
+                                        {t("help.semi.cards.buttonSize.value")}
                                     </p>
                                 </div>
                                 <div className={styles.specCard}>
                                     <h4 className={styles.specTitle}>
-                                        Font Size
+                                        {t("help.semi.cards.fontSize.title")}
                                     </h4>
                                     <p className={styles.specValue}>
-                                        Minimum 12px for readability
+                                        {t("help.semi.cards.fontSize.value")}
                                     </p>
                                 </div>
                                 <div className={styles.specCard}>
                                     <h4 className={styles.specTitle}>
-                                        Color Coding
+                                        {t("help.semi.cards.colorCoding.title")}
                                     </h4>
                                     <p className={styles.specValue}>
-                                        Standardized status colors (RYGB)
+                                        {t("help.semi.cards.colorCoding.value")}
                                     </p>
                                 </div>
                                 <div className={styles.specCard}>
                                     <h4 className={styles.specTitle}>
-                                        Alarm Management
+                                        {t("help.semi.cards.alarmManagement.title")}
                                     </h4>
                                     <p className={styles.specValue}>
-                                        Visual and audible alerts with
-                                        acknowledgment
+                                        {t("help.semi.cards.alarmManagement.value")}
                                     </p>
                                 </div>
                                 <div className={styles.specCard}>
                                     <h4 className={styles.specTitle}>
-                                        User Levels
+                                        {t("help.semi.cards.userLevels.title")}
                                     </h4>
                                     <p className={styles.specValue}>
-                                        Operator, Engineer, Admin access control
+                                        {t("help.semi.cards.userLevels.value")}
                                     </p>
                                 </div>
                             </div>
@@ -365,56 +352,40 @@ export default function HelpView() {
                     <>
                         <h2 className={styles.sectionTitle}>
                             {icons.question}
-                            Frequently Asked Questions
+                            {t("help.faq.title")}
                         </h2>
                         <div className={styles.sectionContent}>
                             <div className={styles.faqList}>
                                 <div className={styles.faqItem}>
                                     <h4 className={styles.faqQuestion}>
-                                        How do I connect to the equipment?
+                                        {t("help.faq.items.connect.question")}
                                     </h4>
                                     <p className={styles.faqAnswer}>
-                                        Navigate to the Setup view and configure
-                                        either Serial or TCP connection
-                                        settings. Select the appropriate port
-                                        and baud rate for serial, or enter the
-                                        IP address and port for TCP connections.
+                                        {t("help.faq.items.connect.answer")}
                                     </p>
                                 </div>
                                 <div className={styles.faqItem}>
                                     <h4 className={styles.faqQuestion}>
-                                        What do the different alarm colors mean?
+                                        {t("help.faq.items.colors.question")}
                                     </h4>
                                     <p className={styles.faqAnswer}>
-                                        Red indicates critical alarms requiring
-                                        immediate attention. Yellow shows
-                                        warnings that should be monitored. Blue
-                                        represents active processing states, and
-                                        green indicates normal operation.
+                                        {t("help.faq.items.colors.answer")}
                                     </p>
                                 </div>
                                 <div className={styles.faqItem}>
                                     <h4 className={styles.faqQuestion}>
-                                        How do I run a recipe?
+                                        {t("help.faq.items.recipe.question")}
                                     </h4>
                                     <p className={styles.faqAnswer}>
-                                        Go to the Recipes view and select a
-                                        recipe from the list. Review the process
-                                        steps and parameters, then use the
-                                        command panel to load and start the
-                                        recipe execution.
+                                        {t("help.faq.items.recipe.answer")}
                                     </p>
                                 </div>
                                 <div className={styles.faqItem}>
                                     <h4 className={styles.faqQuestion}>
-                                        How do I change the language?
+                                        {t("help.faq.items.language.question")}
                                     </h4>
                                     <p className={styles.faqAnswer}>
-                                        Navigate to the Setup view and select
-                                        your preferred language from the
-                                        Language section. The interface will
-                                        update immediately to the selected
-                                        language.
+                                        {t("help.faq.items.language.answer")}
                                     </p>
                                 </div>
                             </div>
@@ -427,7 +398,7 @@ export default function HelpView() {
                     <>
                         <h2 className={styles.sectionTitle}>
                             {icons.support}
-                            Technical Support
+                            {t("help.support.title")}
                         </h2>
                         <div className={styles.sectionContent}>
                             <div className={styles.contactCard}>
@@ -435,12 +406,10 @@ export default function HelpView() {
                                     {icons.support}
                                 </div>
                                 <h3 className={styles.contactTitle}>
-                                    Need Help?
+                                    {t("help.support.needHelpTitle")}
                                 </h3>
                                 <p className={styles.contactText}>
-                                    For technical support, please contact your
-                                    equipment administrator or refer to the
-                                    equipment documentation.
+                                    {t("help.support.needHelpDesc")}
                                 </p>
                             </div>
                             <div
@@ -449,15 +418,15 @@ export default function HelpView() {
                             >
                                 <div className={styles.infoRow}>
                                     <span className={styles.infoLabel}>
-                                        Documentation
+                                        {t("help.support.info.documentationLabel")}
                                     </span>
                                     <span className={styles.infoValue}>
-                                        Equipment Manual
+                                        {t("help.support.info.documentationValue")}
                                     </span>
                                 </div>
                                 <div className={styles.infoRow}>
                                     <span className={styles.infoLabel}>
-                                        Log Files
+                                        {t("help.support.info.logFilesLabel")}
                                     </span>
                                     <span className={styles.infoValue}>
                                         /var/log/hmi/
@@ -465,7 +434,7 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.infoRow}>
                                     <span className={styles.infoLabel}>
-                                        Config Files
+                                        {t("help.support.info.configFilesLabel")}
                                     </span>
                                     <span className={styles.infoValue}>
                                         ~/.config/hmi/

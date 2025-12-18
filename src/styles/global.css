@@ -2,6 +2,15 @@
    HMI Global Styles - Industrial Futurism
    ═══════════════════════════════════════════════════════════════════════════ */
 
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
 /* Global Reset and Base Styles */
 *,
 *::before,
@@ -161,7 +170,7 @@ textarea {
 
 ::selection {
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -222,97 +231,18 @@ textarea {
 
 .highlight-alarm {
     box-shadow: var(--highlight-alarm) !important;
-    animation: pulse-alarm 1.5s ease-in-out infinite;
 }
 
 .highlight-warning {
     box-shadow: var(--highlight-warning) !important;
-    animation: pulse-warning 2s ease-in-out infinite;
 }
 
 .highlight-processing {
     box-shadow: var(--highlight-processing) !important;
-    animation: pulse-processing 2.5s ease-in-out infinite;
 }
 
 .highlight-attention {
     box-shadow: var(--highlight-attention) !important;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────
-   Status Animations
-   ───────────────────────────────────────────────────────────────────────── */
-
-@keyframes pulse-alarm {
-    0%, 100% {
-        box-shadow:
-            0 0 0 2px var(--color-alarm),
-            0 0 20px var(--color-alarm-glow),
-            inset 0 0 15px rgba(255, 59, 59, 0.1);
-    }
-    50% {
-        box-shadow:
-            0 0 0 4px var(--color-alarm),
-            0 0 40px var(--color-alarm-glow),
-            inset 0 0 25px rgba(255, 59, 59, 0.2);
-    }
-}
-
-@keyframes pulse-warning {
-    0%, 100% {
-        box-shadow:
-            0 0 0 2px var(--color-warning),
-            0 0 15px var(--color-warning-glow),
-            inset 0 0 10px rgba(255, 193, 7, 0.1);
-    }
-    50% {
-        box-shadow:
-            0 0 0 3px var(--color-warning),
-            0 0 30px var(--color-warning-glow),
-            inset 0 0 20px rgba(255, 193, 7, 0.15);
-    }
-}
-
-@keyframes pulse-processing {
-    0%, 100% {
-        box-shadow:
-            0 0 0 2px var(--color-processing),
-            0 0 15px var(--color-processing-glow),
-            inset 0 0 10px rgba(14, 165, 233, 0.1);
-    }
-    50% {
-        box-shadow:
-            0 0 0 2px var(--color-processing),
-            0 0 25px var(--color-processing-glow),
-            inset 0 0 15px rgba(14, 165, 233, 0.15);
-    }
-}
-
-@keyframes glow-breathe {
-    0%, 100% { opacity: 0.6; }
-    50% { opacity: 1; }
-}
-
-@keyframes slide-in-up {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes slide-in-down {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 @keyframes fade-in {
@@ -331,15 +261,6 @@ textarea {
     }
 }
 
-@keyframes shimmer {
-    0% {
-        background-position: -200% 0;
-    }
-    100% {
-        background-position: 200% 0;
-    }
-}
-
 /* ─────────────────────────────────────────────────────────────────────────
    Loading States
    ───────────────────────────────────────────────────────────────────────── */
@@ -351,8 +272,6 @@ textarea {
         var(--bg-tertiary) 50%,
         var(--bg-secondary) 75%
     );
-    background-size: 200% 100%;
-    animation: shimmer 1.5s ease-in-out infinite;
     border-radius: 4px;
 }
 
@@ -400,7 +319,7 @@ input, select, textarea {
     background: var(--button-bg);
     border: 1px solid var(--border-color);
     border-radius: var(--button-radius);
-    padding: 10px 14px;
+    padding: calc(var(--sp-sm) + var(--sp-xs)) var(--sp-md);
     transition: all var(--transition-fast);
 }
 
@@ -478,19 +397,19 @@ td[data-type="number"] {
     font-weight: var(--font-weight-bold);
     border-radius: 10px;
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
     box-shadow: 0 2px 8px var(--color-processing-glow);
 }
 
 .badge[data-status="alarm"] {
     background: var(--color-alarm);
+    color: var(--text-on-alarm);
     box-shadow: 0 2px 8px var(--color-alarm-glow);
-    animation: pulse-alarm 1.5s ease-in-out infinite;
 }
 
 .badge[data-status="warning"] {
     background: var(--color-warning);
-    color: #1a1a1a;
+    color: var(--text-on-warning);
     box-shadow: 0 2px 8px var(--color-warning-glow);
 }
 
@@ -518,17 +437,6 @@ td[data-type="number"] {
     border-radius: 4px;
     transition: width var(--transition-normal);
     position: relative;
-}
-
-.progress-bar-fill::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-    animation: shimmer 2s ease-in-out infinite;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -589,8 +497,8 @@ td[data-type="number"] {
 
     /* Scrollbar adjustments */
     ::-webkit-scrollbar-thumb {
-        background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
-        border-color: rgba(0, 0, 0, 0.1);
+        background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--text-disabled) 100%);
+        border-color: var(--border-subtle);
     }
 
     ::-webkit-scrollbar-thumb:hover {
