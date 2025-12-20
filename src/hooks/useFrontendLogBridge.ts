@@ -21,7 +21,8 @@ interface FrontendLogEntry {
     source?: string;
 }
 
-const { MAX_BATCH_SIZE, FLUSH_INTERVAL_MS, MAX_MESSAGE_LENGTH } = LOG_BRIDGE_CONFIG;
+const { MAX_BATCH_SIZE, FLUSH_INTERVAL_MS, MAX_MESSAGE_LENGTH } =
+    LOG_BRIDGE_CONFIG;
 
 const consoleLevels = ["log", "info", "warn", "error", "debug"] as const;
 type ConsoleLevel = (typeof consoleLevels)[number];
@@ -34,7 +35,11 @@ type ConsoleLevel = (typeof consoleLevels)[number];
  * @param seen - 循环引用检测集合
  * @returns 格式化后的字符串
  */
-function formatUnknown(value: unknown, depth: number, seen: WeakSet<object>): string {
+function formatUnknown(
+    value: unknown,
+    depth: number,
+    seen: WeakSet<object>,
+): string {
     if (depth <= 0) return "[Object]";
     if (value === null) return "null";
     if (value === undefined) return "undefined";
@@ -68,7 +73,11 @@ function formatUnknown(value: unknown, depth: number, seen: WeakSet<object>): st
                 value,
                 (_key, v) => {
                     if (v instanceof Error) {
-                        return { name: v.name, message: v.message, stack: v.stack };
+                        return {
+                            name: v.name,
+                            message: v.message,
+                            stack: v.stack,
+                        };
                     }
                     if (typeof v === "bigint") return v.toString();
                     return v;
@@ -148,7 +157,9 @@ export function useFrontendLogBridge() {
         if (!isTauri()) return;
         if (installedRef.current) return;
 
-        const originals: Partial<Record<ConsoleLevel, (...args: unknown[]) => void>> = {};
+        const originals: Partial<
+            Record<ConsoleLevel, (...args: unknown[]) => void>
+        > = {};
         // 待发送队列：通过批量 flush 降低 invoke 次数
         const queue: FrontendLogEntry[] = [];
         let flushTimer: number | null = null;
@@ -162,7 +173,11 @@ export function useFrontendLogBridge() {
             }, FLUSH_INTERVAL_MS);
         };
 
-        const enqueue = (entry: Omit<FrontendLogEntry, "timestamp_ms"> & { timestamp_ms?: number }) => {
+        const enqueue = (
+            entry: Omit<FrontendLogEntry, "timestamp_ms"> & {
+                timestamp_ms?: number;
+            },
+        ) => {
             queue.push({
                 timestamp_ms: entry.timestamp_ms ?? Date.now(),
                 level: entry.level,
@@ -226,8 +241,12 @@ export function useFrontendLogBridge() {
         const onWindowError = (event: ErrorEvent) => {
             const detail = [
                 event.message,
-                event.filename ? `\n${event.filename}:${event.lineno}:${event.colno}` : "",
-                event.error ? `\n${formatUnknown(event.error, 5, new WeakSet<object>())}` : "",
+                event.filename
+                    ? `\n${event.filename}:${event.lineno}:${event.colno}`
+                    : "",
+                event.error
+                    ? `\n${formatUnknown(event.error, 5, new WeakSet<object>())}`
+                    : "",
             ].join("");
 
             enqueue({
@@ -238,7 +257,11 @@ export function useFrontendLogBridge() {
         };
 
         const onUnhandledRejection = (event: PromiseRejectionEvent) => {
-            const reason = formatUnknown(event.reason, 5, new WeakSet<object>());
+            const reason = formatUnknown(
+                event.reason,
+                5,
+                new WeakSet<object>(),
+            );
             enqueue({
                 level: normalizeLevel("promise"),
                 source: "window.unhandledrejection",
@@ -260,10 +283,14 @@ export function useFrontendLogBridge() {
             try {
                 consoleLevels.forEach((level) => {
                     const original = originals[level];
-                    if (original) console[level] = original as Console[ConsoleLevel];
+                    if (original)
+                        console[level] = original as Console[ConsoleLevel];
                 });
                 window.removeEventListener("error", onWindowError);
-                window.removeEventListener("unhandledrejection", onUnhandledRejection);
+                window.removeEventListener(
+                    "unhandledrejection",
+                    onUnhandledRejection,
+                );
                 if (flushTimer !== null) window.clearTimeout(flushTimer);
                 flushTimer = null;
                 queue.length = 0;

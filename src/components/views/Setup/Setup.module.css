@@ -137,7 +137,9 @@
     background-position:
         calc(100% - var(--sp-md)) 50%,
         calc(100% - var(--sp-md) + var(--sp-xs)) 50%;
-    background-size: var(--sp-xs) var(--sp-xs), var(--sp-xs) var(--sp-xs);
+    background-size:
+        var(--sp-xs) var(--sp-xs),
+        var(--sp-xs) var(--sp-xs);
     padding-right: calc(var(--sp-xl) + var(--sp-xs));
     cursor: pointer;
 }

@@ -45,15 +45,18 @@ const icons: Record<string, JSX.Element> = {
     ),
 };
 
-const helpTabs: { id: HelpSection; icon: keyof typeof icons; labelKey: string }[] =
-    [
-        { id: "about", icon: "info", labelKey: "help.tabs.about" },
-        { id: "colors", icon: "palette", labelKey: "help.tabs.colors" },
-        { id: "shortcuts", icon: "keyboard", labelKey: "help.tabs.shortcuts" },
-        { id: "semi", icon: "standard", labelKey: "help.tabs.semi" },
-        { id: "faq", icon: "question", labelKey: "help.tabs.faq" },
-        { id: "support", icon: "support", labelKey: "help.tabs.support" },
-    ];
+const helpTabs: {
+    id: HelpSection;
+    icon: keyof typeof icons;
+    labelKey: string;
+}[] = [
+    { id: "about", icon: "info", labelKey: "help.tabs.about" },
+    { id: "colors", icon: "palette", labelKey: "help.tabs.colors" },
+    { id: "shortcuts", icon: "keyboard", labelKey: "help.tabs.shortcuts" },
+    { id: "semi", icon: "standard", labelKey: "help.tabs.semi" },
+    { id: "faq", icon: "question", labelKey: "help.tabs.faq" },
+    { id: "support", icon: "support", labelKey: "help.tabs.support" },
+];
 
 export default function HelpView() {
     const { t } = useTranslation();
@@ -171,10 +174,14 @@ export default function HelpView() {
                                     />
                                     <div className={styles.colorInfo}>
                                         <span className={styles.colorName}>
-                                            {t("help.colors.items.warning.name")}
+                                            {t(
+                                                "help.colors.items.warning.name",
+                                            )}
                                         </span>
                                         <span className={styles.colorDesc}>
-                                            {t("help.colors.items.warning.desc")}
+                                            {t(
+                                                "help.colors.items.warning.desc",
+                                            )}
                                         </span>
                                     </div>
                                 </div>
@@ -185,10 +192,14 @@ export default function HelpView() {
                                     />
                                     <div className={styles.colorInfo}>
                                         <span className={styles.colorName}>
-                                            {t("help.colors.items.processing.name")}
+                                            {t(
+                                                "help.colors.items.processing.name",
+                                            )}
                                         </span>
                                         <span className={styles.colorDesc}>
-                                            {t("help.colors.items.processing.desc")}
+                                            {t(
+                                                "help.colors.items.processing.desc",
+                                            )}
                                         </span>
                                     </div>
                                 </div>
@@ -199,10 +210,14 @@ export default function HelpView() {
                                     />
                                     <div className={styles.colorInfo}>
                                         <span className={styles.colorName}>
-                                            {t("help.colors.items.attention.name")}
+                                            {t(
+                                                "help.colors.items.attention.name",
+                                            )}
                                         </span>
                                         <span className={styles.colorDesc}>
-                                            {t("help.colors.items.attention.desc")}
+                                            {t(
+                                                "help.colors.items.attention.desc",
+                                            )}
                                         </span>
                                     </div>
                                 </div>
@@ -222,7 +237,9 @@ export default function HelpView() {
                             <div className={styles.shortcutList}>
                                 <div className={styles.shortcutItem}>
                                     <span className={styles.shortcutAction}>
-                                        {t("help.shortcuts.actions.emergencyStop")}
+                                        {t(
+                                            "help.shortcuts.actions.emergencyStop",
+                                        )}
                                     </span>
                                     <div className={styles.shortcutKey}>
                                         <span className={styles.key}>ESC</span>
@@ -230,7 +247,9 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.shortcutItem}>
                                     <span className={styles.shortcutAction}>
-                                        {t("help.shortcuts.actions.acknowledgeAlarms")}
+                                        {t(
+                                            "help.shortcuts.actions.acknowledgeAlarms",
+                                        )}
                                     </span>
                                     <div className={styles.shortcutKey}>
                                         <span className={styles.key}>Ctrl</span>
@@ -239,7 +258,9 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.shortcutItem}>
                                     <span className={styles.shortcutAction}>
-                                        {t("help.shortcuts.actions.startProcess")}
+                                        {t(
+                                            "help.shortcuts.actions.startProcess",
+                                        )}
                                     </span>
                                     <div className={styles.shortcutKey}>
                                         <span className={styles.key}>F5</span>
@@ -247,7 +268,9 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.shortcutItem}>
                                     <span className={styles.shortcutAction}>
-                                        {t("help.shortcuts.actions.stopProcess")}
+                                        {t(
+                                            "help.shortcuts.actions.stopProcess",
+                                        )}
                                     </span>
                                     <div className={styles.shortcutKey}>
                                         <span className={styles.key}>F6</span>
@@ -255,7 +278,9 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.shortcutItem}>
                                     <span className={styles.shortcutAction}>
-                                        {t("help.shortcuts.actions.navigateViews")}
+                                        {t(
+                                            "help.shortcuts.actions.navigateViews",
+                                        )}
                                     </span>
                                     <div className={styles.shortcutKey}>
                                         <span className={styles.key}>F1</span>
@@ -265,7 +290,9 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.shortcutItem}>
                                     <span className={styles.shortcutAction}>
-                                        {t("help.shortcuts.actions.toggleFullscreen")}
+                                        {t(
+                                            "help.shortcuts.actions.toggleFullscreen",
+                                        )}
                                     </span>
                                     <div className={styles.shortcutKey}>
                                         <span className={styles.key}>F11</span>
@@ -328,10 +355,14 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.specCard}>
                                     <h4 className={styles.specTitle}>
-                                        {t("help.semi.cards.alarmManagement.title")}
+                                        {t(
+                                            "help.semi.cards.alarmManagement.title",
+                                        )}
                                     </h4>
                                     <p className={styles.specValue}>
-                                        {t("help.semi.cards.alarmManagement.value")}
+                                        {t(
+                                            "help.semi.cards.alarmManagement.value",
+                                        )}
                                     </p>
                                 </div>
                                 <div className={styles.specCard}>
@@ -418,10 +449,14 @@ export default function HelpView() {
                             >
                                 <div className={styles.infoRow}>
                                     <span className={styles.infoLabel}>
-                                        {t("help.support.info.documentationLabel")}
+                                        {t(
+                                            "help.support.info.documentationLabel",
+                                        )}
                                     </span>
                                     <span className={styles.infoValue}>
-                                        {t("help.support.info.documentationValue")}
+                                        {t(
+                                            "help.support.info.documentationValue",
+                                        )}
                                     </span>
                                 </div>
                                 <div className={styles.infoRow}>
@@ -434,7 +469,9 @@ export default function HelpView() {
                                 </div>
                                 <div className={styles.infoRow}>
                                     <span className={styles.infoLabel}>
-                                        {t("help.support.info.configFilesLabel")}
+                                        {t(
+                                            "help.support.info.configFilesLabel",
+                                        )}
                                     </span>
                                     <span className={styles.infoValue}>
                                         ~/.config/hmi/

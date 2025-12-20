@@ -135,11 +135,14 @@
 }
 
 @keyframes buttonAlarmPulse {
-    0%, 100% {
+    0%,
+    100% {
         box-shadow: var(--highlight-alarm);
     }
     50% {
-        box-shadow: var(--highlight-alarm), 0 0 35px var(--color-alarm-glow);
+        box-shadow:
+            var(--highlight-alarm),
+            0 0 35px var(--color-alarm-glow);
     }
 }
 

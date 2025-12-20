@@ -123,7 +123,9 @@ interface NavigationState {
      * @param view - 目标视图 ID
      * @returns 对应视图的对话框状态；若未设置则为 `undefined`
      */
-    getViewDialogState: <V extends ViewId>(view: V) => ViewDialogStateMap[V] | undefined;
+    getViewDialogState: <V extends ViewId>(
+        view: V,
+    ) => ViewDialogStateMap[V] | undefined;
 }
 
 /**

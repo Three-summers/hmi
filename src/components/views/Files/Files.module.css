@@ -49,7 +49,9 @@
     align-items: center;
     justify-content: center;
     color: var(--text-secondary);
-    transition: transform var(--transition-fast), color var(--transition-fast);
+    transition:
+        transform var(--transition-fast),
+        color var(--transition-fast);
     flex-shrink: 0;
 }
 
@@ -315,7 +317,9 @@
     border: 1px solid var(--border-color);
     overflow: hidden;
     cursor: zoom-in;
-    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    transition:
+        border-color var(--transition-fast),
+        box-shadow var(--transition-fast);
 }
 
 .chartWrapper:hover {
@@ -436,7 +440,11 @@
     padding: var(--sp-xs) calc(var(--sp-sm) + var(--sp-xs));
     font-size: 12px;
     font-weight: 600;
-    background: linear-gradient(180deg, var(--button-bg) 0%, var(--button-bg-active) 100%);
+    background: linear-gradient(
+        180deg,
+        var(--button-bg) 0%,
+        var(--button-bg-active) 100%
+    );
     border: 1px solid var(--border-color);
     border-radius: calc(var(--button-radius) - var(--sp-xs));
     color: var(--text-primary);
@@ -446,7 +454,11 @@
 
 .chartModalBtn:hover {
     border-color: var(--color-processing);
-    background: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
+    background: linear-gradient(
+        180deg,
+        var(--button-bg-hover) 0%,
+        var(--button-bg) 100%
+    );
 }
 
 .chartModalBody {

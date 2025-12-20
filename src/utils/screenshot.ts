@@ -42,7 +42,10 @@ export async function captureSpectrumAnalyzer(
     ctx.fillStyle = "rgba(8, 15, 30, 1)";
     ctx.fillRect(0, 0, composite.width, composite.height);
 
-    const chartX = Math.max(0, Math.floor((composite.width - chartCanvas.width) / 2));
+    const chartX = Math.max(
+        0,
+        Math.floor((composite.width - chartCanvas.width) / 2),
+    );
     const waterfallX = Math.max(
         0,
         Math.floor((composite.width - waterfallCanvas.width) / 2),

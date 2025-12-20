@@ -44,7 +44,9 @@ export default function SetupView() {
 
     const [availablePorts, setAvailablePorts] = useState<string[]>([]);
     const [selectedPort, setSelectedPort] = useState("");
-    const [baudRate, setBaudRate] = useState<number>(COMM_CONFIG.DEFAULT_BAUD_RATE);
+    const [baudRate, setBaudRate] = useState<number>(
+        COMM_CONFIG.DEFAULT_BAUD_RATE,
+    );
     const [tcpHost, setTcpHost] = useState("127.0.0.1");
     const [tcpPort, setTcpPort] = useState("502");
     const activeTab =
@@ -124,7 +126,9 @@ export default function SetupView() {
         <div className={sharedStyles.view}>
             <Tabs
                 activeId={activeTab}
-                onChange={(id) => setViewDialogState("setup", { activeTab: id })}
+                onChange={(id) =>
+                    setViewDialogState("setup", { activeTab: id })
+                }
                 tabs={[
                     {
                         id: "settings",
@@ -137,9 +141,7 @@ export default function SetupView() {
                                             <LanguageIcon />
                                         </div>
                                         <div>
-                                            <h3
-                                                className={styles.sectionTitle}
-                                            >
+                                            <h3 className={styles.sectionTitle}>
                                                 {t("setup.language")}
                                             </h3>
                                             <p className={styles.sectionDesc}>
@@ -177,9 +179,7 @@ export default function SetupView() {
                                             <PaletteIcon />
                                         </div>
                                         <div>
-                                            <h3
-                                                className={styles.sectionTitle}
-                                            >
+                                            <h3 className={styles.sectionTitle}>
                                                 {t("setup.theme")}
                                             </h3>
                                             <p className={styles.sectionDesc}>
@@ -188,9 +188,7 @@ export default function SetupView() {
                                         </div>
                                     </div>
                                     <div className={styles.optionRow}>
-                                        {(
-                                            THEME_ORDER
-                                        ).map((id) => (
+                                        {THEME_ORDER.map((id) => (
                                             <button
                                                 key={id}
                                                 className={styles.optionButton}
@@ -209,9 +207,7 @@ export default function SetupView() {
                                             <LayoutIcon />
                                         </div>
                                         <div>
-                                            <h3
-                                                className={styles.sectionTitle}
-                                            >
+                                            <h3 className={styles.sectionTitle}>
                                                 {t("setup.layout")}
                                             </h3>
                                             <p className={styles.sectionDesc}>
@@ -229,7 +225,9 @@ export default function SetupView() {
                                                 setCommandPanelPosition("right")
                                             }
                                         >
-                                            <LayoutRightIcon className={styles.optionIcon} />
+                                            <LayoutRightIcon
+                                                className={styles.optionIcon}
+                                            />
                                             {t("setup.layoutRight")}
                                         </button>
                                         <button
@@ -241,7 +239,9 @@ export default function SetupView() {
                                                 setCommandPanelPosition("left")
                                             }
                                         >
-                                            <LayoutIcon className={styles.optionIcon} />
+                                            <LayoutIcon
+                                                className={styles.optionIcon}
+                                            />
                                             {t("setup.layoutLeft")}
                                         </button>
                                     </div>
@@ -253,9 +253,7 @@ export default function SetupView() {
                                             <InfoIcon />
                                         </div>
                                         <div>
-                                            <h3
-                                                className={styles.sectionTitle}
-                                            >
+                                            <h3 className={styles.sectionTitle}>
                                                 {t("setup.debug")}
                                             </h3>
                                             <p className={styles.sectionDesc}>
@@ -267,14 +265,18 @@ export default function SetupView() {
                                     <div className={styles.optionRow}>
                                         <button
                                             className={styles.optionButton}
-                                            data-selected={debugLogBridgeEnabled}
+                                            data-selected={
+                                                debugLogBridgeEnabled
+                                            }
                                             onClick={() =>
                                                 setDebugLogBridgeEnabled(
                                                     !debugLogBridgeEnabled,
                                                 )
                                             }
                                         >
-                                            <LogIcon className={styles.optionIcon} />
+                                            <LogIcon
+                                                className={styles.optionIcon}
+                                            />
                                             {t("setup.logBridge")}：
                                             {debugLogBridgeEnabled
                                                 ? t("setup.enabled")
@@ -296,9 +298,7 @@ export default function SetupView() {
                                             <SerialIcon />
                                         </div>
                                         <div>
-                                            <h3
-                                                className={styles.sectionTitle}
-                                            >
+                                            <h3 className={styles.sectionTitle}>
                                                 {t("setup.serial")}
                                             </h3>
                                             <p className={styles.sectionDesc}>
@@ -359,14 +359,16 @@ export default function SetupView() {
                                             className={styles.select}
                                             disabled={serialConnected}
                                         >
-                                            {COMM_CONFIG.BAUD_RATES.map((rate) => (
-                                                <option
-                                                    key={rate}
-                                                    value={rate}
-                                                >
-                                                    {rate}
-                                                </option>
-                                            ))}
+                                            {COMM_CONFIG.BAUD_RATES.map(
+                                                (rate) => (
+                                                    <option
+                                                        key={rate}
+                                                        value={rate}
+                                                    >
+                                                        {rate}
+                                                    </option>
+                                                ),
+                                            )}
                                         </select>
                                     </div>
 
@@ -395,9 +397,7 @@ export default function SetupView() {
                                             <NetworkIcon />
                                         </div>
                                         <div>
-                                            <h3
-                                                className={styles.sectionTitle}
-                                            >
+                                            <h3 className={styles.sectionTitle}>
                                                 {t("setup.tcp")}
                                             </h3>
                                             <p className={styles.sectionDesc}>

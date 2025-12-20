@@ -97,53 +97,50 @@ export default function SystemView() {
     const [systemStatus, setSystemStatus] = useState<SystemStatus>("loading");
     const [systemError, setSystemError] = useState<string | null>(null);
 
-    const refreshSystemInfo = useCallback(
-        async (isInitial = false) => {
-            try {
-                if (isInitial) {
-                    setSystemStatus("loading");
-                }
-                setSystemError(null);
-                await Promise.resolve();
-                setSystemInfo((prev) => {
-                    const base = prev ?? INITIAL_SYSTEM_INFO;
-                    return {
-                        ...base,
-                        cpuUsage: Math.min(
-                            100,
-                            Math.max(
-                                20,
-                                base.cpuUsage + (Math.random() - 0.5) * 10,
-                            ),
-                        ),
-                        memoryUsage: Math.min(
-                            100,
-                            Math.max(
-                                40,
-                                base.memoryUsage + (Math.random() - 0.5) * 5,
-                            ),
-                        ),
-                        temperature: Math.min(
-                            80,
-                            Math.max(
-                                35,
-                                base.temperature + (Math.random() - 0.5) * 2,
-                            ),
-                        ),
-                        uptime: base.uptime + 1,
-                    };
-                });
-                setSystemStatus("ready");
-            } catch (error) {
-                console.error("Failed to load system info:", error);
-                const message =
-                    error instanceof Error ? error.message : String(error);
-                setSystemStatus("error");
-                setSystemError(message);
+    const refreshSystemInfo = useCallback(async (isInitial = false) => {
+        try {
+            if (isInitial) {
+                setSystemStatus("loading");
             }
-        },
-        [],
-    );
+            setSystemError(null);
+            await Promise.resolve();
+            setSystemInfo((prev) => {
+                const base = prev ?? INITIAL_SYSTEM_INFO;
+                return {
+                    ...base,
+                    cpuUsage: Math.min(
+                        100,
+                        Math.max(
+                            20,
+                            base.cpuUsage + (Math.random() - 0.5) * 10,
+                        ),
+                    ),
+                    memoryUsage: Math.min(
+                        100,
+                        Math.max(
+                            40,
+                            base.memoryUsage + (Math.random() - 0.5) * 5,
+                        ),
+                    ),
+                    temperature: Math.min(
+                        80,
+                        Math.max(
+                            35,
+                            base.temperature + (Math.random() - 0.5) * 2,
+                        ),
+                    ),
+                    uptime: base.uptime + 1,
+                };
+            });
+            setSystemStatus("ready");
+        } catch (error) {
+            console.error("Failed to load system info:", error);
+            const message =
+                error instanceof Error ? error.message : String(error);
+            setSystemStatus("error");
+            setSystemError(message);
+        }
+    }, []);
 
     useEffect(() => {
         void refreshSystemInfo(true);
@@ -170,9 +167,7 @@ export default function SystemView() {
 
     const formatValue = (sub: Subsystem) => {
         if (typeof sub.valueKey === "string") {
-            return (
-                t(sub.valueKey) + (sub.unit ? ` ${sub.unit}` : "")
-            );
+            return t(sub.valueKey) + (sub.unit ? ` ${sub.unit}` : "");
         }
 
         if (typeof sub.value === "number") {
@@ -275,7 +270,9 @@ export default function SystemView() {
                             status="alarm"
                             label={t("system.errors.loadFailed")}
                         />
-                        <Button onClick={handleRetry}>{t("common.retry")}</Button>
+                        <Button onClick={handleRetry}>
+                            {t("common.retry")}
+                        </Button>
                     </div>
                 </div>
             )}
@@ -286,10 +283,9 @@ export default function SystemView() {
                     {
                         id: "overview",
                         label: t("system.overview"),
-                        content: (
-                            !systemInfo ? (
-                                renderStatusPlaceholder()
-                            ) : (
+                        content: !systemInfo ? (
+                            renderStatusPlaceholder()
+                        ) : (
                             <div
                                 className={styles.systemGrid}
                                 data-layout="single"
@@ -372,9 +368,7 @@ export default function SystemView() {
                                     </div>
 
                                     <div className={styles.resourceBars}>
-                                        <div
-                                            className={styles.resourceItem}
-                                        >
+                                        <div className={styles.resourceItem}>
                                             <div
                                                 className={
                                                     styles.resourceHeader
@@ -398,9 +392,7 @@ export default function SystemView() {
                                                     %
                                                 </span>
                                             </div>
-                                            <div
-                                                className={styles.resourceBar}
-                                            >
+                                            <div className={styles.resourceBar}>
                                                 <div
                                                     className={
                                                         styles.resourceFill
@@ -409,8 +401,7 @@ export default function SystemView() {
                                                         width: `${systemInfo.cpuUsage}%`,
                                                     }}
                                                     data-level={
-                                                        systemInfo.cpuUsage >
-                                                        80
+                                                        systemInfo.cpuUsage > 80
                                                             ? "high"
                                                             : systemInfo.cpuUsage >
                                                                 60
@@ -421,9 +412,7 @@ export default function SystemView() {
                                             </div>
                                         </div>
 
-                                        <div
-                                            className={styles.resourceItem}
-                                        >
+                                        <div className={styles.resourceItem}>
                                             <div
                                                 className={
                                                     styles.resourceHeader
@@ -434,7 +423,9 @@ export default function SystemView() {
                                                         styles.resourceLabel
                                                     }
                                                 >
-                                                    {t("system.resources.memory")}
+                                                    {t(
+                                                        "system.resources.memory",
+                                                    )}
                                                 </span>
                                                 <span
                                                     className={
@@ -447,9 +438,7 @@ export default function SystemView() {
                                                     %
                                                 </span>
                                             </div>
-                                            <div
-                                                className={styles.resourceBar}
-                                            >
+                                            <div className={styles.resourceBar}>
                                                 <div
                                                     className={
                                                         styles.resourceFill
@@ -470,9 +459,7 @@ export default function SystemView() {
                                             </div>
                                         </div>
 
-                                        <div
-                                            className={styles.resourceItem}
-                                        >
+                                        <div className={styles.resourceItem}>
                                             <div
                                                 className={
                                                     styles.resourceHeader
@@ -496,9 +483,7 @@ export default function SystemView() {
                                                     %
                                                 </span>
                                             </div>
-                                            <div
-                                                className={styles.resourceBar}
-                                            >
+                                            <div className={styles.resourceBar}>
                                                 <div
                                                     className={
                                                         styles.resourceFill
@@ -519,9 +504,7 @@ export default function SystemView() {
                                             </div>
                                         </div>
 
-                                        <div
-                                            className={styles.resourceItem}
-                                        >
+                                        <div className={styles.resourceItem}>
                                             <div
                                                 className={
                                                     styles.resourceHeader
@@ -532,7 +515,9 @@ export default function SystemView() {
                                                         styles.resourceLabel
                                                     }
                                                 >
-                                                    {t("system.resources.temperature")}
+                                                    {t(
+                                                        "system.resources.temperature",
+                                                    )}
                                                 </span>
                                                 <span
                                                     className={
@@ -545,9 +530,7 @@ export default function SystemView() {
                                                     °C
                                                 </span>
                                             </div>
-                                            <div
-                                                className={styles.resourceBar}
-                                            >
+                                            <div className={styles.resourceBar}>
                                                 <div
                                                     className={
                                                         styles.resourceFill
@@ -570,16 +553,14 @@ export default function SystemView() {
                                     </div>
                                 </div>
                             </div>
-                            )
                         ),
                     },
                     {
                         id: "subsystems",
                         label: t("system.subsystems"),
-                        content: (
-                            !systemInfo ? (
-                                renderStatusPlaceholder()
-                            ) : (
+                        content: !systemInfo ? (
+                            renderStatusPlaceholder()
+                        ) : (
                             <div
                                 className={styles.systemGrid}
                                 data-layout="single"
@@ -592,9 +573,7 @@ export default function SystemView() {
                                         {demoSubsystems.map((sub) => (
                                             <div
                                                 key={sub.id}
-                                                className={
-                                                    styles.subsystemCard
-                                                }
+                                                className={styles.subsystemCard}
                                                 data-status={getStatusColor(
                                                     sub.status,
                                                 )}
@@ -644,7 +623,6 @@ export default function SystemView() {
                                     </div>
                                 </div>
                             </div>
-                            )
                         ),
                     },
                 ]}

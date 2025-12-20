@@ -22,7 +22,9 @@ export function ViewContextProvider({
     value: ViewContextValue;
     children: React.ReactNode;
 }) {
-    return <ViewContext.Provider value={value}>{children}</ViewContext.Provider>;
+    return (
+        <ViewContext.Provider value={value}>{children}</ViewContext.Provider>
+    );
 }
 
 /**
@@ -36,4 +38,3 @@ export function useIsViewActive(): boolean {
     const ctx = useContext(ViewContext);
     return ctx ? ctx.isActive : true;
 }
-

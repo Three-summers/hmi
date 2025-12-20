@@ -39,7 +39,9 @@ body {
     /* Disable touch callout */
     -webkit-touch-callout: none;
     /* Smooth color transitions for theme switching */
-    transition: background-color var(--transition-slow), color var(--transition-slow);
+    transition:
+        background-color var(--transition-slow),
+        color var(--transition-slow);
 }
 
 /* Background Grid Pattern for Industrial Feel */
@@ -67,7 +69,11 @@ body::after {
     left: 0;
     right: 0;
     bottom: 0;
-    background: radial-gradient(ellipse at center, transparent 50%, var(--bg-primary) 150%);
+    background: radial-gradient(
+        ellipse at center,
+        transparent 50%,
+        var(--bg-primary) 150%
+    );
     pointer-events: none;
     z-index: 0;
     opacity: 0.5;
@@ -85,7 +91,10 @@ body::after {
    ───────────────────────────────────────────────────────────────────────── */
 
 /* Display headings use Orbitron */
-h1, h2, h3, .display-text {
+h1,
+h2,
+h3,
+.display-text {
     font-family: var(--font-display);
     font-weight: var(--font-weight-bold);
     letter-spacing: 0.05em;
@@ -93,7 +102,11 @@ h1, h2, h3, .display-text {
 }
 
 /* Monospace for data values */
-.mono, code, pre, [data-type="value"], [data-type="number"] {
+.mono,
+code,
+pre,
+[data-type="value"],
+[data-type="number"] {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
 }
@@ -143,14 +156,22 @@ textarea {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
+    background: linear-gradient(
+        180deg,
+        var(--button-bg-hover) 0%,
+        var(--button-bg) 100%
+    );
     border: 1px solid var(--border-color);
     border-radius: 5px;
     transition: background var(--transition-fast);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    background: linear-gradient(
+        180deg,
+        var(--accent-primary) 0%,
+        var(--accent-secondary) 100%
+    );
     border-color: var(--accent-primary);
 }
 
@@ -246,8 +267,12 @@ textarea {
 }
 
 @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
 }
 
 @keyframes scale-in {
@@ -312,7 +337,9 @@ textarea {
    Input Styles
    ───────────────────────────────────────────────────────────────────────── */
 
-input, select, textarea {
+input,
+select,
+textarea {
     font-family: var(--font-family);
     font-size: var(--font-size-normal);
     color: var(--text-primary);
@@ -323,17 +350,22 @@ input, select, textarea {
     transition: all var(--transition-fast);
 }
 
-input:hover, select:hover, textarea:hover {
+input:hover,
+select:hover,
+textarea:hover {
     border-color: var(--accent-primary);
 }
 
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 3px var(--border-glow);
     outline: none;
 }
 
-input::placeholder, textarea::placeholder {
+input::placeholder,
+textarea::placeholder {
     color: var(--text-disabled);
 }
 
@@ -433,7 +465,11 @@ td[data-type="number"] {
 
 .progress-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    background: linear-gradient(
+        90deg,
+        var(--accent-primary),
+        var(--accent-secondary)
+    );
     border-radius: 4px;
     transition: width var(--transition-normal);
     position: relative;
@@ -497,12 +533,20 @@ td[data-type="number"] {
 
     /* Scrollbar adjustments */
     ::-webkit-scrollbar-thumb {
-        background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--text-disabled) 100%);
+        background: linear-gradient(
+            180deg,
+            var(--bg-tertiary) 0%,
+            var(--text-disabled) 100%
+        );
         border-color: var(--border-subtle);
     }
 
     ::-webkit-scrollbar-thumb:hover {
-        background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary));
+        background: linear-gradient(
+            180deg,
+            var(--accent-primary),
+            var(--accent-secondary)
+        );
     }
 }
 

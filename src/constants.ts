@@ -65,7 +65,11 @@ export const UI_CONFIG = {
 } as const;
 
 // UI 主题顺序（用于循环切换与展示）
-export const THEME_ORDER = ["dark", "light", "high-contrast"] as const satisfies readonly ThemeId[];
+export const THEME_ORDER = [
+    "dark",
+    "light",
+    "high-contrast",
+] as const satisfies readonly ThemeId[];
 
 // 主导航视图 ID（用于列表渲染/遍历等，顺序与底部导航一致）
 export const VIEW_IDS = [

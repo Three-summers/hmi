@@ -106,7 +106,11 @@
     justify-content: center;
     gap: var(--sp-xs);
     padding: var(--sp-xs) calc(var(--sp-sm) + var(--sp-xs));
-    background: linear-gradient(180deg, var(--button-bg) 0%, var(--button-bg-active) 100%);
+    background: linear-gradient(
+        180deg,
+        var(--button-bg) 0%,
+        var(--button-bg-active) 100%
+    );
     border: 1px solid var(--button-border);
     border-radius: calc(var(--card-radius) - var(--sp-xs));
     color: var(--text-primary);
@@ -129,7 +133,11 @@
 }
 
 .controlBtn:hover {
-    background: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
+    background: linear-gradient(
+        180deg,
+        var(--button-bg-hover) 0%,
+        var(--button-bg) 100%
+    );
     border-color: var(--color-processing);
 }
 

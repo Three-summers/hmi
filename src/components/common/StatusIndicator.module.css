@@ -170,11 +170,7 @@
 .indicator[data-status="none"] .dot,
 .indicator[data-status="idle"] .dot,
 .indicator[data-status="offline"] .dot {
-    background: radial-gradient(
-        circle at 30% 30%,
-        #6b7280 0%,
-        #4b5563 70%
-    );
+    background: radial-gradient(circle at 30% 30%, #6b7280 0%, #4b5563 70%);
     box-shadow:
         0 0 4px rgba(107, 114, 128, 0.3),
         inset 0 1px 2px rgba(0, 0, 0, 0.3);

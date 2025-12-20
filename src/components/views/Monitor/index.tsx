@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, useCallback, lazy, Suspense } from "react";
+import {
+    useEffect,
+    useRef,
+    useState,
+    useCallback,
+    lazy,
+    Suspense,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { Tabs, StatusIndicator } from "@/components/common";
@@ -30,13 +37,13 @@ interface SpectrumStats {
 const SPECTRUM_COLORS = {
     // 渐变色停止点 (从底部到顶部)
     gradient: [
-        { pos: 0, color: "rgba(0, 50, 150, 0.3)" },      // 深蓝 (底噪区)
-        { pos: 0.2, color: "rgba(0, 150, 255, 0.5)" },   // 蓝色
-        { pos: 0.4, color: "rgba(0, 255, 200, 0.7)" },   // 青绿
+        { pos: 0, color: "rgba(0, 50, 150, 0.3)" }, // 深蓝 (底噪区)
+        { pos: 0.2, color: "rgba(0, 150, 255, 0.5)" }, // 蓝色
+        { pos: 0.4, color: "rgba(0, 255, 200, 0.7)" }, // 青绿
         { pos: 0.6, color: "rgba(100, 255, 100, 0.8)" }, // 绿色
-        { pos: 0.75, color: "rgba(255, 255, 0, 0.9)" },  // 黄色
-        { pos: 0.9, color: "rgba(255, 150, 0, 0.95)" },  // 橙色
-        { pos: 1, color: "rgba(255, 50, 50, 1)" },       // 红色 (高幅值)
+        { pos: 0.75, color: "rgba(255, 255, 0, 0.9)" }, // 黄色
+        { pos: 0.9, color: "rgba(255, 150, 0, 0.95)" }, // 橙色
+        { pos: 1, color: "rgba(255, 50, 50, 1)" }, // 红色 (高幅值)
     ],
     grid: "rgba(100, 150, 200, 0.2)",
     axis: "rgba(180, 200, 230, 0.9)",
@@ -54,22 +61,28 @@ export default function MonitorView() {
     const isViewActiveRef = useRef(true);
     const spectrumDataRef = useRef<SpectrumData | null>(null);
     const prevAmplitudesRef = useRef<number[]>([]);
-    const canvasSizeRef = useRef<{ width: number; height: number; dpr: number } | null>(
-        null,
-    );
-    const gradientCacheRef = useRef<{ key: string; gradient: CanvasGradient } | null>(
-        null,
-    );
+    const canvasSizeRef = useRef<{
+        width: number;
+        height: number;
+        dpr: number;
+    } | null>(null);
+    const gradientCacheRef = useRef<{
+        key: string;
+        gradient: CanvasGradient;
+    } | null>(null);
     const lastDrawAtRef = useRef<number>(0);
     const hasReceivedDataRef = useRef(false);
 
     type SpectrumStatus = "unavailable" | "loading" | "ready" | "error";
-    const [spectrumStatus, setSpectrumStatus] = useState<SpectrumStatus>("loading");
+    const [spectrumStatus, setSpectrumStatus] =
+        useState<SpectrumStatus>("loading");
     const [spectrumError, setSpectrumError] = useState<string | null>(null);
     const [retryToken, setRetryToken] = useState(0);
 
     const [isPaused, setIsPaused] = useState(false);
-    const [displayMode, setDisplayMode] = useState<"bars" | "fill" | "line">("fill");
+    const [displayMode, setDisplayMode] = useState<"bars" | "fill" | "line">(
+        "fill",
+    );
     const [activeTab, setActiveTab] = useState<
         "overview" | "info" | "spectrum-analyzer"
     >("overview");
@@ -83,27 +96,34 @@ export default function MonitorView() {
     const isSpectrumActive = isViewActive && activeTab === "overview";
 
     // 计算 -3dB 带宽
-    const calculateBandwidth = useCallback((frequencies: number[], amplitudes: number[], peakAmp: number): number => {
-        const threshold = peakAmp - 3;
-        let lowFreq = frequencies[0];
-        let highFreq = frequencies[frequencies.length - 1];
+    const calculateBandwidth = useCallback(
+        (
+            frequencies: number[],
+            amplitudes: number[],
+            peakAmp: number,
+        ): number => {
+            const threshold = peakAmp - 3;
+            let lowFreq = frequencies[0];
+            let highFreq = frequencies[frequencies.length - 1];
 
-        for (let i = 0; i < amplitudes.length; i++) {
-            if (amplitudes[i] >= threshold) {
-                lowFreq = frequencies[i];
-                break;
+            for (let i = 0; i < amplitudes.length; i++) {
+                if (amplitudes[i] >= threshold) {
+                    lowFreq = frequencies[i];
+                    break;
+                }
             }
-        }
 
-        for (let i = amplitudes.length - 1; i >= 0; i--) {
-            if (amplitudes[i] >= threshold) {
-                highFreq = frequencies[i];
-                break;
+            for (let i = amplitudes.length - 1; i >= 0; i--) {
+                if (amplitudes[i] >= threshold) {
+                    highFreq = frequencies[i];
+                    break;
+                }
             }
-        }
 
-        return highFreq - lowFreq;
-    }, []);
+            return highFreq - lowFreq;
+        },
+        [],
+    );
 
     // 绘制频谱图
     const drawSpectrum = useCallback(() => {
@@ -156,7 +176,10 @@ export default function MonitorView() {
         // 避免首帧在 ResizeObserver 回调之前触发时画布尺寸不匹配
         const nextCanvasWidth = Math.max(1, Math.floor(width * dpr));
         const nextCanvasHeight = Math.max(1, Math.floor(height * dpr));
-        if (canvas.width !== nextCanvasWidth || canvas.height !== nextCanvasHeight) {
+        if (
+            canvas.width !== nextCanvasWidth ||
+            canvas.height !== nextCanvasHeight
+        ) {
             canvas.width = nextCanvasWidth;
             canvas.height = nextCanvasHeight;
             canvas.style.width = `${width}px`;
@@ -230,7 +253,10 @@ export default function MonitorView() {
                 newGradient.addColorStop(stop.pos, stop.color);
             }
             gradient = newGradient;
-            gradientCacheRef.current = { key: gradientKey, gradient: newGradient };
+            gradientCacheRef.current = {
+                key: gradientKey,
+                gradient: newGradient,
+            };
         }
 
         // 绘制网格
@@ -243,8 +269,10 @@ export default function MonitorView() {
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
 
-        dbSteps.forEach(db => {
-            const y = padding.top + chartHeight * (1 - (db - minAmp) / (maxAmp - minAmp));
+        dbSteps.forEach((db) => {
+            const y =
+                padding.top +
+                chartHeight * (1 - (db - minAmp) / (maxAmp - minAmp));
             ctx.fillText(`${db}`, padding.left - 10, y);
         });
 
@@ -253,7 +281,7 @@ export default function MonitorView() {
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
 
-        freqSteps.forEach(freq => {
+        freqSteps.forEach((freq) => {
             const x = padding.left + chartWidth * (freq / 10);
             ctx.fillText(`${freq}k`, x, padding.top + chartHeight + 8);
         });
@@ -263,7 +291,11 @@ export default function MonitorView() {
         ctx.font = "13px system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillText(t("monitor.canvas.axisFrequency"), padding.left + chartWidth / 2, height - 20);
+        ctx.fillText(
+            t("monitor.canvas.axisFrequency"),
+            padding.left + chartWidth / 2,
+            height - 20,
+        );
 
         ctx.save();
         ctx.translate(20, padding.top + chartHeight / 2);
@@ -279,7 +311,10 @@ export default function MonitorView() {
             // 柱状图模式
             smoothedAmps.forEach((amp, i) => {
                 const x = padding.left + i * barWidth;
-                const normalizedAmp = Math.max(0, (amp - minAmp) / (maxAmp - minAmp));
+                const normalizedAmp = Math.max(
+                    0,
+                    (amp - minAmp) / (maxAmp - minAmp),
+                );
                 const barHeight = normalizedAmp * chartHeight;
                 const y = padding.top + chartHeight - barHeight;
 
@@ -293,7 +328,10 @@ export default function MonitorView() {
 
             smoothedAmps.forEach((amp, i) => {
                 const x = padding.left + i * barWidth + barWidth / 2;
-                const normalizedAmp = Math.max(0, (amp - minAmp) / (maxAmp - minAmp));
+                const normalizedAmp = Math.max(
+                    0,
+                    (amp - minAmp) / (maxAmp - minAmp),
+                );
                 const y = padding.top + chartHeight * (1 - normalizedAmp);
                 ctx.lineTo(x, y);
             });
@@ -307,7 +345,10 @@ export default function MonitorView() {
             ctx.beginPath();
             smoothedAmps.forEach((amp, i) => {
                 const x = padding.left + i * barWidth + barWidth / 2;
-                const normalizedAmp = Math.max(0, (amp - minAmp) / (maxAmp - minAmp));
+                const normalizedAmp = Math.max(
+                    0,
+                    (amp - minAmp) / (maxAmp - minAmp),
+                );
                 const y = padding.top + chartHeight * (1 - normalizedAmp);
 
                 if (i === 0) {
@@ -329,7 +370,10 @@ export default function MonitorView() {
             ctx.beginPath();
             smoothedAmps.forEach((amp, i) => {
                 const x = padding.left + i * barWidth + barWidth / 2;
-                const normalizedAmp = Math.max(0, (amp - minAmp) / (maxAmp - minAmp));
+                const normalizedAmp = Math.max(
+                    0,
+                    (amp - minAmp) / (maxAmp - minAmp),
+                );
                 const y = padding.top + chartHeight * (1 - normalizedAmp);
 
                 if (i === 0) {
@@ -354,7 +398,10 @@ export default function MonitorView() {
         }
 
         const peakX = padding.left + peakIdx * barWidth + barWidth / 2;
-        const peakNorm = Math.max(0, (smoothedAmps[peakIdx] - minAmp) / (maxAmp - minAmp));
+        const peakNorm = Math.max(
+            0,
+            (smoothedAmps[peakIdx] - minAmp) / (maxAmp - minAmp),
+        );
         const peakY = padding.top + chartHeight * (1 - peakNorm);
 
         // 峰值标记线
@@ -382,14 +429,19 @@ export default function MonitorView() {
         const labelText2 = `${smoothedAmps[peakIdx].toFixed(1)} dB`;
 
         ctx.font = "bold 11px system-ui, sans-serif";
-        const textWidth = Math.max(ctx.measureText(labelText1).width, ctx.measureText(labelText2).width) + 12;
+        const textWidth =
+            Math.max(
+                ctx.measureText(labelText1).width,
+                ctx.measureText(labelText2).width,
+            ) + 12;
 
         let labelX = peakX - textWidth / 2;
         let labelY = peakY - 45;
 
         // 防止标签超出边界
         if (labelX < padding.left) labelX = padding.left;
-        if (labelX + textWidth > width - padding.right) labelX = width - padding.right - textWidth;
+        if (labelX + textWidth > width - padding.right)
+            labelX = width - padding.right - textWidth;
         if (labelY < padding.top) labelY = peakY + 15;
 
         ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
@@ -491,15 +543,16 @@ export default function MonitorView() {
         chartWidth: number,
         chartHeight: number,
         _width: number,
-        _height: number
+        _height: number,
     ) => {
         ctx.strokeStyle = SPECTRUM_COLORS.grid;
         ctx.lineWidth = 1;
 
         // 水平网格线 (dB)
         const dbSteps = [-100, -90, -80, -70, -60, -50, -40, -30, -20, -10, 0];
-        dbSteps.forEach(db => {
-            const y = padding.top + chartHeight * (1 - (db - (-100)) / (0 - (-100)));
+        dbSteps.forEach((db) => {
+            const y =
+                padding.top + chartHeight * (1 - (db - -100) / (0 - -100));
             ctx.beginPath();
             ctx.moveTo(padding.left, y);
             ctx.lineTo(padding.left + chartWidth, y);
@@ -517,33 +570,36 @@ export default function MonitorView() {
     };
 
     // 更新数据回调
-    const updateSpectrum = useCallback((data: SpectrumData) => {
-        // 始终更新数据引用，这样动画循环可以显示最新数据
-        spectrumDataRef.current = data;
+    const updateSpectrum = useCallback(
+        (data: SpectrumData) => {
+            // 始终更新数据引用，这样动画循环可以显示最新数据
+            spectrumDataRef.current = data;
 
-        // 首次收到数据时，切换到 ready 状态（用于控制占位符/Canvas 绘制）
-        if (!hasReceivedDataRef.current) {
-            hasReceivedDataRef.current = true;
-            setSpectrumStatus("ready");
-            setSpectrumError(null);
-        }
+            // 首次收到数据时，切换到 ready 状态（用于控制占位符/Canvas 绘制）
+            if (!hasReceivedDataRef.current) {
+                hasReceivedDataRef.current = true;
+                setSpectrumStatus("ready");
+                setSpectrumError(null);
+            }
 
-        // 只有在非暂停状态下才更新统计信息
-        if (!isPaused) {
-            const bandwidth = calculateBandwidth(
-                data.frequencies,
-                data.amplitudes,
-                data.peak_amplitude
-            );
+            // 只有在非暂停状态下才更新统计信息
+            if (!isPaused) {
+                const bandwidth = calculateBandwidth(
+                    data.frequencies,
+                    data.amplitudes,
+                    data.peak_amplitude,
+                );
 
-            setStats({
-                peak_frequency: data.peak_frequency,
-                peak_amplitude: data.peak_amplitude,
-                average_amplitude: data.average_amplitude,
-                bandwidth,
-            });
-        }
-    }, [isPaused, calculateBandwidth]);
+                setStats({
+                    peak_frequency: data.peak_frequency,
+                    peak_amplitude: data.peak_amplitude,
+                    average_amplitude: data.average_amplitude,
+                    bandwidth,
+                });
+            }
+        },
+        [isPaused, calculateBandwidth],
+    );
 
     // 将回调写入 Ref，避免事件监听闭包拿到旧的函数引用
     const updateSpectrumRef = useRef(updateSpectrum);
@@ -552,11 +608,13 @@ export default function MonitorView() {
     }, [updateSpectrum]);
 
     useEffect(() => {
-        const shouldDrawSpectrum = isSpectrumActive && spectrumStatus === "ready";
+        const shouldDrawSpectrum =
+            isSpectrumActive && spectrumStatus === "ready";
         isViewActiveRef.current = shouldDrawSpectrum;
 
         if (!shouldDrawSpectrum) {
-            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            if (animationRef.current)
+                cancelAnimationFrame(animationRef.current);
             animationRef.current = 0;
             return;
         }
@@ -566,7 +624,8 @@ export default function MonitorView() {
         }
 
         return () => {
-            if (animationRef.current) cancelAnimationFrame(animationRef.current);
+            if (animationRef.current)
+                cancelAnimationFrame(animationRef.current);
             animationRef.current = 0;
         };
     }, [drawSpectrum, isSpectrumActive, spectrumStatus]);
@@ -578,7 +637,9 @@ export default function MonitorView() {
         if (!isTauri()) {
             setSpectrumStatus("unavailable");
             setSpectrumError(null);
-            console.warn("Not running in Tauri environment - spectrum data will not be available");
+            console.warn(
+                "Not running in Tauri environment - spectrum data will not be available",
+            );
             return;
         }
 
@@ -591,11 +652,14 @@ export default function MonitorView() {
 
         const setup = async () => {
             try {
-                const unlistenFn = await listen<SpectrumData>("spectrum-data", (event) => {
-                    if (!cancelled) {
-                        updateSpectrumRef.current(event.payload);
-                    }
-                });
+                const unlistenFn = await listen<SpectrumData>(
+                    "spectrum-data",
+                    (event) => {
+                        if (!cancelled) {
+                            updateSpectrumRef.current(event.payload);
+                        }
+                    },
+                );
                 if (cancelled) {
                     unlistenFn();
                     return;
@@ -678,28 +742,47 @@ export default function MonitorView() {
                                         className={monitorStyles.statCard}
                                         data-type="peak-freq"
                                     >
-                                        <div className={monitorStyles.cardHeader}>
-                                            <div className={monitorStyles.cardIcon}>
-                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <div
+                                            className={monitorStyles.cardHeader}
+                                        >
+                                            <div
+                                                className={
+                                                    monitorStyles.cardIcon
+                                                }
+                                            >
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    fill="currentColor"
+                                                >
                                                     <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
                                                 </svg>
                                             </div>
                                             <span
-                                                className={monitorStyles.statusBadge}
+                                                className={
+                                                    monitorStyles.statusBadge
+                                                }
                                                 data-status="normal"
                                             >
                                                 {t("monitor.badges.peak")}
                                             </span>
                                         </div>
-                                        <span className={monitorStyles.statLabel}>
+                                        <span
+                                            className={monitorStyles.statLabel}
+                                        >
                                             {t("monitor.stats.peakFrequency")}
                                         </span>
-                                        <span className={monitorStyles.statValue}>
-                                            {formatFrequency(stats.peak_frequency)}
+                                        <span
+                                            className={monitorStyles.statValue}
+                                        >
+                                            {formatFrequency(
+                                                stats.peak_frequency,
+                                            )}
                                         </span>
                                         <div className={monitorStyles.statMeta}>
                                             <span>
-                                                {t("monitor.stats.centerFrequencyAnalysis")}
+                                                {t(
+                                                    "monitor.stats.centerFrequencyAnalysis",
+                                                )}
                                             </span>
                                         </div>
                                     </div>
@@ -708,14 +791,25 @@ export default function MonitorView() {
                                         className={monitorStyles.statCard}
                                         data-type="peak-amp"
                                     >
-                                        <div className={monitorStyles.cardHeader}>
-                                            <div className={monitorStyles.cardIcon}>
-                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <div
+                                            className={monitorStyles.cardHeader}
+                                        >
+                                            <div
+                                                className={
+                                                    monitorStyles.cardIcon
+                                                }
+                                            >
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    fill="currentColor"
+                                                >
                                                     <path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z" />
                                                 </svg>
                                             </div>
                                             <span
-                                                className={monitorStyles.statusBadge}
+                                                className={
+                                                    monitorStyles.statusBadge
+                                                }
                                                 data-status={
                                                     stats.peak_amplitude > -30
                                                         ? "warning"
@@ -724,17 +818,27 @@ export default function MonitorView() {
                                             >
                                                 {stats.peak_amplitude > -30
                                                     ? t("monitor.badges.high")
-                                                    : t("monitor.badges.normal")}
+                                                    : t(
+                                                          "monitor.badges.normal",
+                                                      )}
                                             </span>
                                         </div>
-                                        <span className={monitorStyles.statLabel}>
+                                        <span
+                                            className={monitorStyles.statLabel}
+                                        >
                                             {t("monitor.stats.peakAmplitude")}
                                         </span>
-                                        <span className={monitorStyles.statValue}>
+                                        <span
+                                            className={monitorStyles.statValue}
+                                        >
                                             {stats.peak_amplitude.toFixed(1)} dB
                                         </span>
                                         <div className={monitorStyles.statMeta}>
-                                            <span>{t("monitor.stats.signalStrength")}</span>
+                                            <span>
+                                                {t(
+                                                    "monitor.stats.signalStrength",
+                                                )}
+                                            </span>
                                         </div>
                                     </div>
 
@@ -742,30 +846,50 @@ export default function MonitorView() {
                                         className={monitorStyles.statCard}
                                         data-type="bandwidth"
                                     >
-                                        <div className={monitorStyles.cardHeader}>
-                                            <div className={monitorStyles.cardIcon}>
-                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <div
+                                            className={monitorStyles.cardHeader}
+                                        >
+                                            <div
+                                                className={
+                                                    monitorStyles.cardIcon
+                                                }
+                                            >
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    fill="currentColor"
+                                                >
                                                     <path d="M3 5v14h18V5H3zm16 12H5V7h14v10zM7 9h2v6H7zm4 0h2v6h-2zm4 0h2v6h-2z" />
                                                 </svg>
                                             </div>
                                             <span
-                                                className={monitorStyles.statusBadge}
+                                                className={
+                                                    monitorStyles.statusBadge
+                                                }
                                                 data-status="normal"
                                             >
                                                 {t("monitor.badges.bandwidth")}
                                             </span>
                                         </div>
-                                        <span className={monitorStyles.statLabel}>
+                                        <span
+                                            className={monitorStyles.statLabel}
+                                        >
                                             {t("monitor.stats.bandwidth")}
                                         </span>
-                                        <span className={monitorStyles.statValue}>
+                                        <span
+                                            className={monitorStyles.statValue}
+                                        >
                                             {formatFrequency(stats.bandwidth)}
                                         </span>
                                         <div className={monitorStyles.statMeta}>
                                             <span>
-                                                {t("monitor.stats.averageAmplitude", {
-                                                    value: stats.average_amplitude.toFixed(1),
-                                                })}
+                                                {t(
+                                                    "monitor.stats.averageAmplitude",
+                                                    {
+                                                        value: stats.average_amplitude.toFixed(
+                                                            1,
+                                                        ),
+                                                    },
+                                                )}
                                             </span>
                                         </div>
                                     </div>
@@ -773,46 +897,81 @@ export default function MonitorView() {
 
                                 <div className={monitorStyles.chartContainer}>
                                     <div className={monitorStyles.chartHeader}>
-                                        <div className={monitorStyles.chartTitle}>
-                                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                        <div
+                                            className={monitorStyles.chartTitle}
+                                        >
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="currentColor"
+                                            >
                                                 <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z" />
                                             </svg>
                                             {t("monitor.spectrum.title")}
                                         </div>
-                                        <div className={monitorStyles.chartControls}>
-                                            <div className={monitorStyles.timeRangeGroup}>
-                                                {(["fill", "bars", "line"] as const).map(
-                                                    (mode) => (
-                                                        <button
-                                                            key={mode}
-                                                            className={monitorStyles.timeRangeBtn}
-                                                            data-active={
-                                                                displayMode === mode
-                                                            }
-                                                            onClick={() =>
-                                                                setDisplayMode(mode)
-                                                            }
-                                                        >
-                                                            {mode === "fill"
-                                                                ? t("monitor.displayMode.fill")
-                                                                : mode === "bars"
-                                                                  ? t("monitor.displayMode.bars")
-                                                                  : t("monitor.displayMode.line")}
-                                                        </button>
-                                                    ),
-                                                )}
+                                        <div
+                                            className={
+                                                monitorStyles.chartControls
+                                            }
+                                        >
+                                            <div
+                                                className={
+                                                    monitorStyles.timeRangeGroup
+                                                }
+                                            >
+                                                {(
+                                                    [
+                                                        "fill",
+                                                        "bars",
+                                                        "line",
+                                                    ] as const
+                                                ).map((mode) => (
+                                                    <button
+                                                        key={mode}
+                                                        className={
+                                                            monitorStyles.timeRangeBtn
+                                                        }
+                                                        data-active={
+                                                            displayMode === mode
+                                                        }
+                                                        onClick={() =>
+                                                            setDisplayMode(mode)
+                                                        }
+                                                    >
+                                                        {mode === "fill"
+                                                            ? t(
+                                                                  "monitor.displayMode.fill",
+                                                              )
+                                                            : mode === "bars"
+                                                              ? t(
+                                                                    "monitor.displayMode.bars",
+                                                                )
+                                                              : t(
+                                                                    "monitor.displayMode.line",
+                                                                )}
+                                                    </button>
+                                                ))}
                                             </div>
                                             <button
-                                                className={monitorStyles.controlBtn}
+                                                className={
+                                                    monitorStyles.controlBtn
+                                                }
                                                 data-active={isPaused}
-                                                onClick={() => setIsPaused(!isPaused)}
+                                                onClick={() =>
+                                                    setIsPaused(!isPaused)
+                                                }
                                             >
                                                 {isPaused ? (
-                                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <svg
+                                                        viewBox="0 0 24 24"
+                                                        fill="currentColor"
+                                                    >
                                                         <path d="M8 5v14l11-7z" />
                                                     </svg>
                                                 ) : (
-                                                    <svg viewBox="0 0 24 24" fill="currentColor">
+                                                    <svg
+                                                        viewBox="0 0 24 24"
+                                                        fill="currentColor"
+                                                    >
                                                         <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                                                     </svg>
                                                 )}
@@ -821,10 +980,15 @@ export default function MonitorView() {
                                                     : t("common.pause")}
                                             </button>
                                             <button
-                                                className={monitorStyles.controlBtn}
+                                                className={
+                                                    monitorStyles.controlBtn
+                                                }
                                                 onClick={handleClearData}
                                             >
-                                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    fill="currentColor"
+                                                >
                                                     <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
                                                 </svg>
                                                 {t("common.clear")}
@@ -838,7 +1002,9 @@ export default function MonitorView() {
                                         {spectrumStatus === "ready" ? (
                                             <canvas
                                                 ref={canvasRef}
-                                                className={monitorStyles.spectrumCanvas}
+                                                className={
+                                                    monitorStyles.spectrumCanvas
+                                                }
                                             />
                                         ) : (
                                             <div
@@ -847,7 +1013,8 @@ export default function MonitorView() {
                                             >
                                                 <StatusIndicator
                                                     status={
-                                                        spectrumStatus === "error"
+                                                        spectrumStatus ===
+                                                        "error"
                                                             ? "alarm"
                                                             : spectrumStatus ===
                                                                 "unavailable"
@@ -855,7 +1022,8 @@ export default function MonitorView() {
                                                               : "processing"
                                                     }
                                                     label={
-                                                        spectrumStatus === "error"
+                                                        spectrumStatus ===
+                                                        "error"
                                                             ? t(
                                                                   "monitor.status.error",
                                                               )
@@ -884,9 +1052,15 @@ export default function MonitorView() {
                                                 )}
                                                 {spectrumStatus === "error" && (
                                                     <button
-                                                        className={monitorStyles.controlBtn}
-                                                        onClick={handleRetrySpectrum}
-                                                        style={{ marginTop: 12 }}
+                                                        className={
+                                                            monitorStyles.controlBtn
+                                                        }
+                                                        onClick={
+                                                            handleRetrySpectrum
+                                                        }
+                                                        style={{
+                                                            marginTop: 12,
+                                                        }}
                                                     >
                                                         {t("common.retry")}
                                                     </button>
@@ -899,21 +1073,35 @@ export default function MonitorView() {
                                             className={monitorStyles.legendItem}
                                             data-type="spectrum"
                                         >
-                                            <span className={monitorStyles.legendDot} />
-                                            {t("monitor.legend.spectrumAmplitude")}
+                                            <span
+                                                className={
+                                                    monitorStyles.legendDot
+                                                }
+                                            />
+                                            {t(
+                                                "monitor.legend.spectrumAmplitude",
+                                            )}
                                         </div>
                                         <div
                                             className={monitorStyles.legendItem}
                                             data-type="peak"
                                         >
-                                            <span className={monitorStyles.legendDot} />
+                                            <span
+                                                className={
+                                                    monitorStyles.legendDot
+                                                }
+                                            />
                                             {t("monitor.legend.peakMarker")}
                                         </div>
                                         <div
                                             className={monitorStyles.legendItem}
                                             data-type="noise"
                                         >
-                                            <span className={monitorStyles.legendDot} />
+                                            <span
+                                                className={
+                                                    monitorStyles.legendDot
+                                                }
+                                            />
                                             {t("monitor.legend.noiseFloor")}
                                         </div>
                                     </div>
@@ -930,15 +1118,9 @@ export default function MonitorView() {
                                     {t("nav.monitor")}
                                 </h3>
                                 <ul className={monitorStyles.monitorInfoList}>
-                                    <li>
-                                        {t("monitor.info.autoPause")}
-                                    </li>
-                                    <li>
-                                        {t("monitor.info.displayModeTip")}
-                                    </li>
-                                    <li>
-                                        {t("monitor.info.browserModeTip")}
-                                    </li>
+                                    <li>{t("monitor.info.autoPause")}</li>
+                                    <li>{t("monitor.info.displayModeTip")}</li>
+                                    <li>{t("monitor.info.browserModeTip")}</li>
                                 </ul>
                             </div>
                         ),

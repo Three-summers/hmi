@@ -84,7 +84,10 @@ function lerp(a: RGBA, b: RGBA, t: number): RGBA {
     };
 }
 
-function lerpStops(stops: Array<{ t: number; color: RGBA }>, value: number): RGBA {
+function lerpStops(
+    stops: Array<{ t: number; color: RGBA }>,
+    value: number,
+): RGBA {
     if (stops.length === 0) return { r: 0, g: 0, b: 0, a: 255 };
     if (stops.length === 1) return stops[0]!.color;
 

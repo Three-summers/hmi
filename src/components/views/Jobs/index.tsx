@@ -105,10 +105,13 @@ export default function JobsView() {
 
     const formatTime = (date?: Date) => {
         if (!date) return "--:--";
-        return date.toLocaleTimeString(i18n.language === "zh" ? "zh-CN" : "en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-        });
+        return date.toLocaleTimeString(
+            i18n.language === "zh" ? "zh-CN" : "en-US",
+            {
+                hour: "2-digit",
+                minute: "2-digit",
+            },
+        );
     };
 
     const getStatusColor = (status: Job["status"]) => {
@@ -212,7 +215,11 @@ export default function JobsView() {
                                                             job.status,
                                                         )}
                                                     >
-                                                        {StatusIcons[job.status]}
+                                                        {
+                                                            StatusIcons[
+                                                                job.status
+                                                            ]
+                                                        }
                                                     </div>
                                                     <div
                                                         className={
@@ -250,7 +257,9 @@ export default function JobsView() {
                                                 </div>
 
                                                 <div
-                                                    className={styles.progressBar}
+                                                    className={
+                                                        styles.progressBar
+                                                    }
                                                 >
                                                     <div
                                                         className={
@@ -266,7 +275,9 @@ export default function JobsView() {
                                                 </div>
 
                                                 <div
-                                                    className={styles.jobDetails}
+                                                    className={
+                                                        styles.jobDetails
+                                                    }
                                                 >
                                                     <div
                                                         className={
@@ -278,7 +289,9 @@ export default function JobsView() {
                                                                 styles.detailLabel
                                                             }
                                                         >
-                                                            {t("jobs.fields.wafers")}
+                                                            {t(
+                                                                "jobs.fields.wafers",
+                                                            )}
                                                         </span>
                                                         <span
                                                             className={
@@ -301,7 +314,9 @@ export default function JobsView() {
                                                                 styles.detailLabel
                                                             }
                                                         >
-                                                            {t("jobs.fields.start")}
+                                                            {t(
+                                                                "jobs.fields.start",
+                                                            )}
                                                         </span>
                                                         <span
                                                             className={
@@ -323,7 +338,9 @@ export default function JobsView() {
                                                                 styles.detailLabel
                                                             }
                                                         >
-                                                            {t("jobs.fields.eta")}
+                                                            {t(
+                                                                "jobs.fields.eta",
+                                                            )}
                                                         </span>
                                                         <span
                                                             className={
@@ -355,7 +372,9 @@ export default function JobsView() {
                                 ) : (
                                     <>
                                         <div className={styles.detailsHeader}>
-                                            <div className={styles.detailsTitle}>
+                                            <div
+                                                className={styles.detailsTitle}
+                                            >
                                                 {selectedJobData.name}
                                             </div>
                                             <div
@@ -364,7 +383,9 @@ export default function JobsView() {
                                                     selectedJobData.status,
                                                 )}
                                             >
-                                                {t(`jobs.status.${selectedJobData.status}`)}
+                                                {t(
+                                                    `jobs.status.${selectedJobData.status}`,
+                                                )}
                                             </div>
                                         </div>
 
@@ -417,7 +438,8 @@ export default function JobsView() {
                                                     {
                                                         selectedJobData.completedWafers
                                                     }
-                                                    /{selectedJobData.waferCount}
+                                                    /
+                                                    {selectedJobData.waferCount}
                                                 </span>
                                             </div>
                                             <div className={styles.detailsRow}>

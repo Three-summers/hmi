@@ -134,9 +134,18 @@
 }
 
 @keyframes iconShake {
-    0%, 100% { transform: translateX(0); }
-    20%, 60% { transform: translateX(-3px); }
-    40%, 80% { transform: translateX(3px); }
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+    20%,
+    60% {
+        transform: translateX(-3px);
+    }
+    40%,
+    80% {
+        transform: translateX(3px);
+    }
 }
 
 .messageText {
@@ -253,11 +262,7 @@
 
 /* Danger button variant */
 .dialogButton[data-variant="danger"] {
-    background: linear-gradient(
-        180deg,
-        var(--color-alarm) 0%,
-        #dc2626 100%
-    );
+    background: linear-gradient(180deg, var(--color-alarm) 0%, #dc2626 100%);
     color: white;
     border-color: var(--color-alarm);
 }

@@ -85,17 +85,21 @@ const NavButton = memo(function NavButton({
  */
 export function NavPanel({ currentView, onViewChange }: NavPanelProps) {
     const { t } = useTranslation();
-    const { unacknowledgedAlarmCount, unacknowledgedWarningCount } = useAlarmStore(
-        useShallow((state) => ({
-            unacknowledgedAlarmCount: state.unacknowledgedAlarmCount,
-            unacknowledgedWarningCount: state.unacknowledgedWarningCount,
-        })),
-    );
+    const { unacknowledgedAlarmCount, unacknowledgedWarningCount } =
+        useAlarmStore(
+            useShallow((state) => ({
+                unacknowledgedAlarmCount: state.unacknowledgedAlarmCount,
+                unacknowledgedWarningCount: state.unacknowledgedWarningCount,
+            })),
+        );
     const unfinishedTasks = useNavigationStore(
         useShallow((state) => state.unfinishedTasks),
     );
 
-    const getHighlight = (item: { id: ViewId; highlight?: HighlightStatus }): HighlightStatus => {
+    const getHighlight = (item: {
+        id: ViewId;
+        highlight?: HighlightStatus;
+    }): HighlightStatus => {
         // 告警页：以未确认告警/警告优先决定高亮色
         if (item.id === "alarms") {
             if (unacknowledgedAlarmCount > 0) return "alarm";

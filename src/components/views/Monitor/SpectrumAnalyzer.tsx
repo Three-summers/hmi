@@ -79,13 +79,15 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
 
     const [frequencies, setFrequencies] = useState<number[]>([]);
     const [amplitudes, setAmplitudes] = useState<number[]>([]);
-    const [status, setStatus] = useState<"unavailable" | "loading" | "ready" | "error">(
-        "loading",
-    );
+    const [status, setStatus] = useState<
+        "unavailable" | "loading" | "ready" | "error"
+    >("loading");
     const [errorText, setErrorText] = useState<string | null>(null);
 
     const [configOpen, setConfigOpen] = useState(false);
-    const [marker, setMarker] = useState<{ freq: number; amp: number } | null>(null);
+    const [marker, setMarker] = useState<{ freq: number; amp: number } | null>(
+        null,
+    );
 
     const chartHostRef = useRef<HTMLDivElement | null>(null);
     const waterfallHostRef = useRef<HTMLDivElement | null>(null);
@@ -112,7 +114,11 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
             maxHz = Math.max(maxHz, freq);
         }
 
-        if (!Number.isFinite(minHz) || !Number.isFinite(maxHz) || frequencies.length < 2) {
+        if (
+            !Number.isFinite(minHz) ||
+            !Number.isFinite(maxHz) ||
+            frequencies.length < 2
+        ) {
             return {
                 centerHz: Number.NaN,
                 spanHz: Number.NaN,
@@ -147,26 +153,33 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
 
         const setup = async () => {
             try {
-                const unlistenFn = await listen<SpectrumData>("spectrum-data", (event) => {
-                    if (cancelled) return;
-                    if (isPausedRef.current) return;
+                const unlistenFn = await listen<SpectrumData>(
+                    "spectrum-data",
+                    (event) => {
+                        if (cancelled) return;
+                        if (isPausedRef.current) return;
 
-                    const now = performance.now();
-                    const desiredRate = Math.max(1, refreshRateRef.current);
-                    const minInterval = 1000 / desiredRate;
-                    const lastAcceptedAt = lastAcceptedAtRef.current;
-                    if (lastAcceptedAt && now - lastAcceptedAt < minInterval) return;
-                    lastAcceptedAtRef.current = now;
+                        const now = performance.now();
+                        const desiredRate = Math.max(1, refreshRateRef.current);
+                        const minInterval = 1000 / desiredRate;
+                        const lastAcceptedAt = lastAcceptedAtRef.current;
+                        if (
+                            lastAcceptedAt &&
+                            now - lastAcceptedAt < minInterval
+                        )
+                            return;
+                        lastAcceptedAtRef.current = now;
 
-                    const payload = event.payload;
-                    setFrequencies(payload.frequencies);
-                    setAmplitudes(payload.amplitudes);
-                    setStatus("ready");
+                        const payload = event.payload;
+                        setFrequencies(payload.frequencies);
+                        setAmplitudes(payload.amplitudes);
+                        setStatus("ready");
 
-                    const store = useSpectrumAnalyzerStore.getState();
-                    store.updateMaxHold(payload.amplitudes);
-                    store.updateAverage(payload.amplitudes);
-                });
+                        const store = useSpectrumAnalyzerStore.getState();
+                        store.updateMaxHold(payload.amplitudes);
+                        store.updateAverage(payload.amplitudes);
+                    },
+                );
 
                 if (cancelled) {
                     unlistenFn();
@@ -202,7 +215,8 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
         if (!chartHost || !waterfallHost) return;
 
         const chartCanvasCandidate =
-            chartHost.querySelector("canvas.u-canvas") ?? chartHost.querySelector("canvas");
+            chartHost.querySelector("canvas.u-canvas") ??
+            chartHost.querySelector("canvas");
         const waterfallCanvasCandidate = waterfallHost.querySelector("canvas");
 
         if (
@@ -212,7 +226,10 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
             return;
         }
 
-        await captureSpectrumAnalyzer(chartCanvasCandidate, waterfallCanvasCandidate);
+        await captureSpectrumAnalyzer(
+            chartCanvasCandidate,
+            waterfallCanvasCandidate,
+        );
     }, []);
 
     const handleResetTraces = () => {
@@ -258,7 +275,8 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
 
     const markerText = useMemo(() => {
         if (!marker) return "--";
-        if (!Number.isFinite(marker.freq) || !Number.isFinite(marker.amp)) return "--";
+        if (!Number.isFinite(marker.freq) || !Number.isFinite(marker.amp))
+            return "--";
         return `${formatHz(marker.freq)} ${marker.amp.toFixed(1)} dBm`;
     }, [marker]);
 
@@ -409,7 +427,9 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                     type="button"
                     className={styles.controlBtn}
                     onClick={handleScreenshot}
-                    aria-label={t("monitor.spectrumAnalyzer.controls.screenshot")}
+                    aria-label={t(
+                        "monitor.spectrumAnalyzer.controls.screenshot",
+                    )}
                 >
                     <SaveIcon className={styles.controlIcon} />
                     <span className={styles.controlText}>
@@ -462,7 +482,9 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                     <label className={styles.field}>
                         <div className={styles.fieldHeader}>
                             <span className={styles.fieldLabel}>
-                                {t("monitor.spectrumAnalyzer.settings.threshold")}
+                                {t(
+                                    "monitor.spectrumAnalyzer.settings.threshold",
+                                )}
                             </span>
                             <span className={styles.fieldValue}>
                                 {threshold.toFixed(0)} dBm
@@ -475,20 +497,26 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                             step={1}
                             value={threshold}
                             className={styles.slider}
-                            onChange={(e) => setThreshold(Number(e.target.value))}
+                            onChange={(e) =>
+                                setThreshold(Number(e.target.value))
+                            }
                         />
                     </label>
 
                     <label className={styles.field}>
                         <div className={styles.fieldHeader}>
                             <span className={styles.fieldLabel}>
-                                {t("monitor.spectrumAnalyzer.settings.historyDepth")}
+                                {t(
+                                    "monitor.spectrumAnalyzer.settings.historyDepth",
+                                )}
                             </span>
                         </div>
                         <select
                             className={styles.select}
                             value={historyDepth}
-                            onChange={(e) => setHistoryDepth(Number(e.target.value))}
+                            onChange={(e) =>
+                                setHistoryDepth(Number(e.target.value))
+                            }
                         >
                             {[50, 100, 200, 500].map((v) => (
                                 <option key={v} value={v}>
@@ -501,13 +529,17 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                     <label className={styles.field}>
                         <div className={styles.fieldHeader}>
                             <span className={styles.fieldLabel}>
-                                {t("monitor.spectrumAnalyzer.settings.refreshRate")}
+                                {t(
+                                    "monitor.spectrumAnalyzer.settings.refreshRate",
+                                )}
                             </span>
                         </div>
                         <select
                             className={styles.select}
                             value={refreshRate}
-                            onChange={(e) => setRefreshRate(Number(e.target.value))}
+                            onChange={(e) =>
+                                setRefreshRate(Number(e.target.value))
+                            }
                         >
                             {[10, 30, 60].map((v) => (
                                 <option key={v} value={v}>
@@ -520,7 +552,9 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                     <label className={styles.field}>
                         <div className={styles.fieldHeader}>
                             <span className={styles.fieldLabel}>
-                                {t("monitor.spectrumAnalyzer.settings.colorScheme")}
+                                {t(
+                                    "monitor.spectrumAnalyzer.settings.colorScheme",
+                                )}
                             </span>
                         </div>
                         <select
@@ -528,13 +562,20 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                             value={colorScheme}
                             onChange={(e) => setColorScheme(e.target.value)}
                         >
-                            {(["turbo", "viridis", "jet", "grayscale"] as const).map(
-                                (v) => (
-                                    <option key={v} value={v}>
-                                        {t(`monitor.spectrumAnalyzer.colorSchemes.${v}`)}
-                                    </option>
-                                ),
-                            )}
+                            {(
+                                [
+                                    "turbo",
+                                    "viridis",
+                                    "jet",
+                                    "grayscale",
+                                ] as const
+                            ).map((v) => (
+                                <option key={v} value={v}>
+                                    {t(
+                                        `monitor.spectrumAnalyzer.colorSchemes.${v}`,
+                                    )}
+                                </option>
+                            ))}
                         </select>
                     </label>
                 </div>

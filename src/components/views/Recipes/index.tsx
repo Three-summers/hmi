@@ -127,11 +127,14 @@ export default function RecipesView() {
     const selectedRecipeData = recipes.find((r) => r.id === selectedRecipe);
 
     const formatDate = (date: Date) => {
-        return date.toLocaleDateString(i18n.language === "zh" ? "zh-CN" : "en-US", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-        });
+        return date.toLocaleDateString(
+            i18n.language === "zh" ? "zh-CN" : "en-US",
+            {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+            },
+        );
     };
 
     const formatDuration = (seconds: number) => {
@@ -169,18 +172,17 @@ export default function RecipesView() {
                                                 key={recipe.id}
                                                 className={styles.recipeItem}
                                                 data-selected={
-                                                    selectedRecipe ===
-                                                    recipe.id
+                                                    selectedRecipe === recipe.id
                                                 }
                                                 data-status={recipe.status}
                                                 onClick={() =>
-                                                    setSelectedRecipe(
-                                                        recipe.id,
-                                                    )
+                                                    setSelectedRecipe(recipe.id)
                                                 }
                                             >
                                                 <div
-                                                    className={styles.recipeIcon}
+                                                    className={
+                                                        styles.recipeIcon
+                                                    }
                                                     data-status={recipe.status}
                                                 >
                                                     <svg
@@ -190,18 +192,28 @@ export default function RecipesView() {
                                                         <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" />
                                                     </svg>
                                                 </div>
-                                                <div className={styles.recipeInfo}>
+                                                <div
+                                                    className={
+                                                        styles.recipeInfo
+                                                    }
+                                                >
                                                     <span
-                                                        className={styles.recipeName}
+                                                        className={
+                                                            styles.recipeName
+                                                        }
                                                     >
                                                         {recipe.name}
                                                     </span>
                                                     <span
-                                                        className={styles.recipeMeta}
+                                                        className={
+                                                            styles.recipeMeta
+                                                        }
                                                     >
                                                         {t("recipes.meta", {
-                                                            version: recipe.version,
-                                                            steps: recipe.steps.length,
+                                                            version:
+                                                                recipe.version,
+                                                            steps: recipe.steps
+                                                                .length,
                                                         })}
                                                     </span>
                                                 </div>
@@ -211,7 +223,9 @@ export default function RecipesView() {
                                                     }
                                                     data-status={recipe.status}
                                                 >
-                                                    {t(`recipes.status.${recipe.status}`)}
+                                                    {t(
+                                                        `recipes.status.${recipe.status}`,
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -222,9 +236,7 @@ export default function RecipesView() {
                                     {selectedRecipeData ? (
                                         <>
                                             <div
-                                                className={
-                                                    styles.detailsHeader
-                                                }
+                                                className={styles.detailsHeader}
                                             >
                                                 <div
                                                     className={
@@ -236,18 +248,24 @@ export default function RecipesView() {
                                                             styles.detailsTitle
                                                         }
                                                     >
-                                                        {selectedRecipeData.name}
+                                                        {
+                                                            selectedRecipeData.name
+                                                        }
                                                     </h3>
                                                     <p
                                                         className={
                                                             styles.detailsDesc
                                                         }
                                                     >
-                                                        {selectedRecipeData.description}
+                                                        {
+                                                            selectedRecipeData.description
+                                                        }
                                                     </p>
                                                 </div>
                                                 <div
-                                                    className={styles.headerBadge}
+                                                    className={
+                                                        styles.headerBadge
+                                                    }
                                                     data-status={
                                                         selectedRecipeData.status
                                                     }
@@ -258,39 +276,64 @@ export default function RecipesView() {
                                                 </div>
                                             </div>
 
-                                            <div className={styles.detailsStats}>
+                                            <div
+                                                className={styles.detailsStats}
+                                            >
                                                 <div className={styles.statBox}>
                                                     <span
-                                                        className={styles.statLabel}
+                                                        className={
+                                                            styles.statLabel
+                                                        }
                                                     >
-                                                        {t("recipes.fields.version")}
+                                                        {t(
+                                                            "recipes.fields.version",
+                                                        )}
                                                     </span>
                                                     <span
-                                                        className={styles.statValue}
+                                                        className={
+                                                            styles.statValue
+                                                        }
                                                     >
-                                                        {selectedRecipeData.version}
+                                                        {
+                                                            selectedRecipeData.version
+                                                        }
                                                     </span>
                                                 </div>
                                                 <div className={styles.statBox}>
                                                     <span
-                                                        className={styles.statLabel}
+                                                        className={
+                                                            styles.statLabel
+                                                        }
                                                     >
-                                                        {t("recipes.fields.steps")}
+                                                        {t(
+                                                            "recipes.fields.steps",
+                                                        )}
                                                     </span>
                                                     <span
-                                                        className={styles.statValue}
+                                                        className={
+                                                            styles.statValue
+                                                        }
                                                     >
-                                                        {selectedRecipeData.steps.length}
+                                                        {
+                                                            selectedRecipeData
+                                                                .steps.length
+                                                        }
                                                     </span>
                                                 </div>
                                                 <div className={styles.statBox}>
                                                     <span
-                                                        className={styles.statLabel}
+                                                        className={
+                                                            styles.statLabel
+                                                        }
                                                     >
-                                                        {t("recipes.fields.duration")}
+                                                        {t(
+                                                            "recipes.fields.duration",
+                                                        )}
                                                     </span>
                                                     <span
-                                                        className={styles.statValue}
+                                                        className={
+                                                            styles.statValue
+                                                        }
                                                     >
                                                         {formatDuration(
                                                             getTotalDuration(
@@ -301,12 +344,18 @@ export default function RecipesView() {
                                                 </div>
                                                 <div className={styles.statBox}>
                                                     <span
-                                                        className={styles.statLabel}
+                                                        className={
+                                                            styles.statLabel
+                                                        }
                                                     >
-                                                        {t("recipes.fields.modified")}
+                                                        {t(
+                                                            "recipes.fields.modified",
+                                                        )}
                                                     </span>
                                                     <span
-                                                        className={styles.statValue}
+                                                        className={
+                                                            styles.statValue
+                                                        }
                                                     >
                                                         {formatDate(
                                                             selectedRecipeData.lastModified,
@@ -315,41 +364,74 @@ export default function RecipesView() {
                                                 </div>
                                             </div>
 
-                                            <div className={styles.stepsSection}>
-                                                <h4 className={styles.sectionTitle}>
+                                            <div
+                                                className={styles.stepsSection}
+                                            >
+                                                <h4
+                                                    className={
+                                                        styles.sectionTitle
+                                                    }
+                                                >
                                                     {t("recipes.steps.title")}
                                                 </h4>
-                                                {selectedRecipeData.steps.length ===
-                                                0 ? (
-                                                    <div className={styles.noSteps}>
-                                                        {t("recipes.steps.empty")}
+                                                {selectedRecipeData.steps
+                                                    .length === 0 ? (
+                                                    <div
+                                                        className={
+                                                            styles.noSteps
+                                                        }
+                                                    >
+                                                        {t(
+                                                            "recipes.steps.empty",
+                                                        )}
                                                     </div>
                                                 ) : (
-                                                    <div className={styles.stepsList}>
+                                                    <div
+                                                        className={
+                                                            styles.stepsList
+                                                        }
+                                                    >
                                                         {selectedRecipeData.steps.map(
                                                             (step, index) => (
                                                                 <div
-                                                                    key={step.id}
-                                                                    className={styles.stepCard}
+                                                                    key={
+                                                                        step.id
+                                                                    }
+                                                                    className={
+                                                                        styles.stepCard
+                                                                    }
                                                                 >
                                                                     <div
-                                                                        className={styles.stepNumber}
+                                                                        className={
+                                                                            styles.stepNumber
+                                                                        }
                                                                     >
-                                                                        {index + 1}
+                                                                        {index +
+                                                                            1}
                                                                     </div>
                                                                     <div
-                                                                        className={styles.stepContent}
+                                                                        className={
+                                                                            styles.stepContent
+                                                                        }
                                                                     >
                                                                         <div
-                                                                            className={styles.stepHeader}
+                                                                            className={
+                                                                                styles.stepHeader
+                                                                            }
                                                                         >
                                                                             <span
-                                                                                className={styles.stepName}
+                                                                                className={
+                                                                                    styles.stepName
+                                                                                }
                                                                             >
-                                                                                {step.name}
+                                                                                {
+                                                                                    step.name
+                                                                                }
                                                                             </span>
                                                                             <span
-                                                                                className={styles.stepDuration}
+                                                                                className={
+                                                                                    styles.stepDuration
+                                                                                }
                                                                             >
                                                                                 {formatDuration(
                                                                                     step.duration,
@@ -357,19 +439,33 @@ export default function RecipesView() {
                                                                             </span>
                                                                         </div>
                                                                         <div
-                                                                            className={styles.stepParams}
+                                                                            className={
+                                                                                styles.stepParams
+                                                                            }
                                                                         >
                                                                             {Object.entries(
                                                                                 step.parameters,
                                                                             ).map(
-                                                                                ([key, value]) => (
+                                                                                ([
+                                                                                    key,
+                                                                                    value,
+                                                                                ]) => (
                                                                                     <span
-                                                                                        key={key}
-                                                                                        className={styles.param}
+                                                                                        key={
+                                                                                            key
+                                                                                        }
+                                                                                        className={
+                                                                                            styles.param
+                                                                                        }
                                                                                     >
-                                                                                        {key}:{" "}
+                                                                                        {
+                                                                                            key
+                                                                                        }
+                                                                                        :{" "}
                                                                                         <strong>
-                                                                                            {value}
+                                                                                            {
+                                                                                                value
+                                                                                            }
                                                                                         </strong>
                                                                                     </span>
                                                                                 ),

@@ -3,7 +3,7 @@
    Based on SEMI E95 standards with modern glass morphism aesthetics
    ═══════════════════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
 :root {
     /* ─────────────────────────────────────────────────────────────────────────
@@ -25,31 +25,28 @@
     /* ─────────────────────────────────────────────────────────────────────────
        SEMI E95 Status Colors - Enhanced with Glow Effects
        ───────────────────────────────────────────────────────────────────────── */
-    --color-alarm: #ff3b3b;           /* Alarm (Red) - Vibrant */
+    --color-alarm: #ff3b3b; /* Alarm (Red) - Vibrant */
     --color-alarm-glow: rgba(255, 59, 59, 0.6);
-    --color-warning: #ffc107;         /* Warning (Amber/Gold) */
+    --color-warning: #ffc107; /* Warning (Amber/Gold) */
     --color-warning-glow: rgba(255, 193, 7, 0.5);
-    --color-processing: #0ea5e9;      /* Processing (Cyan Blue) */
+    --color-processing: #0ea5e9; /* Processing (Cyan Blue) */
     --color-processing-glow: rgba(14, 165, 233, 0.5);
-    --color-attention: #22c55e;       /* Ready/Attention (Green) */
+    --color-attention: #22c55e; /* Ready/Attention (Green) */
     --color-attention-glow: rgba(34, 197, 94, 0.5);
 
     /* Status Highlight Shadows - Enhanced with Multi-layer Glow */
     --highlight-alarm:
-        0 0 0 2px var(--color-alarm),
-        0 0 20px var(--color-alarm-glow),
+        0 0 0 2px var(--color-alarm), 0 0 20px var(--color-alarm-glow),
         inset 0 0 15px rgba(255, 59, 59, 0.1);
     --highlight-warning:
-        0 0 0 2px var(--color-warning),
-        0 0 20px var(--color-warning-glow),
+        0 0 0 2px var(--color-warning), 0 0 20px var(--color-warning-glow),
         inset 0 0 15px rgba(255, 193, 7, 0.1);
     --highlight-processing:
         0 0 0 2px var(--color-processing),
         0 0 20px var(--color-processing-glow),
         inset 0 0 15px rgba(14, 165, 233, 0.1);
     --highlight-attention:
-        0 0 0 2px var(--color-attention),
-        0 0 20px var(--color-attention-glow),
+        0 0 0 2px var(--color-attention), 0 0 20px var(--color-attention-glow),
         inset 0 0 15px rgba(34, 197, 94, 0.1);
 
     /* ─────────────────────────────────────────────────────────────────────────
@@ -64,7 +61,11 @@
     /* ─────────────────────────────────────────────────────────────────────────
        Surface Levels (primary / secondary / tertiary)
        ───────────────────────────────────────────────────────────────────────── */
-    --card-bg: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+    --card-bg: linear-gradient(
+        180deg,
+        var(--bg-secondary) 0%,
+        var(--bg-tertiary) 100%
+    );
     --card-border: var(--border-color);
     --card-radius: var(--button-radius);
     --card-padding: var(--sp-md);
@@ -76,7 +77,11 @@
     --text-on-alarm: #ffffff;
 
     /* Button tier backgrounds (avoid hard-coded component colors) */
-    --button-primary-bg: linear-gradient(180deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    --button-primary-bg: linear-gradient(
+        180deg,
+        var(--accent-primary) 0%,
+        var(--accent-secondary) 100%
+    );
     --button-primary-bg-hover: var(--accent-primary);
     --button-primary-bg-active: var(--accent-secondary);
     --button-primary-border: var(--accent-primary);
@@ -95,9 +100,21 @@
     --button-warning-border: var(--color-warning);
 
     /* Shine overlays (used by pseudo elements) */
-    --shine-top-weak: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%);
-    --shine-top-medium: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, transparent 100%);
-    --shine-top-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.2) 0%, transparent 100%);
+    --shine-top-weak: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        transparent 100%
+    );
+    --shine-top-medium: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.12) 0%,
+        transparent 100%
+    );
+    --shine-top-strong: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.2) 0%,
+        transparent 100%
+    );
 
     /* ─────────────────────────────────────────────────────────────────────────
        DARK THEME (Default) - Deep Space Industrial
@@ -140,7 +157,11 @@
     /* Glass Effect Overlays */
     --glass-bg: rgba(15, 22, 41, 0.7);
     --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+    --glass-shine: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        transparent 50%
+    );
 
     /* Overlays */
     --overlay-weak: rgba(0, 0, 0, 0.2);
@@ -149,17 +170,33 @@
     --overlay-modal: rgba(5, 10, 20, 0.85);
 
     /* Gradients */
-    --gradient-panel: linear-gradient(180deg, var(--bg-panel-header) 0%, var(--bg-panel) 100%);
-    --gradient-button: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
-    --gradient-accent: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
-    --gradient-glow: radial-gradient(ellipse at center, var(--accent-primary) 0%, transparent 70%);
+    --gradient-panel: linear-gradient(
+        180deg,
+        var(--bg-panel-header) 0%,
+        var(--bg-panel) 100%
+    );
+    --gradient-button: linear-gradient(
+        180deg,
+        var(--button-bg-hover) 0%,
+        var(--button-bg) 100%
+    );
+    --gradient-accent: linear-gradient(
+        135deg,
+        var(--accent-primary) 0%,
+        var(--accent-secondary) 100%
+    );
+    --gradient-glow: radial-gradient(
+        ellipse at center,
+        var(--accent-primary) 0%,
+        transparent 70%
+    );
 
     /* ─────────────────────────────────────────────────────────────────────────
        Typography - Industrial Display Fonts
        ───────────────────────────────────────────────────────────────────────── */
-    --font-display: 'Orbitron', 'Rajdhani', system-ui, sans-serif;
-    --font-family: 'Rajdhani', 'Noto Sans', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+    --font-display: "Orbitron", "Rajdhani", system-ui, sans-serif;
+    --font-family: "Rajdhani", "Noto Sans", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", "Consolas", monospace;
 
     --font-size-xs: 10px;
     --font-size-small: 12px;
@@ -244,7 +281,11 @@
     /* Glass Effect */
     --glass-bg: rgba(255, 255, 255, 0.8);
     --glass-border: rgba(255, 255, 255, 0.5);
-    --glass-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, transparent 50%);
+    --glass-shine: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.8) 0%,
+        transparent 50%
+    );
 
     /* Overlays */
     --overlay-weak: rgba(0, 0, 0, 0.03);
@@ -253,9 +294,17 @@
     --overlay-modal: rgba(15, 23, 42, 0.6);
 
     /* Gradients */
-    --gradient-panel: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-secondary) 100%);
+    --gradient-panel: linear-gradient(
+        180deg,
+        var(--bg-panel) 0%,
+        var(--bg-secondary) 100%
+    );
     --gradient-button: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    --gradient-accent: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+    --gradient-accent: linear-gradient(
+        135deg,
+        var(--accent-primary) 0%,
+        var(--accent-secondary) 100%
+    );
 
     /* Shadows - Softer */
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -276,20 +325,17 @@
 
     /* Highlights - tuned for light backgrounds */
     --highlight-alarm:
-        0 0 0 2px var(--color-alarm),
-        0 0 20px var(--color-alarm-glow),
+        0 0 0 2px var(--color-alarm), 0 0 20px var(--color-alarm-glow),
         inset 0 0 15px rgba(220, 38, 38, 0.08);
     --highlight-warning:
-        0 0 0 2px var(--color-warning),
-        0 0 20px var(--color-warning-glow),
+        0 0 0 2px var(--color-warning), 0 0 20px var(--color-warning-glow),
         inset 0 0 15px rgba(217, 119, 6, 0.08);
     --highlight-processing:
         0 0 0 2px var(--color-processing),
         0 0 20px var(--color-processing-glow),
         inset 0 0 15px rgba(2, 132, 199, 0.08);
     --highlight-attention:
-        0 0 0 2px var(--color-attention),
-        0 0 20px var(--color-attention-glow),
+        0 0 0 2px var(--color-attention), 0 0 20px var(--color-attention-glow),
         inset 0 0 15px rgba(22, 163, 74, 0.08);
 }
 
@@ -335,7 +381,11 @@
     /* Glass Effect - Subtle on pure black */
     --glass-bg: rgba(10, 10, 10, 0.9);
     --glass-border: rgba(255, 255, 255, 0.15);
-    --glass-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 50%);
+    --glass-shine: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        transparent 50%
+    );
 
     /* Overlays */
     --overlay-weak: rgba(255, 255, 255, 0.05);
@@ -378,19 +428,16 @@
 
     /* Enhanced Highlights for High Contrast */
     --highlight-alarm:
-        0 0 0 3px var(--color-alarm),
-        0 0 30px var(--color-alarm-glow),
+        0 0 0 3px var(--color-alarm), 0 0 30px var(--color-alarm-glow),
         inset 0 0 20px rgba(255, 23, 68, 0.15);
     --highlight-warning:
-        0 0 0 3px var(--color-warning),
-        0 0 30px var(--color-warning-glow),
+        0 0 0 3px var(--color-warning), 0 0 30px var(--color-warning-glow),
         inset 0 0 20px rgba(255, 234, 0, 0.1);
     --highlight-processing:
         0 0 0 3px var(--color-processing),
         0 0 30px var(--color-processing-glow),
         inset 0 0 20px rgba(0, 229, 255, 0.15);
     --highlight-attention:
-        0 0 0 3px var(--color-attention),
-        0 0 30px var(--color-attention-glow),
+        0 0 0 3px var(--color-attention), 0 0 30px var(--color-attention-glow),
         inset 0 0 20px rgba(0, 230, 118, 0.15);
 }

@@ -39,7 +39,9 @@ function isEditableTarget(target: EventTarget | null): boolean {
  */
 function isModalOpen(): boolean {
     // Dialog 使用 aria-modal=true，打开时应避免全局快捷键干扰其交互
-    return Boolean(document.querySelector('[role="dialog"][aria-modal="true"]'));
+    return Boolean(
+        document.querySelector('[role="dialog"][aria-modal="true"]'),
+    );
 }
 
 /**

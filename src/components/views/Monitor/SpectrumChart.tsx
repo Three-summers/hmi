@@ -59,10 +59,14 @@ function buildRenderedData(
         filteredAmplitudesDbm.push(ampDbm);
 
         const maxHoldValue = maxHoldDbm[i];
-        filteredMaxHoldDbm.push(Number.isFinite(maxHoldValue) ? maxHoldValue : null);
+        filteredMaxHoldDbm.push(
+            Number.isFinite(maxHoldValue) ? maxHoldValue : null,
+        );
 
         const averageValue = averageDbm[i];
-        filteredAverageDbm.push(Number.isFinite(averageValue) ? averageValue : null);
+        filteredAverageDbm.push(
+            Number.isFinite(averageValue) ? averageValue : null,
+        );
     }
 
     // 如果数据为空，提供默认占位数据（两个点），避免 uPlot 初始化失败
@@ -75,7 +79,13 @@ function buildRenderedData(
         return {
             frequenciesHz: [0, 10000],
             amplitudesDbm: defaultY,
-            alignedData: [defaultX, defaultY, defaultMaxHold, defaultAverage, defaultThreshold],
+            alignedData: [
+                defaultX,
+                defaultY,
+                defaultMaxHold,
+                defaultAverage,
+                defaultThreshold,
+            ],
         };
     }
 
@@ -147,11 +157,17 @@ function parseCssColorToRgb(input: string): RGB | null {
 function withAlpha(color: string, alpha: number, fallback: string): string {
     const rgb = parseCssColorToRgb(color);
     if (!rgb) return fallback;
-    const safeAlpha = Number.isFinite(alpha) ? Math.max(0, Math.min(1, alpha)) : 1;
+    const safeAlpha = Number.isFinite(alpha)
+        ? Math.max(0, Math.min(1, alpha))
+        : 1;
     return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${safeAlpha})`;
 }
 
-function readCssVar(style: CSSStyleDeclaration, name: string, fallback: string): string {
+function readCssVar(
+    style: CSSStyleDeclaration,
+    name: string,
+    fallback: string,
+): string {
     const value = style.getPropertyValue(name).trim();
     return value || fallback;
 }
@@ -162,7 +178,9 @@ export default function SpectrumChart(props: SpectrumChartProps) {
     const containerRef = useRef<HTMLDivElement | null>(null);
     const uplotRef = useRef<uPlot | null>(null);
     const renderedRef = useRef<RenderedSpectrumData | null>(null);
-    const onMarkerChangeRef = useRef<SpectrumChartProps["onMarkerChange"]>(props.onMarkerChange);
+    const onMarkerChangeRef = useRef<SpectrumChartProps["onMarkerChange"]>(
+        props.onMarkerChange,
+    );
     const latestDataRef = useRef({
         frequencies: props.frequencies,
         amplitudes: props.amplitudes,
@@ -172,7 +190,9 @@ export default function SpectrumChart(props: SpectrumChartProps) {
     });
 
     const [markerText, setMarkerText] = useState<string | null>(null);
-    const lastEmittedMarkerRef = useRef<{ freq: number; amp: number } | null>(null);
+    const lastEmittedMarkerRef = useRef<{ freq: number; amp: number } | null>(
+        null,
+    );
 
     onMarkerChangeRef.current = props.onMarkerChange;
     latestDataRef.current.frequencies = props.frequencies;
@@ -229,9 +249,21 @@ export default function SpectrumChart(props: SpectrumChartProps) {
                 "rgba(100, 150, 200, 0.3)",
             );
 
-            const warningBase = readCssVar(computed, "--color-warning", "#ffcc00");
-            const processingBase = readCssVar(computed, "--color-processing", "#0ea5e9");
-            const attentionBase = readCssVar(computed, "--color-attention", "#22c55e");
+            const warningBase = readCssVar(
+                computed,
+                "--color-warning",
+                "#ffcc00",
+            );
+            const processingBase = readCssVar(
+                computed,
+                "--color-processing",
+                "#0ea5e9",
+            );
+            const attentionBase = readCssVar(
+                computed,
+                "--color-attention",
+                "#22c55e",
+            );
             const alarmBase = readCssVar(computed, "--color-alarm", "#ff3b3b");
 
             const thresholdStroke = withAlpha(
@@ -254,7 +286,11 @@ export default function SpectrumChart(props: SpectrumChartProps) {
                 0.55,
                 "rgba(255, 255, 0, 0.7)",
             );
-            const fillTop = withAlpha(alarmBase, 0.85, "rgba(255, 50, 50, 0.9)");
+            const fillTop = withAlpha(
+                alarmBase,
+                0.85,
+                "rgba(255, 50, 50, 0.9)",
+            );
 
             const opts: uPlot.Options = {
                 width: nextWidth,
@@ -275,7 +311,11 @@ export default function SpectrumChart(props: SpectrumChartProps) {
                             // 检查 bbox 是否有效，避免 NaN 导致 createLinearGradient 报错
                             const bboxTop = u.bbox.top;
                             const bboxHeight = u.bbox.height;
-                            if (!Number.isFinite(bboxTop) || !Number.isFinite(bboxHeight) || bboxHeight <= 0) {
+                            if (
+                                !Number.isFinite(bboxTop) ||
+                                !Number.isFinite(bboxHeight) ||
+                                bboxHeight <= 0
+                            ) {
                                 return fillBottom;
                             }
                             const ctx = u.ctx;
@@ -355,11 +395,16 @@ export default function SpectrumChart(props: SpectrumChartProps) {
                             const rendered = renderedRef.current;
                             if (!rendered) return;
 
-                            if (idx < 0 || idx >= rendered.frequenciesHz.length) return;
+                            if (idx < 0 || idx >= rendered.frequenciesHz.length)
+                                return;
 
                             const freqHz = rendered.frequenciesHz[idx];
                             const ampDbm = rendered.amplitudesDbm[idx];
-                            if (!Number.isFinite(freqHz) || !Number.isFinite(ampDbm)) return;
+                            if (
+                                !Number.isFinite(freqHz) ||
+                                !Number.isFinite(ampDbm)
+                            )
+                                return;
 
                             const nextMarker = { freq: freqHz, amp: ampDbm };
                             const prevMarker = lastEmittedMarkerRef.current;
@@ -387,7 +432,11 @@ export default function SpectrumChart(props: SpectrumChartProps) {
             );
 
             renderedRef.current = initialRendered;
-            const chart = new uPlot(opts, initialRendered.alignedData, container);
+            const chart = new uPlot(
+                opts,
+                initialRendered.alignedData,
+                container,
+            );
             uplotRef.current = chart;
         });
 
@@ -441,7 +490,9 @@ export default function SpectrumChart(props: SpectrumChartProps) {
     return (
         <div className={styles.root} onMouseLeave={handleMouseLeave}>
             <div className={styles.chart} ref={containerRef} />
-            <div className={styles.markerInfo}>{markerText ?? "Mkr1 -- kHz -- dBm"}</div>
+            <div className={styles.markerInfo}>
+                {markerText ?? "Mkr1 -- kHz -- dBm"}
+            </div>
             <div className={styles.statusBar}>{statusText}</div>
         </div>
     );

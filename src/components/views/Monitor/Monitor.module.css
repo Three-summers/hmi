@@ -69,7 +69,9 @@
         box-shadow: var(--highlight-alarm);
     }
     50% {
-        box-shadow: var(--highlight-alarm), 0 0 35px var(--color-alarm-glow);
+        box-shadow:
+            var(--highlight-alarm),
+            0 0 35px var(--color-alarm-glow);
     }
 }
 
@@ -307,7 +309,11 @@
 }
 
 .legendItem[data-type="spectrum"] {
-    --legend-dot-bg: linear-gradient(180deg, var(--color-processing), var(--color-attention));
+    --legend-dot-bg: linear-gradient(
+        180deg,
+        var(--color-processing),
+        var(--color-attention)
+    );
 }
 
 .legendItem[data-type="peak"] {

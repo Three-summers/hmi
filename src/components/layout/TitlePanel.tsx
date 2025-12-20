@@ -148,7 +148,8 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
     };
 
     const getConnectionType = () => {
-        if (serialConnected && tcpConnected) return t("title.commType.serialTcp");
+        if (serialConnected && tcpConnected)
+            return t("title.commType.serialTcp");
         if (serialConnected) return t("title.commType.serial");
         if (tcpConnected) return t("title.commType.tcp");
         return t("title.commStatus.disconnected");

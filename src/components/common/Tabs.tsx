@@ -70,4 +70,3 @@ export function Tabs<TId extends string>({
         </div>
     );
 }
-

@@ -73,7 +73,9 @@ function formatHms(seconds: number): string {
 }
 
 function xAxisValues(_u: uPlot, splits: number[]): string[] {
-    return splits.map((value) => (Number.isFinite(value) ? formatHms(value) : ""));
+    return splits.map((value) =>
+        Number.isFinite(value) ? formatHms(value) : "",
+    );
 }
 
 function getXRange(xData: number[]): { min: number; max: number } | null {
@@ -84,7 +86,8 @@ function getXRange(xData: number[]): { min: number; max: number } | null {
         if (value < min) min = value;
         if (value > max) max = value;
     }
-    if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) return null;
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min === max)
+        return null;
     return { min, max };
 }
 
@@ -113,7 +116,15 @@ function parseCsv(content: string): CsvData | null {
         const minutes = Number(match[5]);
         const seconds = Number(match[6]);
         const millis = match[7] ? Number(match[7].padEnd(3, "0")) : 0;
-        const date = new Date(year, month - 1, day, hours, minutes, seconds, millis);
+        const date = new Date(
+            year,
+            month - 1,
+            day,
+            hours,
+            minutes,
+            seconds,
+            millis,
+        );
         const time = date.getTime();
         if (!Number.isFinite(time)) return null;
         return time / 1000;
@@ -357,7 +368,9 @@ export default function FilesView() {
     const [visibleCharts, setVisibleCharts] = useState<number>(
         FILES_CONFIG.DEFAULT_VISIBLE_CHARTS,
     );
-    const [enabledColumns, setEnabledColumns] = useState<Set<number>>(new Set());
+    const [enabledColumns, setEnabledColumns] = useState<Set<number>>(
+        new Set(),
+    );
     const [treeLoading, setTreeLoading] = useState(false);
     const [previewLoading, setPreviewLoading] = useState(false);
     const [treeError, setTreeError] = useState<string | null>(null);
@@ -378,7 +391,9 @@ export default function FilesView() {
     const lastCsvDataRef = useRef<CsvData | null>(null);
     const enlargedChartRef = useRef<HTMLDivElement | null>(null);
     const enlargedUplotInstance = useRef<uPlot | null>(null);
-    const enlargedFullXRange = useRef<{ min: number; max: number } | null>(null);
+    const enlargedFullXRange = useRef<{ min: number; max: number } | null>(
+        null,
+    );
 
     // 获取日志目录路径（由后端提供，避免前端硬编码）
     const loadLogBasePath = useCallback(async () => {
@@ -402,7 +417,9 @@ export default function FilesView() {
             setLogBasePath("");
             setFileTree([]);
             setTreeError(
-                isTimeoutError(err) ? t("files.loadTimeout") : t("files.noLogFolder"),
+                isTimeoutError(err)
+                    ? t("files.loadTimeout")
+                    : t("files.noLogFolder"),
             );
         } finally {
             setTreeLoading(false);
@@ -463,7 +480,11 @@ export default function FilesView() {
             setFileTree(tree);
         } catch (err) {
             console.error("Failed to load file tree:", err);
-            setTreeError(isTimeoutError(err) ? t("files.loadTimeout") : t("files.noLogFolder"));
+            setTreeError(
+                isTimeoutError(err)
+                    ? t("files.loadTimeout")
+                    : t("files.noLogFolder"),
+            );
             setFileTree([]);
         } finally {
             setTreeLoading(false);
@@ -501,7 +522,10 @@ export default function FilesView() {
                         for (
                             let i = 1;
                             i <=
-                            Math.min(FILES_CONFIG.DEFAULT_VISIBLE_CHARTS, dataColumns);
+                            Math.min(
+                                FILES_CONFIG.DEFAULT_VISIBLE_CHARTS,
+                                dataColumns,
+                            );
                             i++
                         ) {
                             initialEnabled.add(i);
@@ -733,9 +757,20 @@ export default function FilesView() {
                             if (selectWidth < 10) return;
                             const min = u.posToVal(left, "x");
                             const max = u.posToVal(left + selectWidth, "x");
-                            if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) return;
-                            u.setScale("x", { min: Math.min(min, max), max: Math.max(min, max) });
-                            u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false);
+                            if (
+                                !Number.isFinite(min) ||
+                                !Number.isFinite(max) ||
+                                min === max
+                            )
+                                return;
+                            u.setScale("x", {
+                                min: Math.min(min, max),
+                                max: Math.max(min, max),
+                            });
+                            u.setSelect(
+                                { left: 0, top: 0, width: 0, height: 0 },
+                                false,
+                            );
                         },
                     ],
                 },
@@ -843,7 +878,8 @@ export default function FilesView() {
 
     const isCsvFile = selectedFile?.toLowerCase().endsWith(".csv");
     const hasMoreCharts =
-        csvData && csvData.headers.length - 1 > FILES_CONFIG.DEFAULT_VISIBLE_CHARTS;
+        csvData &&
+        csvData.headers.length - 1 > FILES_CONFIG.DEFAULT_VISIBLE_CHARTS;
     const sortedEnabledColumns = useMemo(
         () => Array.from(enabledColumns).sort((a, b) => a - b),
         [enabledColumns],
@@ -902,11 +938,11 @@ export default function FilesView() {
                                 <div className={filesStyles.container}>
                                     <div className={filesStyles.fileTree}>
                                         <div className={filesStyles.treeHeader}>
-                                            <span>
-                                                {t("files.logFolder")}
-                                            </span>
+                                            <span>{t("files.logFolder")}</span>
                                         </div>
-                                        <div className={filesStyles.treeContent}>
+                                        <div
+                                            className={filesStyles.treeContent}
+                                        >
                                             <FileTreeContent
                                                 items={visibleTreeItems}
                                                 selectedPath={selectedFile}
@@ -917,7 +953,9 @@ export default function FilesView() {
                                                 retryText={t("common.retry")}
                                                 retryDisabled={treeLoading}
                                                 onRetry={handleRetryTree}
-                                                onToggleDirectory={toggleDirectory}
+                                                onToggleDirectory={
+                                                    toggleDirectory
+                                                }
                                                 onSelectFile={handleFileSelect}
                                             />
                                         </div>
@@ -925,7 +963,11 @@ export default function FilesView() {
 
                                     <div className={filesStyles.preview}>
                                         {!selectedFile ? (
-                                            <div className={filesStyles.placeholder}>
+                                            <div
+                                                className={
+                                                    filesStyles.placeholder
+                                                }
+                                            >
                                                 <svg
                                                     viewBox="0 0 24 24"
                                                     fill="currentColor"
@@ -934,11 +976,15 @@ export default function FilesView() {
                                                 </svg>
                                                 <StatusIndicator
                                                     status="idle"
-                                                    label={t("files.selectFile")}
+                                                    label={t(
+                                                        "files.selectFile",
+                                                    )}
                                                 />
                                             </div>
                                         ) : previewLoading ? (
-                                            <div className={filesStyles.loading}>
+                                            <div
+                                                className={filesStyles.loading}
+                                            >
                                                 <StatusIndicator
                                                     status="processing"
                                                     label={t("files.loading")}
@@ -952,14 +998,30 @@ export default function FilesView() {
                                                 />
                                             </div>
                                         ) : isCsvFile && csvData ? (
-                                            <div className={filesStyles.csvPreview}>
-                                                <div className={filesStyles.csvHeader}>
-                                                    <span className={filesStyles.csvTitle}>
+                                            <div
+                                                className={
+                                                    filesStyles.csvPreview
+                                                }
+                                            >
+                                                <div
+                                                    className={
+                                                        filesStyles.csvHeader
+                                                    }
+                                                >
+                                                    <span
+                                                        className={
+                                                            filesStyles.csvTitle
+                                                        }
+                                                    >
                                                         {selectedFile
                                                             .split("/")
                                                             .pop()}
                                                     </span>
-                                                    <div className={filesStyles.columnToggle}>
+                                                    <div
+                                                        className={
+                                                            filesStyles.columnToggle
+                                                        }
+                                                    >
                                                         {csvData.headers
                                                             .slice(
                                                                 1,
@@ -976,7 +1038,9 @@ export default function FilesView() {
                                                                             idx +
                                                                             1
                                                                         }
-                                                                        className={filesStyles.columnBtn}
+                                                                        className={
+                                                                            filesStyles.columnBtn
+                                                                        }
                                                                         data-active={enabledColumns.has(
                                                                             idx +
                                                                                 1,
@@ -1002,7 +1066,9 @@ export default function FilesView() {
                                                     </div>
                                                     {hasMoreCharts && (
                                                         <button
-                                                            className={filesStyles.moreBtn}
+                                                            className={
+                                                                filesStyles.moreBtn
+                                                            }
                                                             onClick={
                                                                 visibleCharts >
                                                                 FILES_CONFIG.DEFAULT_VISIBLE_CHARTS
@@ -1012,21 +1078,35 @@ export default function FilesView() {
                                                         >
                                                             {visibleCharts >
                                                             FILES_CONFIG.DEFAULT_VISIBLE_CHARTS
-                                                                ? t("files.showLess")
-                                                                : t("files.showMore", {
-                                                                      count: csvData.headers.length -
-                                                                          1 -
-                                                                          FILES_CONFIG.DEFAULT_VISIBLE_CHARTS,
-                                                                  })}
+                                                                ? t(
+                                                                      "files.showLess",
+                                                                  )
+                                                                : t(
+                                                                      "files.showMore",
+                                                                      {
+                                                                          count:
+                                                                              csvData
+                                                                                  .headers
+                                                                                  .length -
+                                                                              1 -
+                                                                              FILES_CONFIG.DEFAULT_VISIBLE_CHARTS,
+                                                                      },
+                                                                  )}
                                                         </button>
                                                     )}
                                                 </div>
-                                                <div className={filesStyles.chartsContainer}>
+                                                <div
+                                                    className={
+                                                        filesStyles.chartsContainer
+                                                    }
+                                                >
                                                     {sortedEnabledColumns.map(
                                                         (colIndex) => (
                                                             <div
                                                                 key={colIndex}
-                                                                className={filesStyles.chartWrapper}
+                                                                className={
+                                                                    filesStyles.chartWrapper
+                                                                }
                                                                 onClick={() =>
                                                                     setEnlargedColumn(
                                                                         colIndex,
@@ -1035,9 +1115,15 @@ export default function FilesView() {
                                                                 role="button"
                                                                 tabIndex={0}
                                                             >
-                                                                <div className={filesStyles.chartLabel}>
+                                                                <div
+                                                                    className={
+                                                                        filesStyles.chartLabel
+                                                                    }
+                                                                >
                                                                     <span
-                                                                        className={filesStyles.colorDot}
+                                                                        className={
+                                                                            filesStyles.colorDot
+                                                                        }
                                                                         style={{
                                                                             background:
                                                                                 getSeriesColor(
@@ -1045,12 +1131,17 @@ export default function FilesView() {
                                                                                 ),
                                                                         }}
                                                                     />
-                                                                    {csvData.headers[
-                                                                        colIndex
-                                                                    ]}
+                                                                    {
+                                                                        csvData
+                                                                            .headers[
+                                                                            colIndex
+                                                                        ]
+                                                                    }
                                                                 </div>
                                                                 <div
-                                                                    ref={(el) => {
+                                                                    ref={(
+                                                                        el,
+                                                                    ) => {
                                                                         if (el)
                                                                             chartRefs.current.set(
                                                                                 colIndex,
@@ -1061,7 +1152,9 @@ export default function FilesView() {
                                                                                 colIndex,
                                                                             );
                                                                     }}
-                                                                    className={filesStyles.chart}
+                                                                    className={
+                                                                        filesStyles.chart
+                                                                    }
                                                                 />
                                                             </div>
                                                         ),
@@ -1069,13 +1162,25 @@ export default function FilesView() {
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className={filesStyles.textPreview}>
-                                                <div className={filesStyles.textHeader}>
+                                            <div
+                                                className={
+                                                    filesStyles.textPreview
+                                                }
+                                            >
+                                                <div
+                                                    className={
+                                                        filesStyles.textHeader
+                                                    }
+                                                >
                                                     {selectedFile
                                                         .split("/")
                                                         .pop()}
                                                 </div>
-                                                <pre className={filesStyles.textContent}>
+                                                <pre
+                                                    className={
+                                                        filesStyles.textContent
+                                                    }
+                                                >
                                                     {fileContent}
                                                 </pre>
                                             </div>
@@ -1091,25 +1196,49 @@ export default function FilesView() {
                                         aria-modal="true"
                                     >
                                         <div
-                                            className={filesStyles.chartModalContent}
+                                            className={
+                                                filesStyles.chartModalContent
+                                            }
                                             onClick={(e) => e.stopPropagation()}
                                         >
-                                            <div className={filesStyles.chartModalHeader}>
-                                                <div className={filesStyles.chartModalTitle}>
-                                                    {csvData.headers[
-                                                        enlargedColumn
-                                                    ]}
+                                            <div
+                                                className={
+                                                    filesStyles.chartModalHeader
+                                                }
+                                            >
+                                                <div
+                                                    className={
+                                                        filesStyles.chartModalTitle
+                                                    }
+                                                >
+                                                    {
+                                                        csvData.headers[
+                                                            enlargedColumn
+                                                        ]
+                                                    }
                                                 </div>
-                                                <div className={filesStyles.chartModalActions}>
+                                                <div
+                                                    className={
+                                                        filesStyles.chartModalActions
+                                                    }
+                                                >
                                                     <button
-                                                        className={filesStyles.chartModalBtn}
-                                                        onClick={resetEnlargedZoom}
+                                                        className={
+                                                            filesStyles.chartModalBtn
+                                                        }
+                                                        onClick={
+                                                            resetEnlargedZoom
+                                                        }
                                                     >
                                                         {t("common.reset")}
                                                     </button>
                                                     <button
-                                                        className={filesStyles.chartModalBtn}
-                                                        onClick={closeEnlargedChart}
+                                                        className={
+                                                            filesStyles.chartModalBtn
+                                                        }
+                                                        onClick={
+                                                            closeEnlargedChart
+                                                        }
                                                     >
                                                         {t("common.close")}
                                                     </button>
@@ -1117,9 +1246,15 @@ export default function FilesView() {
                                             </div>
                                             <div
                                                 ref={enlargedChartRef}
-                                                className={filesStyles.chartModalBody}
+                                                className={
+                                                    filesStyles.chartModalBody
+                                                }
                                             />
-                                            <div className={filesStyles.chartModalHint}>
+                                            <div
+                                                className={
+                                                    filesStyles.chartModalHint
+                                                }
+                                            >
                                                 {t("files.chart.zoomHint")}
                                             </div>
                                         </div>
@@ -1138,12 +1273,8 @@ export default function FilesView() {
                                 </h3>
                                 <ul className={filesStyles.filesInfoList}>
                                     <li>{t("files.selectFile")}</li>
-                                    <li>
-                                        {t("files.info.zoomTip")}
-                                    </li>
-                                    <li>
-                                        {t("files.info.refreshTip")}
-                                    </li>
+                                    <li>{t("files.info.zoomTip")}</li>
+                                    <li>{t("files.info.refreshTip")}</li>
                                 </ul>
                             </div>
                         ),

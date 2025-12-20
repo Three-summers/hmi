@@ -106,7 +106,8 @@ function getOrderedWaterfallRows(
     if (buffer.length < capacity) return buffer.slice();
 
     const safeCapacity = Math.max(1, capacity);
-    const safeHead = ((bufferHead % safeCapacity) + safeCapacity) % safeCapacity;
+    const safeHead =
+        ((bufferHead % safeCapacity) + safeCapacity) % safeCapacity;
     return buffer.slice(safeHead).concat(buffer.slice(0, safeHead));
 }
 
@@ -137,7 +138,10 @@ export const useSpectrumAnalyzerStore = create<SpectrumAnalyzerState>()(
 
             setHistoryDepth: (v) =>
                 set((state) => {
-                    const nextDepth = normalizePositiveInt(v, state.historyDepth);
+                    const nextDepth = normalizePositiveInt(
+                        v,
+                        state.historyDepth,
+                    );
                     if (nextDepth === state.historyDepth) return state;
 
                     const ordered = getOrderedWaterfallRows(
@@ -165,7 +169,9 @@ export const useSpectrumAnalyzerStore = create<SpectrumAnalyzerState>()(
 
             setColorScheme: (v) =>
                 set((state) => {
-                    const nextScheme = isColorScheme(v) ? v : DEFAULT_COLOR_SCHEME;
+                    const nextScheme = isColorScheme(v)
+                        ? v
+                        : DEFAULT_COLOR_SCHEME;
                     if (nextScheme === state.colorScheme) return state;
                     return { colorScheme: nextScheme };
                 }),
@@ -250,7 +256,10 @@ export const useSpectrumAnalyzerStore = create<SpectrumAnalyzerState>()(
                         nextHead = (nextHead + 1) % capacity;
                     }
 
-                    return { waterfallBuffer: nextBuffer, bufferHead: nextHead };
+                    return {
+                        waterfallBuffer: nextBuffer,
+                        bufferHead: nextHead,
+                    };
                 }),
 
             clearWaterfallBuffer: () =>

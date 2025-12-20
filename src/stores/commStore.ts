@@ -27,14 +27,26 @@ interface CommOperationOptions {
 
 interface CommStoreState extends CommState {
     // 串口操作
-    connectSerial: (config: SerialConfig, options?: CommOperationOptions) => Promise<void>;
+    connectSerial: (
+        config: SerialConfig,
+        options?: CommOperationOptions,
+    ) => Promise<void>;
     disconnectSerial: (options?: CommOperationOptions) => Promise<void>;
-    sendSerialData: (data: number[], options?: CommOperationOptions) => Promise<void>;
+    sendSerialData: (
+        data: number[],
+        options?: CommOperationOptions,
+    ) => Promise<void>;
 
     // TCP 操作
-    connectTcp: (config: TcpConfig, options?: CommOperationOptions) => Promise<void>;
+    connectTcp: (
+        config: TcpConfig,
+        options?: CommOperationOptions,
+    ) => Promise<void>;
     disconnectTcp: (options?: CommOperationOptions) => Promise<void>;
-    sendTcpData: (data: number[], options?: CommOperationOptions) => Promise<void>;
+    sendTcpData: (
+        data: number[],
+        options?: CommOperationOptions,
+    ) => Promise<void>;
 
     // 获取可用串口列表
     getSerialPorts: (options?: CommOperationOptions) => Promise<string[]>;
@@ -131,16 +143,20 @@ export const useCommStore = create<CommStoreState>((set) => ({
     connectSerial: async (config, options) => {
         try {
             const timeoutMs = options?.timeoutMs ?? DEFAULT_COMM_TIMEOUT_MS;
-            await invokeWithTimeout("connect_serial", {
-                config: {
-                    // 与后端命令参数保持一致：字段使用 snake_case
-                    port: config.port,
-                    baud_rate: config.baudRate,
-                    data_bits: config.dataBits,
-                    stop_bits: config.stopBits,
-                    parity: config.parity,
+            await invokeWithTimeout(
+                "connect_serial",
+                {
+                    config: {
+                        // 与后端命令参数保持一致：字段使用 snake_case
+                        port: config.port,
+                        baud_rate: config.baudRate,
+                        data_bits: config.dataBits,
+                        stop_bits: config.stopBits,
+                        parity: config.parity,
+                    },
                 },
-            }, timeoutMs);
+                timeoutMs,
+            );
             set({
                 serialConnected: true,
                 serialConfig: config,
@@ -158,7 +174,11 @@ export const useCommStore = create<CommStoreState>((set) => ({
         try {
             const timeoutMs = options?.timeoutMs ?? DEFAULT_COMM_TIMEOUT_MS;
             await invokeWithTimeout("disconnect_serial", undefined, timeoutMs);
-            set({ serialConnected: false, serialConfig: undefined, lastError: undefined });
+            set({
+                serialConnected: false,
+                serialConfig: undefined,
+                lastError: undefined,
+            });
         } catch (error) {
             const message = toErrorMessage(error);
             set({ lastError: message });
@@ -183,13 +203,17 @@ export const useCommStore = create<CommStoreState>((set) => ({
         try {
             // TCP 配置本身携带 timeoutMs，可作为本次连接的默认超时
             const timeoutMs = options?.timeoutMs ?? config.timeoutMs;
-            await invokeWithTimeout("connect_tcp", {
-                config: {
-                    host: config.host,
-                    port: config.port,
-                    timeout_ms: config.timeoutMs,
+            await invokeWithTimeout(
+                "connect_tcp",
+                {
+                    config: {
+                        host: config.host,
+                        port: config.port,
+                        timeout_ms: config.timeoutMs,
+                    },
                 },
-            }, timeoutMs);
+                timeoutMs,
+            );
             set({
                 tcpConnected: true,
                 tcpConfig: config,
@@ -207,7 +231,11 @@ export const useCommStore = create<CommStoreState>((set) => ({
         try {
             const timeoutMs = options?.timeoutMs ?? DEFAULT_COMM_TIMEOUT_MS;
             await invokeWithTimeout("disconnect_tcp", undefined, timeoutMs);
-            set({ tcpConnected: false, tcpConfig: undefined, lastError: undefined });
+            set({
+                tcpConnected: false,
+                tcpConfig: undefined,
+                lastError: undefined,
+            });
         } catch (error) {
             const message = toErrorMessage(error);
             set({ lastError: message });

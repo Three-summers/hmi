@@ -38,18 +38,24 @@ export default function AlarmsView() {
     };
 
     const formatTime = (date: Date) => {
-        return date.toLocaleTimeString(i18n.language === "zh" ? "zh-CN" : "en-US", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-        });
+        return date.toLocaleTimeString(
+            i18n.language === "zh" ? "zh-CN" : "en-US",
+            {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+            },
+        );
     };
 
     const formatDate = (date: Date) => {
-        return date.toLocaleDateString(i18n.language === "zh" ? "zh-CN" : "en-US", {
-            month: "2-digit",
-            day: "2-digit",
-        });
+        return date.toLocaleDateString(
+            i18n.language === "zh" ? "zh-CN" : "en-US",
+            {
+                month: "2-digit",
+                day: "2-digit",
+            },
+        );
     };
 
     const activeAlarms = alarms.filter((a) => !a.acknowledged);
@@ -130,9 +136,7 @@ export default function AlarmsView() {
                                             {activeAlarms.map((alarm) => (
                                                 <div
                                                     key={alarm.id}
-                                                    className={
-                                                        styles.alarmCard
-                                                    }
+                                                    className={styles.alarmCard}
                                                     data-severity={
                                                         alarm.severity
                                                     }
@@ -248,9 +252,7 @@ export default function AlarmsView() {
                                             {acknowledgedAlarms.map((alarm) => (
                                                 <div
                                                     key={alarm.id}
-                                                    className={
-                                                        styles.alarmCard
-                                                    }
+                                                    className={styles.alarmCard}
                                                     data-severity={
                                                         alarm.severity
                                                     }
@@ -302,7 +304,9 @@ export default function AlarmsView() {
                                                                     styles.alarmAcked
                                                                 }
                                                             >
-                                                                {t("alarm.acknowledged")}
+                                                                {t(
+                                                                    "alarm.acknowledged",
+                                                                )}
                                                             </span>
                                                         </div>
                                                     </div>

@@ -127,7 +127,8 @@ export const useAppStore = create<AppState>()(
             cycleTheme: () =>
                 set((state) => {
                     const currentIndex = THEME_ORDER.indexOf(state.theme);
-                    const next = THEME_ORDER[(currentIndex + 1) % THEME_ORDER.length];
+                    const next =
+                        THEME_ORDER[(currentIndex + 1) % THEME_ORDER.length];
                     return { theme: next };
                 }),
 

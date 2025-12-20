@@ -51,7 +51,10 @@ function getLegendWidth(totalWidth: number): number {
     const minWaterfallWidth = 64;
     if (!Number.isFinite(totalWidth) || totalWidth <= 0) return preferred;
     if (totalWidth <= minWaterfallWidth) return 0;
-    return Math.min(preferred, Math.max(0, Math.floor(totalWidth - minWaterfallWidth)));
+    return Math.min(
+        preferred,
+        Math.max(0, Math.floor(totalWidth - minWaterfallWidth)),
+    );
 }
 
 function getTimeScaleWidth(totalWidth: number): number {
@@ -59,7 +62,10 @@ function getTimeScaleWidth(totalWidth: number): number {
     const minWaterfallWidth = 64;
     if (!Number.isFinite(totalWidth) || totalWidth <= 0) return preferred;
     if (totalWidth <= minWaterfallWidth) return 0;
-    return Math.min(preferred, Math.max(0, Math.floor(totalWidth - minWaterfallWidth)));
+    return Math.min(
+        preferred,
+        Math.max(0, Math.floor(totalWidth - minWaterfallWidth)),
+    );
 }
 
 function formatRelativeTimeLabel(deltaMs: number): string {
@@ -79,7 +85,10 @@ function drawColorBar(
 
     const barWidth = Math.min(12, Math.max(6, Math.floor(legendWidth * 0.18)));
     const barPaddingRight = 8;
-    const barX = Math.max(0, Math.floor(legendWidth - barWidth - barPaddingRight));
+    const barX = Math.max(
+        0,
+        Math.floor(legendWidth - barWidth - barPaddingRight),
+    );
     const labelX = Math.max(0, barX - 6);
 
     // 颜色条背景
@@ -90,7 +99,13 @@ function drawColorBar(
     for (let y = 0; y < height; y++) {
         const t = height <= 1 ? 0 : y / (height - 1);
         const amp = MAX_AMP_DBM - t * (MAX_AMP_DBM - MIN_AMP_DBM);
-        const color = amplitudeToColor(amp, threshold, MIN_AMP_DBM, MAX_AMP_DBM, colorScheme);
+        const color = amplitudeToColor(
+            amp,
+            threshold,
+            MIN_AMP_DBM,
+            MAX_AMP_DBM,
+            colorScheme,
+        );
         ctx.fillStyle = rgbaToCss(color);
         ctx.fillRect(barX, y, barWidth, 1);
     }
@@ -157,47 +172,59 @@ export default function WaterfallCanvas({
     // 离屏缓冲区：存储瀑布图历史（滚动时只操作这张图）
     const bufferCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const bufferCtxRef = useRef<CanvasRenderingContext2D | null>(null);
-    const bufferSizeRef = useRef<{ width: number; height: number } | null>(null);
+    const bufferSizeRef = useRef<{ width: number; height: number } | null>(
+        null,
+    );
     const rowImageDataRef = useRef<ImageData | null>(null);
     const rowTimestampRef = useRef<number[]>([]);
 
     const pendingRowRef = useRef<number[] | null>(null);
     const rafRef = useRef<number>(0);
 
-    const ensureBuffer = useCallback((waterfallWidth: number, depth: number) => {
-        const width = Math.max(1, Math.floor(waterfallWidth));
-        const height = Math.max(1, Math.floor(depth));
+    const ensureBuffer = useCallback(
+        (waterfallWidth: number, depth: number) => {
+            const width = Math.max(1, Math.floor(waterfallWidth));
+            const height = Math.max(1, Math.floor(depth));
 
-        const prev = bufferSizeRef.current;
-        if (prev && prev.width === width && prev.height === height) return;
+            const prev = bufferSizeRef.current;
+            if (prev && prev.width === width && prev.height === height) return;
 
-        const bufferCanvas = document.createElement("canvas");
-        bufferCanvas.width = width;
-        bufferCanvas.height = height;
+            const bufferCanvas = document.createElement("canvas");
+            bufferCanvas.width = width;
+            bufferCanvas.height = height;
 
-        const ctx = bufferCanvas.getContext("2d", { willReadFrequently: true });
-        if (!ctx) {
-            bufferCanvasRef.current = null;
-            bufferCtxRef.current = null;
+            const ctx = bufferCanvas.getContext("2d", {
+                willReadFrequently: true,
+            });
+            if (!ctx) {
+                bufferCanvasRef.current = null;
+                bufferCtxRef.current = null;
+                bufferSizeRef.current = { width, height };
+                rowImageDataRef.current = null;
+                rowTimestampRef.current = new Array(height).fill(0);
+                return;
+            }
+
+            // 初始化为“底噪色”，避免空白突兀
+            ctx.imageSmoothingEnabled = false;
+            ctx.fillStyle = rgbaToCss(
+                amplitudeToColor(
+                    MIN_AMP_DBM,
+                    Number.POSITIVE_INFINITY,
+                    MIN_AMP_DBM,
+                    MAX_AMP_DBM,
+                ),
+            );
+            ctx.fillRect(0, 0, width, height);
+
+            bufferCanvasRef.current = bufferCanvas;
+            bufferCtxRef.current = ctx;
             bufferSizeRef.current = { width, height };
             rowImageDataRef.current = null;
             rowTimestampRef.current = new Array(height).fill(0);
-            return;
-        }
-
-        // 初始化为“底噪色”，避免空白突兀
-        ctx.imageSmoothingEnabled = false;
-        ctx.fillStyle = rgbaToCss(
-            amplitudeToColor(MIN_AMP_DBM, Number.POSITIVE_INFINITY, MIN_AMP_DBM, MAX_AMP_DBM),
-        );
-        ctx.fillRect(0, 0, width, height);
-
-        bufferCanvasRef.current = bufferCanvas;
-        bufferCtxRef.current = ctx;
-        bufferSizeRef.current = { width, height };
-        rowImageDataRef.current = null;
-        rowTimestampRef.current = new Array(height).fill(0);
-    }, []);
+        },
+        [],
+    );
 
     const pushWaterfallRow = useCallback(
         (row: number[], waterfallWidth: number, depth: number) => {
@@ -220,7 +247,11 @@ export default function WaterfallCanvas({
 
             // 3) 在顶部 (0, 0) 绘制新行
             let rowImageData = rowImageDataRef.current;
-            if (!rowImageData || rowImageData.width !== width || rowImageData.height !== 1) {
+            if (
+                !rowImageData ||
+                rowImageData.width !== width ||
+                rowImageData.height !== 1
+            ) {
                 rowImageData = ctx.createImageData(width, 1);
                 rowImageDataRef.current = rowImageData;
             }
@@ -291,7 +322,10 @@ export default function WaterfallCanvas({
             const { width, height, dpr } = size;
             const nextCanvasWidth = Math.max(1, Math.floor(width * dpr));
             const nextCanvasHeight = Math.max(1, Math.floor(height * dpr));
-            if (canvas.width !== nextCanvasWidth || canvas.height !== nextCanvasHeight) {
+            if (
+                canvas.width !== nextCanvasWidth ||
+                canvas.height !== nextCanvasHeight
+            ) {
                 canvas.width = nextCanvasWidth;
                 canvas.height = nextCanvasHeight;
                 canvas.style.width = `${width}px`;
@@ -309,12 +343,19 @@ export default function WaterfallCanvas({
 
             const timeScaleWidth = getTimeScaleWidth(width);
             const legendWidth = getLegendWidth(width - timeScaleWidth);
-            const waterfallWidth = Math.max(0, width - legendWidth - timeScaleWidth);
+            const waterfallWidth = Math.max(
+                0,
+                width - legendWidth - timeScaleWidth,
+            );
             const safeDepth = normalizePositiveInt(historyDepth, 1);
 
             // 写入新行（暂停时保持静态画面）
             if (!isPaused && pendingRowRef.current && waterfallWidth > 0) {
-                pushWaterfallRow(pendingRowRef.current, waterfallWidth, safeDepth);
+                pushWaterfallRow(
+                    pendingRowRef.current,
+                    waterfallWidth,
+                    safeDepth,
+                );
                 pendingRowRef.current = null;
             }
 
@@ -355,7 +396,14 @@ export default function WaterfallCanvas({
                 ctx.stroke();
             }
 
-            drawColorBar(ctx, legendWidth, height, threshold, colorScheme, palette);
+            drawColorBar(
+                ctx,
+                legendWidth,
+                height,
+                threshold,
+                colorScheme,
+                palette,
+            );
 
             if (timeScaleWidth > 0) {
                 ctx.fillStyle = palette.timeBg;
@@ -372,7 +420,7 @@ export default function WaterfallCanvas({
                 const rowStep = Math.max(minRowStep, rowStepBySpacing);
 
                 ctx.font =
-                    "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace";
+                    '12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
                 ctx.fillStyle = palette.timeText;
                 ctx.textAlign = "left";
                 ctx.textBaseline = "middle";
@@ -380,14 +428,19 @@ export default function WaterfallCanvas({
                 ctx.strokeStyle = palette.grid;
                 ctx.lineWidth = 1;
 
-                for (let rowIndex = 0; rowIndex < rowCount; rowIndex += rowStep) {
+                for (
+                    let rowIndex = 0;
+                    rowIndex < rowCount;
+                    rowIndex += rowStep
+                ) {
                     const ts = timestamps[rowIndex];
                     if (!ts || !latestTs) continue;
 
                     const y =
                         rowCount <= 1
                             ? 0
-                            : (rowIndex / Math.max(1, rowCount - 1)) * (height - 1);
+                            : (rowIndex / Math.max(1, rowCount - 1)) *
+                              (height - 1);
                     const label = formatRelativeTimeLabel(latestTs - ts);
 
                     ctx.beginPath();
@@ -403,18 +456,34 @@ export default function WaterfallCanvas({
 
     useEffect(() => {
         const container = containerRef.current;
-        const computed = getComputedStyle(container ?? document.documentElement);
+        const computed = getComputedStyle(
+            container ?? document.documentElement,
+        );
         const prev = paletteRef.current;
 
         paletteRef.current = {
-            background: computed.getPropertyValue("--bg-secondary").trim() || prev.background,
-            axis: computed.getPropertyValue("--text-secondary").trim() || prev.axis,
-            text: computed.getPropertyValue("--text-primary").trim() || prev.text,
-            grid: computed.getPropertyValue("--border-subtle").trim() || prev.grid,
-            divider: computed.getPropertyValue("--border-color").trim() || prev.divider,
-            legendBg: computed.getPropertyValue("--bg-primary").trim() || prev.legendBg,
-            timeBg: computed.getPropertyValue("--bg-primary").trim() || prev.timeBg,
-            timeText: computed.getPropertyValue("--color-attention").trim() || prev.timeText,
+            background:
+                computed.getPropertyValue("--bg-secondary").trim() ||
+                prev.background,
+            axis:
+                computed.getPropertyValue("--text-secondary").trim() ||
+                prev.axis,
+            text:
+                computed.getPropertyValue("--text-primary").trim() || prev.text,
+            grid:
+                computed.getPropertyValue("--border-subtle").trim() ||
+                prev.grid,
+            divider:
+                computed.getPropertyValue("--border-color").trim() ||
+                prev.divider,
+            legendBg:
+                computed.getPropertyValue("--bg-primary").trim() ||
+                prev.legendBg,
+            timeBg:
+                computed.getPropertyValue("--bg-primary").trim() || prev.timeBg,
+            timeText:
+                computed.getPropertyValue("--color-attention").trim() ||
+                prev.timeText,
         };
 
         scheduleDraw();

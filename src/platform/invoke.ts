@@ -15,7 +15,9 @@
 import { isTauri } from "@/platform/tauri";
 
 type InvokeArgs = Record<string, unknown> | undefined;
-type InvokeMockHandler<TArgs extends InvokeArgs, TResult> = (args: TArgs) => TResult | Promise<TResult>;
+type InvokeMockHandler<TArgs extends InvokeArgs, TResult> = (
+    args: TArgs,
+) => TResult | Promise<TResult>;
 
 const invokeMocks = new Map<string, InvokeMockHandler<InvokeArgs, unknown>>();
 
