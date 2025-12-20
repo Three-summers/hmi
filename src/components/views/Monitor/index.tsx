@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
 import { Tabs, StatusIndicator } from "@/components/common";
@@ -7,6 +7,8 @@ import { invoke } from "@/platform/invoke";
 import { isTauri } from "@/platform/tauri";
 import styles from "../shared.module.css";
 import monitorStyles from "./Monitor.module.css";
+
+const SpectrumAnalyzer = lazy(() => import("./SpectrumAnalyzer"));
 
 interface SpectrumData {
     timestamp: number;
@@ -68,7 +70,9 @@ export default function MonitorView() {
 
     const [isPaused, setIsPaused] = useState(false);
     const [displayMode, setDisplayMode] = useState<"bars" | "fill" | "line">("fill");
-    const [activeTab, setActiveTab] = useState<"overview" | "info">("overview");
+    const [activeTab, setActiveTab] = useState<
+        "overview" | "info" | "spectrum-analyzer"
+    >("overview");
     const [stats, setStats] = useState<SpectrumStats>({
         peak_frequency: 0,
         peak_amplitude: -90,
@@ -937,6 +941,28 @@ export default function MonitorView() {
                                     </li>
                                 </ul>
                             </div>
+                        ),
+                    },
+                    {
+                        id: "spectrum-analyzer",
+                        label: "频谱分析仪",
+                        content: (
+                            <Suspense
+                                fallback={
+                                    <div
+                                        style={{
+                                            padding: 16,
+                                            color: "var(--text-secondary)",
+                                        }}
+                                    >
+                                        Loading...
+                                    </div>
+                                }
+                            >
+                                <SpectrumAnalyzer
+                                    isActive={activeTab === "spectrum-analyzer"}
+                                />
+                            </Suspense>
                         ),
                     },
                 ]}

@@ -1,0 +1,319 @@
+.root {
+    position: relative;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+}
+
+.statusBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-sm);
+    padding: var(--sp-sm);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+}
+
+.statusItem {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-xs);
+    padding: 4px 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--overlay-weak);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1;
+}
+
+.statusLabel {
+    color: var(--text-secondary);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.statusValue {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.charts {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+}
+
+.spectrumPane {
+    flex: 3;
+    min-height: 0;
+    border-radius: var(--card-radius);
+    border: 1px solid var(--card-border);
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+
+.waterfallPane {
+    flex: 2;
+    min-height: 0;
+    border-radius: var(--card-radius);
+    border: 1px solid var(--card-border);
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+
+.overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.overlayCard {
+    padding: 12px 16px;
+    border-radius: var(--card-radius);
+    border: 1px solid var(--border-color);
+    background: var(--overlay-modal);
+    color: var(--text-primary);
+    font-size: 12px;
+    max-width: 520px;
+    text-align: center;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--sp-sm);
+    padding: var(--sp-sm);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--card-border);
+    background: var(--card-bg);
+}
+
+.controlBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) calc(var(--sp-sm) + var(--sp-xs));
+    background: linear-gradient(180deg, var(--button-bg) 0%, var(--button-bg-active) 100%);
+    border: 1px solid var(--button-border);
+    border-radius: calc(var(--card-radius) - var(--sp-xs));
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.controlIcon {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+}
+
+.controlText {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-xs);
+}
+
+.controlBtn:hover {
+    background: linear-gradient(180deg, var(--button-bg-hover) 0%, var(--button-bg) 100%);
+    border-color: var(--color-processing);
+}
+
+.controlBtn[data-active="true"] {
+    background: var(--button-warning-bg);
+    border-color: var(--button-warning-border);
+    color: var(--text-on-warning);
+}
+
+.backdrop {
+    position: absolute;
+    inset: 0;
+    background: var(--overlay-modal);
+    border: none;
+    padding: 0;
+    margin: 0;
+    z-index: 10;
+}
+
+.drawer {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: min(360px, 90vw);
+    border-left: 1px solid var(--border-color);
+    background: var(--card-bg);
+    z-index: 11;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform var(--transition-fast);
+}
+
+.drawer[data-open="true"] {
+    transform: translateX(0);
+}
+
+.drawerHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-md);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.drawerTitle {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.drawerClose {
+    padding: var(--sp-xs) var(--sp-sm);
+    border-radius: var(--button-radius);
+    border: 1px solid var(--button-border);
+    background: var(--overlay-weak);
+    color: var(--text-secondary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.drawerClose:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-primary);
+}
+
+.drawerBody {
+    padding: var(--sp-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-md);
+    overflow: auto;
+    min-height: 0;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+    padding: var(--sp-md);
+    border-radius: var(--card-radius);
+    border: 1px solid var(--border-color);
+    background: var(--overlay-weak);
+}
+
+.fieldHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-sm);
+}
+
+.fieldLabel {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.fieldValue {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.slider {
+    width: 100%;
+    accent-color: var(--color-processing);
+}
+
+.select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: var(--button-radius);
+    border: 1px solid var(--button-border);
+    background: var(--button-bg);
+    color: var(--text-primary);
+    font-size: 12px;
+}
+
+@media (max-width: 1024px) {
+    .statusBar {
+        gap: var(--sp-xs);
+        padding: var(--sp-xs);
+    }
+
+    .statusItem {
+        padding: 3px 8px;
+        font-size: 11px;
+    }
+
+    .statusItem[data-priority="secondary"] {
+        display: none;
+    }
+
+    .charts {
+        gap: var(--sp-xs);
+    }
+
+    .spectrumPane {
+        flex: 3;
+    }
+
+    .waterfallPane {
+        flex: 1;
+    }
+
+    .controls {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: var(--sp-xs);
+        padding: var(--sp-xs);
+    }
+
+    .controlBtn {
+        padding: var(--sp-xs) var(--sp-sm);
+    }
+
+    .controlBtn[data-icon-only="true"] {
+        padding: var(--sp-xs);
+        aspect-ratio: 1;
+    }
+
+    .controlBtn[data-icon-only="true"] .controlText {
+        display: none;
+    }
+
+    .drawer {
+        left: 0;
+        right: 0;
+        top: auto;
+        bottom: 0;
+        width: 100%;
+        height: min(60%, 420px);
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+        transform: translateY(100%);
+    }
+
+    .drawer[data-open="true"] {
+        transform: translateY(0);
+    }
+}

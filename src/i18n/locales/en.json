@@ -376,6 +376,38 @@
         "spectrum": {
             "title": "Spectrum"
         },
+        "spectrumAnalyzer": {
+            "title": "Spectrum Analyzer",
+            "statusBar": {
+                "rbw": "RBW",
+                "vbw": "VBW",
+                "sweep": "Sweep",
+                "center": "Center Frequency",
+                "span": "Span"
+            },
+            "controls": {
+                "pause": "Pause",
+                "resume": "Resume",
+                "screenshot": "Screenshot",
+                "settings": "Settings",
+                "maxHold": "Max Hold",
+                "average": "Average",
+                "reset": "Reset"
+            },
+            "settings": {
+                "threshold": "Threshold",
+                "historyDepth": "History Depth",
+                "refreshRate": "Refresh Rate",
+                "colorScheme": "Color Scheme"
+            },
+            "colorSchemes": {
+                "turbo": "Turbo",
+                "viridis": "Viridis",
+                "jet": "Jet",
+                "grayscale": "Grayscale"
+            },
+            "marker": "Marker"
+        },
         "displayMode": {
             "fill": "Fill",
             "bars": "Bars",

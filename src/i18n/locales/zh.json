@@ -376,6 +376,38 @@
         "spectrum": {
             "title": "频谱"
         },
+        "spectrumAnalyzer": {
+            "title": "频谱分析仪",
+            "statusBar": {
+                "rbw": "RBW",
+                "vbw": "VBW",
+                "sweep": "扫描时间",
+                "center": "中心频率",
+                "span": "频率跨度"
+            },
+            "controls": {
+                "pause": "暂停",
+                "resume": "恢复",
+                "screenshot": "截图",
+                "settings": "设置",
+                "maxHold": "最大保持",
+                "average": "平均",
+                "reset": "重置"
+            },
+            "settings": {
+                "threshold": "阈值",
+                "historyDepth": "历史深度",
+                "refreshRate": "刷新率",
+                "colorScheme": "配色方案"
+            },
+            "colorSchemes": {
+                "turbo": "Turbo",
+                "viridis": "Viridis",
+                "jet": "Jet",
+                "grayscale": "灰度"
+            },
+            "marker": "标记点"
+        },
         "displayMode": {
             "fill": "填充",
             "bars": "柱状",

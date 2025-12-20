@@ -1,0 +1,14 @@
+.container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    border-radius: calc(var(--card-radius) - var(--sp-xs));
+    overflow: hidden;
+    background: var(--bg-secondary);
+}
+
+.canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
