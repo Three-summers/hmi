@@ -17,10 +17,11 @@
 9. [状态管理架构](#9-状态管理架构)
 10. [通信架构](#10-通信架构)
 11. [视图系统](#11-视图系统)
-12. [平台抽象层](#12-平台抽象层)
-13. [国际化架构](#13-国际化架构)
-14. [主题系统](#14-主题系统)
-15. [部署架构](#15-部署架构)
+12. [视图命令系统](#12-视图命令系统)
+13. [平台抽象层](#13-平台抽象层)
+14. [国际化架构](#14-国际化架构)
+15. [主题系统](#15-主题系统)
+16. [部署架构](#16-部署架构)
 
 ---
 
@@ -219,6 +220,7 @@ HMI（Human-Machine Interface）是一个基于 **SEMI E95** 规范设计的工�
 hmi/
 ├── docs/                           # 文档目录
 │   ├── architecture.md             # 架构文档（本文件）
+│   ├── EXTENSION_GUIDE.md          # 扩展指南（如何添加视图/命令）
 │   ├── dev-plan.md                 # 开发计划
 │   ├── HMI_ARCHITECTURE.md         # HMI 架构说明
 │   ├── SEMI_E95_UI_Guide.md        # SEMI E95 UI 指南
@@ -242,9 +244,12 @@ hmi/
 │   │   ├── layout/                 # 布局组件
 │   │   │   ├── MainLayout.tsx      # 主布局
 │   │   │   ├── TitlePanel.tsx      # 标题面板
+│   │   │   ├── TitlePanelItems.tsx # 标题面板子组件
 │   │   │   ├── InfoPanel.tsx       # 信息面板（视图容器）
 │   │   │   ├── NavPanel.tsx        # 导航面板
 │   │   │   ├── CommandPanel.tsx    # 命令面板
+│   │   │   ├── ViewCommandContext.tsx    # 视图命令上下文
+│   │   │   ├── SubViewCommandContext.tsx # 子视图命令上下文
 │   │   │   ├── NotificationToast.tsx # 通知弹出
 │   │   │   └── ViewContext.tsx     # 视图上下文
 │   │   │
@@ -381,7 +386,15 @@ App
 │  3. Context（局部共享）                                       │
 │     ViewContextProvider → useIsViewActive()                  │
 │                                                               │
-│  4. Event Emitter（Tauri → Frontend）                        │
+│  4. 命令上下文（视图 → CommandPanel）                         │
+│     ViewCommandProvider:                                     │
+│       视图: useRegisterViewCommands(id, commands, enabled)   │
+│       面板: useViewCommandState() → commandsByView           │
+│     SubViewCommandProvider:                                  │
+│       子视图: useRegisterSubViewCommands(id, cmds, enabled)  │
+│       面板: useSubViewCommandState() → subCommandsByView     │
+│                                                               │
+│  5. Event Emitter（Tauri → Frontend）                        │
 │     Rust: app.emit("spectrum-data", &data)                   │
 │     React: listen("spectrum-data", callback)                 │
 │                                                               │
@@ -829,10 +842,16 @@ const state = useNavigationStore();
 │  • NavPanel: 遍历 HMI_NAV_ITEMS 渲染导航按钮                     │
 │  • InfoPanel: 通过 HMI_VIEW_COMPONENTS[viewId] 渲染视图          │
 │                                                                  │
+│  图标说明：                                                       │
+│  • HMI_NAV_ITEMS 中的 icon 为内联 SVG JSX Element               │
+│  • 从 Material Design Icons 获取 SVG 路径                        │
+│  • 保持视觉一致性，避免硬编码字符串图标                           │
+│                                                                  │
 │  扩展方式：                                                       │
 │  1. 在 views/ 下新建视图组件                                      │
 │  2. 在 viewRegistry.tsx 添加注册项                               │
 │  3. 在 types/semi-e95.ts 的 ViewId 中添加 ID                     │
+│  4. （可选）注册视图命令到 ViewCommandContext                     │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -852,9 +871,151 @@ const state = useNavigationStore();
 
 ---
 
-## 12. 平台抽象层
+## 12. 视图命令系统
 
-### 12.1 双模运行架构
+### 12.1 双层命令架构
+
+系统支持两层命令注册机制，实现视图与 CommandPanel 的解耦：
+
+- **ViewCommandContext**：主视图级命令（如 Monitor 视图的刷新、暂停、导出）
+- **SubViewCommandContext**：子视图级命令（如 Monitor 视图内 Spectrum Analyzer Tab 的特有命令）
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│               Command System Architecture                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ViewCommandProvider                                            │
+│  ├── ViewCommandActionsContext (稳定引用)                        │
+│  │   ├── setViewCommands(viewId, commands[])                   │
+│  │   ├── clearViewCommands(viewId)                             │
+│  │   └── showConfirm({ title, message, onConfirm })            │
+│  └── ViewCommandStateContext (响应式状态)                        │
+│      ├── commandsByView: Partial<Record<ViewId, Commands[]>>   │
+│      ├── confirmState: { isOpen, title, message }              │
+│      ├── closeConfirm()                                         │
+│      └── handleConfirm()                                        │
+│                                                                  │
+│  SubViewCommandProvider                                         │
+│  ├── SubViewCommandActionsContext                              │
+│  │   ├── setSubViewCommands(viewId, commands[])                │
+│  │   └── clearSubViewCommands(viewId)                          │
+│  └── SubViewCommandStateContext                                │
+│      └── subCommandsByView: Partial<Record<ViewId, Commands[]>>│
+│                                                                  │
+│  CommandPanel (消费者)                                           │
+│  ├── 读取 commandsByView[currentView]                           │
+│  ├── 读取 subCommandsByView[currentView]                        │
+│  ├── 合并渲染所有命令按钮                                        │
+│  └── 显示统一确认弹窗                                            │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 12.2 命令注册流程
+
+#### 主视图命令注册
+
+视图通过 `useRegisterViewCommands` Hook 注册命令：
+
+```typescript
+// 示例：Monitor/index.tsx
+import { useRegisterViewCommands } from '@/components/layout/ViewCommandContext';
+import { useIsViewActive } from '@/components/layout/ViewContext';
+
+const commands = useMemo<CommandButtonConfig[]>(() => [
+  { id: 'refresh', labelKey: 'common.refresh', onClick: handleRefresh },
+  { id: 'pause', labelKey: 'common.pause', onClick: handlePause },
+  { id: 'export', labelKey: 'monitor.exportData', onClick: handleExport }
+], [handleRefresh, handlePause, handleExport]);
+
+useRegisterViewCommands('monitor', commands, useIsViewActive());
+```
+
+#### 子视图命令注册
+
+子视图（如 Tabs）通过 `useRegisterSubViewCommands` Hook 注册命令：
+
+```typescript
+// 示例：Monitor 视图的 Spectrum Analyzer Tab
+const isSpectrumAnalyzerTabActive = isViewActive && activeTab === 'spectrum-analyzer';
+
+const subCommands = useMemo<CommandButtonConfig[]>(() => {
+  if (!isSpectrumAnalyzerTabActive) return [];  // 未激活时必须返回空数组
+  return [
+    { id: 'start', labelKey: '...', onClick: ... },
+    { id: 'reset', labelKey: '...', onClick: ... }
+  ];
+}, [isSpectrumAnalyzerTabActive, ...]);
+
+useRegisterSubViewCommands('monitor', subCommands, isSpectrumAnalyzerTabActive);
+```
+
+### 12.3 性能优化设计
+
+#### Context 拆分策略
+
+为适配 Keep-Alive 场景（InfoPanel 缓存已访问视图，多视图长期挂载），系统将 Context 拆分为 Actions 和 State 两层：
+
+| Context 类型 | 包含内容 | 更新频率 | 订阅者 |
+|-------------|---------|---------|--------|
+| **ActionsContext** | 稳定的注册函数（`setViewCommands`, `showConfirm`） | 几乎不变 | 各视图组件 |
+| **StateContext** | 响应式状态（`commandsByView`, `confirmState`） | 频繁变化 | CommandPanel |
+
+**优势**：
+- 视图注册命令时不会因其他视图的状态变化而重渲染
+- 仅 CommandPanel 订阅状态变化，精确控制渲染范围
+
+#### useLayoutEffect 减少闪烁
+
+命令注册使用 `useLayoutEffect` 而非 `useEffect`，在浏览器绘制前同步更新 CommandPanel，避免视图切换时命令面板闪烁。
+
+#### Keep-Alive 兼容
+
+- `enabled` 参数控制命令激活：`enabled=false` 时自动清理命令
+- 子视图命令在 Tab 切换时必须返回空数组，防止残留
+
+### 12.4 确认对话框机制
+
+通过 ViewCommandContext 统一管理确认对话框：
+
+```typescript
+const { showConfirm } = useViewCommandActions();
+
+const handleDelete = () => {
+  showConfirm({
+    title: t('dialog.confirmDelete'),
+    message: t('dialog.deleteMessage'),
+    onConfirm: () => performDelete()
+  });
+};
+```
+
+**特性**：
+- 对话框由 CommandPanel 统一渲染，避免各视图重复实现
+- 支持标题、消息、确认/取消回调
+- 自动处理关闭逻辑
+
+### 12.5 命令配置选项
+
+```typescript
+interface CommandButtonConfig {
+  id: string;                  // 命令ID，用于图标映射（CommandIcons[id]）
+  labelKey: string;            // i18n key
+  onClick?: () => void;        // 点击回调
+  disabled?: boolean;          // 可选：禁用状态
+  highlight?: HighlightStatus; // 可选：高亮状态
+  behavior?: ButtonBehavior;   // 可选：按钮行为（'momentary' | 'toggle'）
+}
+
+type HighlightStatus = 'none' | 'alarm' | 'warning' | 'processing' | 'attention';
+```
+
+---
+
+## 13. 平台抽象层
+
+### 13.1 双模运行架构
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -914,7 +1075,7 @@ const state = useNavigationStore();
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 12.2 Mock 注册示例
+### 13.2 Mock 注册示例
 
 ```typescript
 // 在开发模式下注册 mock
@@ -932,9 +1093,9 @@ if (!isTauri()) {
 
 ---
 
-## 13. 国际化架构
+## 14. 国际化架构
 
-### 13.1 i18n 配置结构
+### 14.1 i18n 配置结构
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -995,9 +1156,9 @@ if (!isTauri()) {
 
 ---
 
-## 14. 主题系统
+## 15. 主题系统
 
-### 14.1 CSS 变量驱动的主题切换
+### 15.1 CSS 变量驱动的主题切换
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1051,7 +1212,7 @@ if (!isTauri()) {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 14.2 主题变量清单
+### 15.2 主题变量清单
 
 | 变量类别 | 变量名 | 用途 |
 |----------|--------|------|
@@ -1073,9 +1234,9 @@ if (!isTauri()) {
 
 ---
 
-## 15. 部署架构
+## 16. 部署架构
 
-### 15.1 构建产物
+### 16.1 构建产物
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1111,7 +1272,7 @@ if (!isTauri()) {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 15.2 树莓派部署
+### 16.2 树莓派部署
 
 详见 `docs/raspberry-pi-deploy/README.md`
 
@@ -1178,6 +1339,17 @@ if (!isTauri()) {
 | LOG_BRIDGE_CONFIG.MAX_BATCH_SIZE | 50 | 日志批量大小 |
 | LOG_BRIDGE_CONFIG.FLUSH_INTERVAL_MS | 250 | 日志刷新间隔 |
 | NOTIFICATION_CONFIG.DEFAULT_DURATION | 5000 | 通知显示时长 |
+
+### D. 扩展开发
+
+详见 **[HMI 系统扩展指南](./EXTENSION_GUIDE.md)**，包含：
+
+- [如何添加新视图](./EXTENSION_GUIDE.md#2-添加新视图)
+- [如何添加视图命令](./EXTENSION_GUIDE.md#3-添加视图命令)
+- [如何添加图标](./EXTENSION_GUIDE.md#4-添加图标)
+- [如何使用确认对话框](./EXTENSION_GUIDE.md#5-使用确认对话框)
+- [完整示例代码](./EXTENSION_GUIDE.md#6-完整示例)
+- [常见问题解答](./EXTENSION_GUIDE.md#7-常见问题)
 
 ---
 
