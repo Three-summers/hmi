@@ -2,6 +2,12 @@
    CommandPanel - Industrial Control Sidebar
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Panel Shell
+   - 作为主布局的侧边命令区容器（左右可切换）
+   - 通过 data-command-position="left|right" 控制边框与渐变方向
+   ───────────────────────────────────────────────────────────────────────── */
+
 .commandPanel {
     display: flex;
     flex-direction: column;
@@ -17,7 +23,7 @@
     overflow: hidden;
 }
 
-/* Decorative side edge */
+/* Decorative side edge：弱化的高光边缘，提供“工业仪表”质感 */
 .commandPanel::before {
     content: "";
     position: absolute;
@@ -36,6 +42,7 @@
     opacity: 0.5;
 }
 
+/* 左侧布局：渐变方向与边框镜像 */
 [data-command-position="left"] .commandPanel {
     border-left: none;
     border-right: 1px solid var(--border-color);
@@ -50,6 +57,10 @@
     left: auto;
     right: 0;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Header
+   ───────────────────────────────────────────────────────────────────────── */
 
 .panelHeader {
     padding: 14px 12px;
@@ -67,6 +78,7 @@
     color: var(--text-secondary);
 }
 
+/* 命令按钮列表：支持滚动 */
 .commandList {
     display: flex;
     flex-direction: column;
@@ -195,6 +207,7 @@
     transition: all var(--transition-fast);
 }
 
+/* 兼容 react-icons 输出：统一把 svg 尺寸撑满容器 */
 .commandIcon svg {
     width: 100%;
     height: 100%;
@@ -219,6 +232,7 @@
     letter-spacing: 0.3px;
 }
 
+/* Header 右侧/次要信息：命令数量（等宽字体便于对齐与快速扫读） */
 .commandCount {
     display: block;
     font-family: var(--font-mono);
@@ -248,6 +262,7 @@
     opacity: 0.25;
 }
 
+/* 兼容 react-icons 输出：统一把 svg 尺寸撑满容器 */
 .emptyIcon svg {
     width: 100%;
     height: 100%;

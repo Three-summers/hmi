@@ -12,10 +12,13 @@ import { readTextFile, readDir } from "@tauri-apps/plugin-fs";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import { Tabs, StatusIndicator } from "@/components/common";
+import type { CommandButtonConfig } from "@/types";
 import { useIsViewActive } from "@/components/layout/ViewContext";
+import { useRegisterViewCommands } from "@/components/layout/ViewCommandContext";
 import { isTauri } from "@/platform/tauri";
 import { invoke } from "@/platform/invoke";
 import { FILES_CONFIG } from "@/constants";
+import { useNotify } from "@/hooks";
 import styles from "../shared.module.css";
 import filesStyles from "./Files.module.css";
 
@@ -361,6 +364,25 @@ const FileTreeContent = memo(function FileTreeContent({
 export default function FilesView() {
     const { t } = useTranslation();
     const isViewActive = useIsViewActive();
+    const { info } = useNotify();
+
+    const commands = useMemo<CommandButtonConfig[]>(
+        () => [
+            {
+                id: "refresh",
+                labelKey: "common.refresh",
+                onClick: () =>
+                    info(
+                        t("notification.helpRefreshed"),
+                        t("notification.fileListRefreshed"),
+                    ),
+            },
+        ],
+        [info, t],
+    );
+
+    useRegisterViewCommands("files", commands, isViewActive);
+
     const [fileTree, setFileTree] = useState<FileEntry[]>([]);
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [fileContent, setFileContent] = useState<string>("");

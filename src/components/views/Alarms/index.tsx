@@ -1,18 +1,82 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";
+import type { CommandButtonConfig } from "@/types";
+import { useIsViewActive } from "@/components/layout/ViewContext";
+import {
+    useRegisterViewCommands,
+    useViewCommandActions,
+} from "@/components/layout/ViewCommandContext";
 import { useAlarmStore } from "@/stores";
+import { useNotify } from "@/hooks";
 import styles from "./Alarms.module.css";
 import sharedStyles from "../shared.module.css";
 
 export default function AlarmsView() {
     const { t, i18n } = useTranslation();
+    const isViewActive = useIsViewActive();
+    const { showConfirm } = useViewCommandActions();
+    const { success, info } = useNotify();
     const {
         alarms,
         acknowledgeAlarm,
+        acknowledgeAll,
+        clearAcknowledged,
         unacknowledgedAlarmCount,
         unacknowledgedWarningCount,
     } = useAlarmStore();
+
+    const activeAlarms = alarms.filter((a) => !a.acknowledged);
+    const acknowledgedAlarms = alarms.filter((a) => a.acknowledged);
+    const unackedCount = activeAlarms.length;
+
+    const commands = useMemo<CommandButtonConfig[]>(
+        () => [
+            {
+                id: "acknowledgeAll",
+                labelKey: "alarm.acknowledgeAll",
+                highlight: unackedCount > 0 ? "attention" : undefined,
+                disabled: unackedCount === 0,
+                onClick: () => {
+                    acknowledgeAll();
+                    success(
+                        t("notification.alarmsAcknowledged"),
+                        t("notification.alarmsAcknowledgedCount", {
+                            count: unackedCount,
+                        }),
+                    );
+                },
+            },
+            {
+                id: "clearAll",
+                labelKey: "alarm.clearAll",
+                highlight: "warning",
+                onClick: () =>
+                    showConfirm(
+                        t("alarm.clearAll"),
+                        t("notification.alarmHistoryCleared"),
+                        () => {
+                            clearAcknowledged();
+                            info(
+                                t("notification.alarmsCleared"),
+                                t("notification.alarmHistoryCleared"),
+                            );
+                        },
+                    ),
+            },
+        ],
+        [
+            acknowledgeAll,
+            clearAcknowledged,
+            info,
+            showConfirm,
+            success,
+            t,
+            unackedCount,
+        ],
+    );
+
+    useRegisterViewCommands("alarms", commands, isViewActive);
 
     const getSeverityIcon = (severity: "alarm" | "warning" | "info") => {
         switch (severity) {
@@ -58,8 +122,6 @@ export default function AlarmsView() {
         );
     };
 
-    const activeAlarms = alarms.filter((a) => !a.acknowledged);
-    const acknowledgedAlarms = alarms.filter((a) => a.acknowledged);
     const [activeTab, setActiveTab] = useState<"active" | "history">("active");
 
     return (

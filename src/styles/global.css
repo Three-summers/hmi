@@ -1,7 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   HMI Global Styles - Industrial Futurism
+   HMI 全局样式 - 工业未来主义
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ═══ 动效：减少动效（系统偏好） ═══ */
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -11,7 +12,7 @@
     }
 }
 
-/* Global Reset and Base Styles */
+/* ═══ 全局重置与基础样式 ═══ */
 *,
 *::before,
 *::after {
@@ -33,18 +34,18 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    /* Disable text selection for HMI */
+    /* 禁止文本选择：HMI 面板避免误触选中 */
     user-select: none;
     -webkit-user-select: none;
-    /* Disable touch callout */
+    /* 禁用触摸呼出菜单（iOS） */
     -webkit-touch-callout: none;
-    /* Smooth color transitions for theme switching */
+    /* 主题切换：平滑过渡 */
     transition:
         background-color var(--transition-slow),
         color var(--transition-slow);
 }
 
-/* Background Grid Pattern for Industrial Feel */
+/* ═══ 背景：工业网格纹理 ═══ */
 body::before {
     content: "";
     position: fixed;
@@ -57,11 +58,11 @@ body::before {
         linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
     background-size: 40px 40px;
     pointer-events: none;
-    z-index: 0;
+    z-index: 0; /* 背景层：保持在 #root 之下 */
     opacity: 0.3;
 }
 
-/* Subtle Vignette Effect */
+/* ═══ 背景：暗角（Vignette） ═══ */
 body::after {
     content: "";
     position: fixed;
@@ -75,10 +76,11 @@ body::after {
         var(--bg-primary) 150%
     );
     pointer-events: none;
-    z-index: 0;
+    z-index: 0; /* 背景层：保持在 #root 之下 */
     opacity: 0.5;
 }
 
+/* ═══ 应用根节点 ═══ */
 #root {
     position: relative;
     width: 100%;
@@ -86,11 +88,9 @@ body::after {
     z-index: 1;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Typography Enhancements
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 排版增强 ═══ */
 
-/* Display headings use Orbitron */
+/* 显示标题：使用 Orbitron（强调“工业仪表”气质） */
 h1,
 h2,
 h3,
@@ -101,7 +101,7 @@ h3,
     text-transform: uppercase;
 }
 
-/* Monospace for data values */
+/* 数据/数值：使用等宽字体，提升可读性 */
 .mono,
 code,
 pre,
@@ -111,9 +111,7 @@ pre,
     font-variant-numeric: tabular-nums;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Button Base Styles
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 按钮基础样式 ═══ */
 
 button {
     font-family: inherit;
@@ -132,7 +130,7 @@ button:focus-visible {
     outline-offset: 2px;
 }
 
-/* Touch-friendly defaults */
+/* 触屏友好：避免点击后默认行为干扰 */
 button,
 [role="button"],
 input,
@@ -141,9 +139,7 @@ textarea {
     touch-action: manipulation;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Custom Scrollbar - Industrial Style
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 滚动条（工业风） ═══ */
 
 ::-webkit-scrollbar {
     width: 10px;
@@ -179,24 +175,20 @@ textarea {
     background: var(--bg-secondary);
 }
 
-/* Firefox Scrollbar */
+/* ═══ Firefox：滚动条 ═══ */
 * {
     scrollbar-width: thin;
     scrollbar-color: var(--button-bg) var(--bg-secondary);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Selection Styles
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 选中高亮（selection） ═══ */
 
 ::selection {
     background: var(--accent-primary);
     color: var(--text-on-accent);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Focus Styles for Accessibility
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 焦点样式（可访问性） ═══ */
 
 :focus {
     outline: none;
@@ -208,9 +200,7 @@ textarea {
     border-radius: 4px;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Utility Classes
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 工具类 ═══ */
 
 .visually-hidden {
     position: absolute;
@@ -224,7 +214,7 @@ textarea {
     border: 0;
 }
 
-/* Glass Card Effect */
+/* ═══ 工具类：玻璃卡片 ═══ */
 .glass-card {
     background: var(--glass-bg);
     backdrop-filter: blur(12px);
@@ -246,9 +236,7 @@ textarea {
     pointer-events: none;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Status Highlight Classes - SEMI E95 Enhanced
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 工具类：状态高亮（SEMI E95） ═══ */
 
 .highlight-alarm {
     box-shadow: var(--highlight-alarm) !important;
@@ -266,6 +254,7 @@ textarea {
     box-shadow: var(--highlight-attention) !important;
 }
 
+/* ═══ 动画关键帧（全局可复用） ═══ */
 @keyframes fade-in {
     from {
         opacity: 0;
@@ -286,9 +275,7 @@ textarea {
     }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Loading States
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 加载态（Skeleton） ═══ */
 
 .skeleton {
     background: linear-gradient(
@@ -300,9 +287,7 @@ textarea {
     border-radius: 4px;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Tooltip Styles
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ Tooltip 提示框 ═══ */
 
 [data-tooltip] {
     position: relative;
@@ -333,9 +318,7 @@ textarea {
     visibility: visible;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Input Styles
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 表单控件（input/select/textarea） ═══ */
 
 input,
 select,
@@ -369,14 +352,12 @@ textarea::placeholder {
     color: var(--text-disabled);
 }
 
-/* Number inputs - monospace */
+/* 数字输入：使用等宽字体，便于对齐阅读 */
 input[type="number"] {
     font-family: var(--font-mono);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Table Styles
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 表格样式 ═══ */
 
 table {
     width: 100%;
@@ -407,15 +388,13 @@ tr:hover td {
     background: var(--overlay-weak);
 }
 
-/* Numeric data cells */
+/* 数值单元格：右对齐 + 等宽字体 */
 td[data-type="number"] {
     font-family: var(--font-mono);
     text-align: right;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Badge Styles
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 徽标（Badge） ═══ */
 
 .badge {
     display: inline-flex;
@@ -450,9 +429,7 @@ td[data-type="number"] {
     box-shadow: 0 2px 8px var(--color-attention-glow);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Progress Bar
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 进度条（Progress） ═══ */
 
 .progress-bar {
     width: 100%;
@@ -475,9 +452,7 @@ td[data-type="number"] {
     position: relative;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Responsive Adjustments
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 响应式调整（设计变量） ═══ */
 
 @media (max-width: 1200px) {
     :root {
@@ -494,44 +469,40 @@ td[data-type="number"] {
     }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   High Contrast Mode Enhancements
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 高对比主题增强 ═══ */
 
 [data-theme="high-contrast"] {
-    /* Stronger grid visibility */
+    /* 网格更明显：在强光环境仍可辨识 */
     body::before {
         opacity: 0.15;
     }
 
-    /* Enhanced focus states */
+    /* 焦点更明显：适配远距离观看 */
     :focus-visible {
         outline: 3px solid var(--accent-primary);
         outline-offset: 3px;
     }
 
-    /* Stronger scrollbar */
+    /* 滚动条更“硬朗”：边框加粗 */
     ::-webkit-scrollbar-thumb {
         border: 2px solid var(--border-color);
     }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Light Theme Adjustments
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 浅色主题微调 ═══ */
 
 [data-theme="light"] {
-    /* Lighter grid for light theme */
+    /* 浅色主题：网格更轻 */
     body::before {
         opacity: 0.15;
     }
 
-    /* No vignette on light theme */
+    /* 浅色主题：关闭暗角 */
     body::after {
         opacity: 0;
     }
 
-    /* Scrollbar adjustments */
+    /* 浅色主题：滚动条色阶调整 */
     ::-webkit-scrollbar-thumb {
         background: linear-gradient(
             180deg,
@@ -550,9 +521,7 @@ td[data-type="number"] {
     }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Print Styles
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 打印样式 ═══ */
 
 @media print {
     body::before,

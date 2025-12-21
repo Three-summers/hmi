@@ -14,7 +14,16 @@
     gap: 8px;
     padding: 10px 0;
     flex-wrap: wrap;
-    position: relative;
+    /* Sticky：在 InfoPanel 的滚动容器内固定在顶部，避免滚动时被顶层遮罩覆盖 */
+    position: sticky;
+    top: 0;
+    /*
+     * 层级说明：
+     * - InfoPanel::before 的 z-index=1（src/components/layout/InfoPanel.module.css）
+     * - Tabs 需高于该遮罩，避免被遮挡；同时保持低于全局弹窗/Toast（通常为 1000+）
+     */
+    z-index: 10;
+    background: var(--bg-panel);
 }
 
 /* Subtle bottom border for tab list */

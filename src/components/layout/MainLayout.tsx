@@ -23,6 +23,8 @@ import { InfoPanel } from "./InfoPanel";
 import { NavPanel } from "./NavPanel";
 import { CommandPanel } from "./CommandPanel";
 import { NotificationToast } from "./NotificationToast";
+import { ViewCommandProvider } from "./ViewCommandContext";
+import { SubViewCommandProvider } from "./SubViewCommandContext";
 import { useAlarmStore, useNavigationStore, useAppStore } from "@/stores";
 import { useKeyboardShortcuts, useFrontendLogBridge } from "@/hooks";
 import styles from "./MainLayout.module.css";
@@ -97,31 +99,35 @@ export function MainLayout() {
     }, [theme]);
 
     return (
-        <>
-            <div
-                className={styles.mainLayout}
-                data-command-position={commandPanelPosition}
-            >
-                <div className={styles.titlePanel}>
-                    <TitlePanel currentView={currentView} />
-                </div>
+        <ViewCommandProvider>
+            <SubViewCommandProvider>
+                <>
+                    <div
+                        className={styles.mainLayout}
+                        data-command-position={commandPanelPosition}
+                    >
+                        <div className={styles.titlePanel}>
+                            <TitlePanel currentView={currentView} />
+                        </div>
 
-                <div className={styles.infoPanel}>
-                    <InfoPanel currentView={currentView} />
-                </div>
+                        <div className={styles.infoPanel}>
+                            <InfoPanel currentView={currentView} />
+                        </div>
 
-                <div className={styles.commandPanel}>
-                    <CommandPanel currentView={currentView} />
-                </div>
+                        <div className={styles.commandPanel}>
+                            <CommandPanel currentView={currentView} />
+                        </div>
 
-                <div className={styles.navPanel}>
-                    <NavPanel
-                        currentView={currentView}
-                        onViewChange={setCurrentView}
-                    />
-                </div>
-            </div>
-            <NotificationToast />
-        </>
+                        <div className={styles.navPanel}>
+                            <NavPanel
+                                currentView={currentView}
+                                onViewChange={setCurrentView}
+                            />
+                        </div>
+                    </div>
+                    <NotificationToast />
+                </>
+            </SubViewCommandProvider>
+        </ViewCommandProvider>
     );
 }

@@ -1,3 +1,6 @@
+/* ═══ Recipes / 配方视图样式 ═══ */
+
+/* ═══ 布局结构：左侧列表 + 右侧详情 ═══ */
 .recipesLayout {
     display: grid;
     grid-template-columns: 280px 1fr;
@@ -5,6 +8,7 @@
     height: 100%;
 }
 
+/* ═══ 左侧：配方列表 ═══ */
 .recipeList {
     display: flex;
     flex-direction: column;
@@ -34,6 +38,7 @@
     padding: 8px;
 }
 
+/* 单条配方：可选中、支持 hover */
 .recipeItem {
     display: flex;
     align-items: center;
@@ -57,6 +62,7 @@
     border-color: var(--color-processing);
 }
 
+/* 配方图标：随状态变化（draft/archived） */
 .recipeIcon {
     width: 32px;
     height: 32px;
@@ -127,6 +133,7 @@
     color: var(--text-secondary);
 }
 
+/* ═══ 右侧：配方详情 ═══ */
 .recipeDetails {
     display: flex;
     flex-direction: column;
@@ -209,11 +216,12 @@
     color: var(--text-primary);
 }
 
+/* ═══ 工艺步骤 ═══ */
 .stepsSection {
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    min-height: 0; /* 允许 stepsList 在 flex 容器中滚动 */
 }
 
 .sectionTitle {
@@ -233,6 +241,7 @@
     gap: 8px;
 }
 
+/* 步骤卡片：序号 + 参数标签 */
 .stepCard {
     display: flex;
     gap: 12px;
@@ -309,6 +318,7 @@
     color: var(--text-secondary);
 }
 
+/* ═══ 空态：未选择配方 / 说明页 ═══ */
 .noSelection {
     flex: 1;
     display: flex;
@@ -340,6 +350,7 @@
     text-align: center;
 }
 
+/* ═══ 响应式调整 ═══ */
 @media (max-width: 768px) {
     .recipesLayout {
         grid-template-columns: 1fr;

@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";
+import type { CommandButtonConfig } from "@/types";
+import { useIsViewActive } from "@/components/layout/ViewContext";
+import {
+    useRegisterViewCommands,
+    useViewCommandActions,
+} from "@/components/layout/ViewCommandContext";
+import { useNotify } from "@/hooks";
 import styles from "./Jobs.module.css";
 import sharedStyles from "../shared.module.css";
 
@@ -96,6 +103,61 @@ const StatusIcons: Record<Job["status"], JSX.Element> = {
 
 export default function JobsView() {
     const { t, i18n } = useTranslation();
+    const isViewActive = useIsViewActive();
+    const { showConfirm } = useViewCommandActions();
+    const { success, error, warning, info } = useNotify();
+
+    const commands = useMemo<CommandButtonConfig[]>(
+        () => [
+            {
+                id: "newJob",
+                labelKey: "jobs.newJob",
+                onClick: () =>
+                    info(
+                        t("notification.newJob"),
+                        t("notification.creatingJob"),
+                    ),
+            },
+            {
+                id: "runJob",
+                labelKey: "jobs.runJob",
+                highlight: "processing",
+                onClick: () =>
+                    success(
+                        t("notification.jobStarted"),
+                        t("notification.jobRunning"),
+                    ),
+            },
+            {
+                id: "pauseJob",
+                labelKey: "common.pause",
+                onClick: () =>
+                    warning(
+                        t("notification.jobPaused"),
+                        t("notification.processPaused"),
+                    ),
+            },
+            {
+                id: "stopJob",
+                labelKey: "jobs.stopJob",
+                highlight: "alarm",
+                onClick: () =>
+                    showConfirm(
+                        t("jobs.stopJob"),
+                        t("jobs.stopConfirm"),
+                        () =>
+                            error(
+                                t("notification.jobStopped"),
+                                t("notification.processTerminated"),
+                            ),
+                    ),
+            },
+        ],
+        [error, info, showConfirm, success, t, warning],
+    );
+
+    useRegisterViewCommands("jobs", commands, isViewActive);
+
     const [activeTab, setActiveTab] = useState<"overview" | "details">(
         "overview",
     );

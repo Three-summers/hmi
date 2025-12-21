@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";
+import type { CommandButtonConfig } from "@/types";
+import { useIsViewActive } from "@/components/layout/ViewContext";
+import {
+    useRegisterViewCommands,
+    useViewCommandActions,
+} from "@/components/layout/ViewCommandContext";
+import { useNotify } from "@/hooks";
 import styles from "./Recipes.module.css";
 import sharedStyles from "../shared.module.css";
 
@@ -118,6 +125,61 @@ const demoRecipes: Recipe[] = [
 
 export default function RecipesView() {
     const { t, i18n } = useTranslation();
+    const isViewActive = useIsViewActive();
+    const { showConfirm } = useViewCommandActions();
+    const { success, warning, info } = useNotify();
+
+    const commands = useMemo<CommandButtonConfig[]>(
+        () => [
+            {
+                id: "newRecipe",
+                labelKey: "recipes.newRecipe",
+                onClick: () =>
+                    info(
+                        t("notification.newRecipe"),
+                        t("notification.creatingRecipe"),
+                    ),
+            },
+            {
+                id: "loadRecipe",
+                labelKey: "recipes.loadRecipe",
+                highlight: "processing",
+                onClick: () =>
+                    success(
+                        t("notification.recipeLoaded"),
+                        t("notification.recipeReadyForExecution"),
+                    ),
+            },
+            {
+                id: "editRecipe",
+                labelKey: "recipes.editRecipe",
+                onClick: () =>
+                    info(
+                        t("notification.editMode"),
+                        t("notification.recipeEditorOpened"),
+                    ),
+            },
+            {
+                id: "deleteRecipe",
+                labelKey: "recipes.deleteRecipe",
+                highlight: "warning",
+                onClick: () =>
+                    showConfirm(
+                        t("recipes.deleteRecipe"),
+                        t("recipes.deleteConfirm"),
+                        () =>
+                            warning(
+                                t("notification.recipeDeleted"),
+                                t("notification.recipeRemoved"),
+                            ),
+                    ),
+            },
+        ],
+        [info, showConfirm, success, t, warning],
+    );
+
+    useRegisterViewCommands("recipes", commands, isViewActive);
+
     const [activeTab, setActiveTab] = useState<"overview" | "info">("overview");
     const [selectedRecipe, setSelectedRecipe] = useState<string | null>(
         demoRecipes[0]?.id || null,

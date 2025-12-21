@@ -1,7 +1,13 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs, StatusIndicator, Button } from "@/components/common";
+import type { CommandButtonConfig } from "@/types";
 import { useIsViewActive } from "@/components/layout/ViewContext";
+import {
+    useRegisterViewCommands,
+    useViewCommandActions,
+} from "@/components/layout/ViewCommandContext";
+import { useNotify } from "@/hooks";
 import styles from "./System.module.css";
 import sharedStyles from "../shared.module.css";
 
@@ -90,6 +96,66 @@ const INITIAL_SYSTEM_INFO: SystemInfo = {
 export default function SystemView() {
     const { t } = useTranslation();
     const isViewActive = useIsViewActive();
+    const { showConfirm } = useViewCommandActions();
+    const { success, error, info } = useNotify();
+
+    const commands = useMemo<CommandButtonConfig[]>(
+        () => [
+            {
+                id: "refresh",
+                labelKey: "common.refresh",
+                onClick: () =>
+                    info(
+                        t("notification.refreshing"),
+                        t("notification.systemDataRefreshed"),
+                    ),
+            },
+            {
+                id: "start",
+                labelKey: "common.start",
+                highlight: "attention",
+                onClick: () =>
+                    success(
+                        t("notification.systemStarted"),
+                        t("notification.allSubsystemsOnline"),
+                    ),
+            },
+            {
+                id: "stop",
+                labelKey: "common.stop",
+                highlight: "alarm",
+                onClick: () =>
+                    showConfirm(
+                        t("system.title"),
+                        t("system.emergencyStopConfirm"),
+                        () =>
+                            error(
+                                t("notification.systemStopped"),
+                                t("notification.allSubsystemsShutdown"),
+                            ),
+                    ),
+            },
+            {
+                id: "emergency",
+                labelKey: "system.emergencyStop",
+                highlight: "alarm",
+                onClick: () =>
+                    showConfirm(
+                        t("system.emergencyStop"),
+                        t("system.emergencyStopConfirm"),
+                        () =>
+                            error(
+                                t("notification.emergencyStop"),
+                                t("notification.allOperationsHalted"),
+                            ),
+                    ),
+            },
+        ],
+        [error, info, showConfirm, success, t],
+    );
+
+    useRegisterViewCommands("system", commands, isViewActive);
+
     const [activeTab, setActiveTab] = useState<"overview" | "subsystems">(
         "overview",
     );

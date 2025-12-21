@@ -3,17 +3,24 @@ import {
     useRef,
     useState,
     useCallback,
+    useMemo,
     lazy,
     Suspense,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
-import { Tabs, StatusIndicator } from "@/components/common";
+import { Tabs } from "@/components/common";
+import type { CommandButtonConfig } from "@/types";
 import { useIsViewActive } from "@/components/layout/ViewContext";
+import { useRegisterViewCommands } from "@/components/layout/ViewCommandContext";
+import { useRegisterSubViewCommands } from "@/components/layout/SubViewCommandContext";
 import { invoke } from "@/platform/invoke";
 import { isTauri } from "@/platform/tauri";
+import { useNotify } from "@/hooks";
+import { useSpectrumAnalyzerStore } from "@/stores";
+import { MonitorInfo } from "./MonitorInfo";
+import { MonitorOverview } from "./MonitorOverview";
 import styles from "../shared.module.css";
-import monitorStyles from "./Monitor.module.css";
 
 const SpectrumAnalyzer = lazy(() => import("./SpectrumAnalyzer"));
 
@@ -55,6 +62,43 @@ const SPECTRUM_COLORS = {
 export default function MonitorView() {
     const { t } = useTranslation();
     const isViewActive = useIsViewActive();
+    const { success, warning, info } = useNotify();
+
+    const commands = useMemo<CommandButtonConfig[]>(
+        () => [
+            {
+                id: "refresh",
+                labelKey: "common.refresh",
+                onClick: () =>
+                    info(
+                        t("notification.dataRefreshed"),
+                        t("notification.sensorDataUpdated"),
+                    ),
+            },
+            {
+                id: "pause",
+                labelKey: "common.pause",
+                onClick: () =>
+                    warning(
+                        t("notification.monitoringPaused"),
+                        t("notification.dataCollectionPaused"),
+                    ),
+            },
+            {
+                id: "export",
+                labelKey: "monitor.exportData",
+                onClick: () =>
+                    success(
+                        t("notification.exportComplete"),
+                        t("notification.dataExportedToFile"),
+                    ),
+            },
+        ],
+        [info, success, t, warning],
+    );
+
+    useRegisterViewCommands("monitor", commands, isViewActive);
+
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const animationRef = useRef<number>(0);
@@ -94,6 +138,87 @@ export default function MonitorView() {
     });
 
     const isSpectrumActive = isViewActive && activeTab === "overview";
+    const isSpectrumAnalyzerTabActive =
+        isViewActive && activeTab === "spectrum-analyzer";
+
+    const spectrumAnalyzerPaused = useSpectrumAnalyzerStore((s) => s.isPaused);
+    const spectrumAnalyzerShowMaxHold = useSpectrumAnalyzerStore(
+        (s) => s.showMaxHold,
+    );
+    const spectrumAnalyzerShowAverage = useSpectrumAnalyzerStore(
+        (s) => s.showAverage,
+    );
+    const setSpectrumAnalyzerPaused = useSpectrumAnalyzerStore(
+        (s) => s.setIsPaused,
+    );
+    const setSpectrumAnalyzerShowMaxHold = useSpectrumAnalyzerStore(
+        (s) => s.setShowMaxHold,
+    );
+    const setSpectrumAnalyzerShowAverage = useSpectrumAnalyzerStore(
+        (s) => s.setShowAverage,
+    );
+    const resetSpectrumAnalyzerMaxHold = useSpectrumAnalyzerStore(
+        (s) => s.resetMaxHold,
+    );
+    const resetSpectrumAnalyzerAverage = useSpectrumAnalyzerStore(
+        (s) => s.resetAverage,
+    );
+
+    const spectrumAnalyzerSubCommands = useMemo<CommandButtonConfig[]>(() => {
+        if (!isSpectrumAnalyzerTabActive) return [];
+
+        return [
+            {
+                id: spectrumAnalyzerPaused ? "start" : "pause",
+                labelKey: spectrumAnalyzerPaused
+                    ? "monitor.spectrumAnalyzer.controls.resume"
+                    : "monitor.spectrumAnalyzer.controls.pause",
+                highlight: spectrumAnalyzerPaused ? "warning" : "none",
+                onClick: () => setSpectrumAnalyzerPaused(!spectrumAnalyzerPaused),
+            },
+            {
+                id: "spectrumMaxHold",
+                labelKey: "monitor.spectrumAnalyzer.controls.maxHold",
+                highlight: spectrumAnalyzerShowMaxHold ? "attention" : "none",
+                behavior: "toggle",
+                onClick: () =>
+                    setSpectrumAnalyzerShowMaxHold(!spectrumAnalyzerShowMaxHold),
+            },
+            {
+                id: "spectrumAverage",
+                labelKey: "monitor.spectrumAnalyzer.controls.average",
+                highlight: spectrumAnalyzerShowAverage ? "attention" : "none",
+                behavior: "toggle",
+                onClick: () =>
+                    setSpectrumAnalyzerShowAverage(!spectrumAnalyzerShowAverage),
+            },
+            {
+                id: "reset",
+                labelKey: "monitor.spectrumAnalyzer.controls.reset",
+                highlight: "warning",
+                onClick: () => {
+                    resetSpectrumAnalyzerMaxHold();
+                    resetSpectrumAnalyzerAverage();
+                },
+            },
+        ];
+    }, [
+        isSpectrumAnalyzerTabActive,
+        resetSpectrumAnalyzerAverage,
+        resetSpectrumAnalyzerMaxHold,
+        setSpectrumAnalyzerPaused,
+        setSpectrumAnalyzerShowAverage,
+        setSpectrumAnalyzerShowMaxHold,
+        spectrumAnalyzerPaused,
+        spectrumAnalyzerShowAverage,
+        spectrumAnalyzerShowMaxHold,
+    ]);
+
+    useRegisterSubViewCommands(
+        "monitor",
+        spectrumAnalyzerSubCommands,
+        isSpectrumAnalyzerTabActive,
+    );
 
     // 计算 -3dB 带宽
     const calculateBandwidth = useCallback(
@@ -719,11 +844,8 @@ export default function MonitorView() {
         setRetryToken((prev) => prev + 1);
     };
 
-    const formatFrequency = (freq: number) => {
-        if (freq >= 1000) {
-            return `${(freq / 1000).toFixed(2)} kHz`;
-        }
-        return `${freq.toFixed(0)} Hz`;
+    const handleTogglePaused = () => {
+        setIsPaused((prev) => !prev);
     };
 
     return (
@@ -736,394 +858,25 @@ export default function MonitorView() {
                         id: "overview",
                         label: t("common.tabs.overview"),
                         content: (
-                            <>
-                                <div className={monitorStyles.statsGrid}>
-                                    <div
-                                        className={monitorStyles.statCard}
-                                        data-type="peak-freq"
-                                    >
-                                        <div
-                                            className={monitorStyles.cardHeader}
-                                        >
-                                            <div
-                                                className={
-                                                    monitorStyles.cardIcon
-                                                }
-                                            >
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                >
-                                                    <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
-                                                </svg>
-                                            </div>
-                                            <span
-                                                className={
-                                                    monitorStyles.statusBadge
-                                                }
-                                                data-status="normal"
-                                            >
-                                                {t("monitor.badges.peak")}
-                                            </span>
-                                        </div>
-                                        <span
-                                            className={monitorStyles.statLabel}
-                                        >
-                                            {t("monitor.stats.peakFrequency")}
-                                        </span>
-                                        <span
-                                            className={monitorStyles.statValue}
-                                        >
-                                            {formatFrequency(
-                                                stats.peak_frequency,
-                                            )}
-                                        </span>
-                                        <div className={monitorStyles.statMeta}>
-                                            <span>
-                                                {t(
-                                                    "monitor.stats.centerFrequencyAnalysis",
-                                                )}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        className={monitorStyles.statCard}
-                                        data-type="peak-amp"
-                                    >
-                                        <div
-                                            className={monitorStyles.cardHeader}
-                                        >
-                                            <div
-                                                className={
-                                                    monitorStyles.cardIcon
-                                                }
-                                            >
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                >
-                                                    <path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z" />
-                                                </svg>
-                                            </div>
-                                            <span
-                                                className={
-                                                    monitorStyles.statusBadge
-                                                }
-                                                data-status={
-                                                    stats.peak_amplitude > -30
-                                                        ? "warning"
-                                                        : "normal"
-                                                }
-                                            >
-                                                {stats.peak_amplitude > -30
-                                                    ? t("monitor.badges.high")
-                                                    : t(
-                                                          "monitor.badges.normal",
-                                                      )}
-                                            </span>
-                                        </div>
-                                        <span
-                                            className={monitorStyles.statLabel}
-                                        >
-                                            {t("monitor.stats.peakAmplitude")}
-                                        </span>
-                                        <span
-                                            className={monitorStyles.statValue}
-                                        >
-                                            {stats.peak_amplitude.toFixed(1)} dB
-                                        </span>
-                                        <div className={monitorStyles.statMeta}>
-                                            <span>
-                                                {t(
-                                                    "monitor.stats.signalStrength",
-                                                )}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        className={monitorStyles.statCard}
-                                        data-type="bandwidth"
-                                    >
-                                        <div
-                                            className={monitorStyles.cardHeader}
-                                        >
-                                            <div
-                                                className={
-                                                    monitorStyles.cardIcon
-                                                }
-                                            >
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                >
-                                                    <path d="M3 5v14h18V5H3zm16 12H5V7h14v10zM7 9h2v6H7zm4 0h2v6h-2zm4 0h2v6h-2z" />
-                                                </svg>
-                                            </div>
-                                            <span
-                                                className={
-                                                    monitorStyles.statusBadge
-                                                }
-                                                data-status="normal"
-                                            >
-                                                {t("monitor.badges.bandwidth")}
-                                            </span>
-                                        </div>
-                                        <span
-                                            className={monitorStyles.statLabel}
-                                        >
-                                            {t("monitor.stats.bandwidth")}
-                                        </span>
-                                        <span
-                                            className={monitorStyles.statValue}
-                                        >
-                                            {formatFrequency(stats.bandwidth)}
-                                        </span>
-                                        <div className={monitorStyles.statMeta}>
-                                            <span>
-                                                {t(
-                                                    "monitor.stats.averageAmplitude",
-                                                    {
-                                                        value: stats.average_amplitude.toFixed(
-                                                            1,
-                                                        ),
-                                                    },
-                                                )}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className={monitorStyles.chartContainer}>
-                                    <div className={monitorStyles.chartHeader}>
-                                        <div
-                                            className={monitorStyles.chartTitle}
-                                        >
-                                            <svg
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                            >
-                                                <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z" />
-                                            </svg>
-                                            {t("monitor.spectrum.title")}
-                                        </div>
-                                        <div
-                                            className={
-                                                monitorStyles.chartControls
-                                            }
-                                        >
-                                            <div
-                                                className={
-                                                    monitorStyles.timeRangeGroup
-                                                }
-                                            >
-                                                {(
-                                                    [
-                                                        "fill",
-                                                        "bars",
-                                                        "line",
-                                                    ] as const
-                                                ).map((mode) => (
-                                                    <button
-                                                        key={mode}
-                                                        className={
-                                                            monitorStyles.timeRangeBtn
-                                                        }
-                                                        data-active={
-                                                            displayMode === mode
-                                                        }
-                                                        onClick={() =>
-                                                            setDisplayMode(mode)
-                                                        }
-                                                    >
-                                                        {mode === "fill"
-                                                            ? t(
-                                                                  "monitor.displayMode.fill",
-                                                              )
-                                                            : mode === "bars"
-                                                              ? t(
-                                                                    "monitor.displayMode.bars",
-                                                                )
-                                                              : t(
-                                                                    "monitor.displayMode.line",
-                                                                )}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                            <button
-                                                className={
-                                                    monitorStyles.controlBtn
-                                                }
-                                                data-active={isPaused}
-                                                onClick={() =>
-                                                    setIsPaused(!isPaused)
-                                                }
-                                            >
-                                                {isPaused ? (
-                                                    <svg
-                                                        viewBox="0 0 24 24"
-                                                        fill="currentColor"
-                                                    >
-                                                        <path d="M8 5v14l11-7z" />
-                                                    </svg>
-                                                ) : (
-                                                    <svg
-                                                        viewBox="0 0 24 24"
-                                                        fill="currentColor"
-                                                    >
-                                                        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                                                    </svg>
-                                                )}
-                                                {isPaused
-                                                    ? t("common.resume")
-                                                    : t("common.pause")}
-                                            </button>
-                                            <button
-                                                className={
-                                                    monitorStyles.controlBtn
-                                                }
-                                                onClick={handleClearData}
-                                            >
-                                                <svg
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                >
-                                                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" />
-                                                </svg>
-                                                {t("common.clear")}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div
-                                        ref={containerRef}
-                                        className={monitorStyles.chart}
-                                    >
-                                        {spectrumStatus === "ready" ? (
-                                            <canvas
-                                                ref={canvasRef}
-                                                className={
-                                                    monitorStyles.spectrumCanvas
-                                                }
-                                            />
-                                        ) : (
-                                            <div
-                                                className={styles.emptyState}
-                                                style={{ height: "100%" }}
-                                            >
-                                                <StatusIndicator
-                                                    status={
-                                                        spectrumStatus ===
-                                                        "error"
-                                                            ? "alarm"
-                                                            : spectrumStatus ===
-                                                                "unavailable"
-                                                              ? "idle"
-                                                              : "processing"
-                                                    }
-                                                    label={
-                                                        spectrumStatus ===
-                                                        "error"
-                                                            ? t(
-                                                                  "monitor.status.error",
-                                                              )
-                                                            : spectrumStatus ===
-                                                                "unavailable"
-                                                              ? t(
-                                                                    "monitor.status.unavailable",
-                                                                )
-                                                              : t(
-                                                                    "monitor.status.loading",
-                                                                )
-                                                    }
-                                                />
-                                                {spectrumError && (
-                                                    <div
-                                                        style={{
-                                                            marginTop: 8,
-                                                            fontSize: 12,
-                                                            color: "var(--text-secondary)",
-                                                            textAlign: "center",
-                                                            maxWidth: 520,
-                                                        }}
-                                                    >
-                                                        {spectrumError}
-                                                    </div>
-                                                )}
-                                                {spectrumStatus === "error" && (
-                                                    <button
-                                                        className={
-                                                            monitorStyles.controlBtn
-                                                        }
-                                                        onClick={
-                                                            handleRetrySpectrum
-                                                        }
-                                                        style={{
-                                                            marginTop: 12,
-                                                        }}
-                                                    >
-                                                        {t("common.retry")}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className={monitorStyles.chartLegend}>
-                                        <div
-                                            className={monitorStyles.legendItem}
-                                            data-type="spectrum"
-                                        >
-                                            <span
-                                                className={
-                                                    monitorStyles.legendDot
-                                                }
-                                            />
-                                            {t(
-                                                "monitor.legend.spectrumAmplitude",
-                                            )}
-                                        </div>
-                                        <div
-                                            className={monitorStyles.legendItem}
-                                            data-type="peak"
-                                        >
-                                            <span
-                                                className={
-                                                    monitorStyles.legendDot
-                                                }
-                                            />
-                                            {t("monitor.legend.peakMarker")}
-                                        </div>
-                                        <div
-                                            className={monitorStyles.legendItem}
-                                            data-type="noise"
-                                        >
-                                            <span
-                                                className={
-                                                    monitorStyles.legendDot
-                                                }
-                                            />
-                                            {t("monitor.legend.noiseFloor")}
-                                        </div>
-                                    </div>
-                                </div>
-                            </>
+                            <MonitorOverview
+                                stats={stats}
+                                displayMode={displayMode}
+                                onChangeDisplayMode={setDisplayMode}
+                                isPaused={isPaused}
+                                onTogglePaused={handleTogglePaused}
+                                onClearData={handleClearData}
+                                spectrumStatus={spectrumStatus}
+                                spectrumError={spectrumError}
+                                onRetrySpectrum={handleRetrySpectrum}
+                                containerRef={containerRef}
+                                canvasRef={canvasRef}
+                            />
                         ),
                     },
                     {
                         id: "info",
                         label: t("common.tabs.info"),
-                        content: (
-                            <div className={monitorStyles.monitorInfo}>
-                                <h3 className={monitorStyles.monitorInfoTitle}>
-                                    {t("nav.monitor")}
-                                </h3>
-                                <ul className={monitorStyles.monitorInfoList}>
-                                    <li>{t("monitor.info.autoPause")}</li>
-                                    <li>{t("monitor.info.displayModeTip")}</li>
-                                    <li>{t("monitor.info.browserModeTip")}</li>
-                                </ul>
-                            </div>
-                        ),
+                        content: <MonitorInfo />,
                     },
                     {
                         id: "spectrum-analyzer",

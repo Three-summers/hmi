@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";
 import {
@@ -13,6 +13,12 @@ import {
     ConnectIcon,
     CloseIcon,
 } from "@/components/common";
+import type { CommandButtonConfig } from "@/types";
+import { useIsViewActive } from "@/components/layout/ViewContext";
+import {
+    useRegisterViewCommands,
+    useViewCommandActions,
+} from "@/components/layout/ViewCommandContext";
 import { useAppStore, useCommStore, useNavigationStore } from "@/stores";
 import { useNotify } from "@/hooks";
 import { COMM_CONFIG, THEME_ORDER } from "@/constants";
@@ -21,7 +27,62 @@ import sharedStyles from "../shared.module.css";
 
 export default function SetupView() {
     const { t } = useTranslation();
-    const { error: notifyError } = useNotify();
+    const isViewActive = useIsViewActive();
+    const { showConfirm } = useViewCommandActions();
+    const { success, warning, error: notifyError } = useNotify();
+
+    const commands = useMemo<CommandButtonConfig[]>(
+        () => [
+            {
+                id: "connect",
+                labelKey: "setup.connect",
+                highlight: "attention",
+                onClick: () =>
+                    success(
+                        t("notification.connected"),
+                        t("notification.connectionEstablished"),
+                    ),
+            },
+            {
+                id: "disconnect",
+                labelKey: "setup.disconnect",
+                onClick: () =>
+                    warning(
+                        t("notification.disconnected"),
+                        t("notification.connectionClosed"),
+                    ),
+            },
+            {
+                id: "save",
+                labelKey: "common.save",
+                highlight: "processing",
+                onClick: () =>
+                    success(
+                        t("notification.settingsSaved"),
+                        t("notification.configurationSaved"),
+                    ),
+            },
+            {
+                id: "reset",
+                labelKey: "common.reset",
+                highlight: "warning",
+                onClick: () =>
+                    showConfirm(
+                        t("setup.resetSettings"),
+                        t("setup.resetConfirm"),
+                        () =>
+                            warning(
+                                t("notification.settingsReset"),
+                                t("notification.settingsRestoredToDefaults"),
+                            ),
+                    ),
+            },
+        ],
+        [showConfirm, success, t, warning],
+    );
+
+    useRegisterViewCommands("setup", commands, isViewActive);
+
     const {
         language,
         setLanguage,

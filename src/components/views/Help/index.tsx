@@ -1,6 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";
+import type { CommandButtonConfig } from "@/types";
+import { useIsViewActive } from "@/components/layout/ViewContext";
+import { useRegisterViewCommands } from "@/components/layout/ViewCommandContext";
+import { useNotify } from "@/hooks";
 import styles from "./Help.module.css";
 import sharedStyles from "../shared.module.css";
 
@@ -60,7 +64,26 @@ const helpTabs: {
 
 export default function HelpView() {
     const { t } = useTranslation();
+    const isViewActive = useIsViewActive();
+    const { info } = useNotify();
     const [activeTab, setActiveTab] = useState<HelpSection>("about");
+
+    const commands = useMemo<CommandButtonConfig[]>(
+        () => [
+            {
+                id: "refresh",
+                labelKey: "common.refresh",
+                onClick: () =>
+                    info(
+                        t("notification.helpRefreshed"),
+                        t("notification.helpContentRefreshed"),
+                    ),
+            },
+        ],
+        [info, t],
+    );
+
+    useRegisterViewCommands("help", commands, isViewActive);
 
     const renderSectionContent = (section: HelpSection) => {
         switch (section) {

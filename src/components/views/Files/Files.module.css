@@ -1,11 +1,15 @@
+/* ═══ Files / 文件视图样式 ═══ */
+
+/* ═══ 布局结构：左侧树 + 右侧预览 ═══ */
 .container {
     display: flex;
     flex: 1;
     height: 100%;
-    min-height: 0;
+    min-height: 0; /* 允许右侧预览区在 flex 容器中正确收缩/滚动 */
     gap: var(--sp-md);
 }
 
+/* ═══ 左侧：文件树 ═══ */
 .fileTree {
     width: 280px;
     min-width: 200px;
@@ -104,6 +108,7 @@
     text-overflow: ellipsis;
 }
 
+/* ═══ 右侧：预览容器（通用状态） ═══ */
 .preview {
     flex: 1;
     min-height: 0;
@@ -186,7 +191,7 @@
     height: 16px;
 }
 
-/* 文本预览 */
+/* ═══ 文本预览 ═══ */
 .textPreview {
     flex: 1;
     display: flex;
@@ -218,7 +223,7 @@
     background: var(--overlay-mid);
 }
 
-/* CSV 预览 */
+/* ═══ CSV 预览 ═══ */
 .csvPreview {
     flex: 1;
     display: flex;
@@ -358,11 +363,11 @@
     display: none !important;
 }
 
-.chart :global(.u-over) {
-    cursor: crosshair;
-}
+	.chart :global(.u-over) {
+	    cursor: crosshair;
+	}
 
-/* 文件页说明（说明子页） */
+/* ═══ 说明页（文件页说明 Tab） ═══ */
 .filesInfo {
     height: 100%;
     min-height: 160px;
@@ -391,11 +396,11 @@
     line-height: 1.6;
 }
 
-/* 放大图表弹窗 */
+/* ═══ 放大图表弹窗 ═══ */
 .chartModal {
     position: fixed;
     inset: 0;
-    z-index: 1000;
+    z-index: 1000; /* 弹窗层级：高于主布局与背景遮罩 */
     background: var(--overlay-modal);
     display: flex;
     align-items: center;
@@ -475,6 +480,7 @@
     background: var(--overlay-weak);
 }
 
+/* ═══ 响应式调整 ═══ */
 @media (max-width: 768px) {
     .container {
         flex-direction: column;

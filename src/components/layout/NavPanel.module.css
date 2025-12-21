@@ -1,7 +1,14 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   NavPanel - Industrial Navigation Bar
+   NavPanel - 工业风底部导航栏
+   ═══════════════════════════════════════════════════════════════════════════
+   结构说明：
+   - navPanel/navContainer：外壳与内容容器（覆盖装饰伪元素）
+   - navButton：导航按钮（hover/active/highlight）
+   - badge/activeIndicator：通知徽标与选中指示
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ═══ 容器外壳 ═══ */
+/* 底部导航栏：承载视图切换入口 */
 .navPanel {
     display: flex;
     align-items: center;
@@ -18,7 +25,8 @@
     overflow: hidden;
 }
 
-/* Decorative bottom edge glow */
+/* ═══ 装饰效果 ═══ */
+/* 底部霓虹边缘：增强“仪表台”质感 */
 .navPanel::before {
     content: "";
     position: absolute;
@@ -37,7 +45,7 @@
     opacity: 0.6;
 }
 
-/* Subtle ambient glow from bottom */
+/* 底部环境光晕：弱化的径向辉光 */
 .navPanel::after {
     content: "";
     position: absolute;
@@ -54,19 +62,19 @@
     pointer-events: none;
 }
 
+/* 内层容器：覆盖装饰伪元素，避免按钮被遮罩层遮挡 */
 .navContainer {
     display: flex;
     align-items: center;
     gap: 8px;
     width: 100%;
     position: relative;
-    z-index: 1;
+    z-index: 1; /* 高于 navPanel::before/::after */
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Navigation Button
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 导航按钮 ═══ */
 
+/* 单个导航按钮：图标 + 文本 */
 .navButton {
     position: relative;
     display: flex;
@@ -74,7 +82,7 @@
     align-items: center;
     justify-content: center;
     min-width: 95px;
-    height: calc(var(--nav-panel-height) - 22px);
+    height: calc(var(--nav-panel-height) - 22px); /* 预留 NavPanel 的上下 padding 与边框空间 */
     padding: 8px 16px;
     background: linear-gradient(
         180deg,
@@ -97,7 +105,7 @@
     overflow: hidden;
 }
 
-/* Glass shine effect */
+/* 玻璃高光：顶部半区的弱高亮 */
 .navButton::before {
     content: "";
     position: absolute;
@@ -114,7 +122,7 @@
     transition: opacity var(--transition-fast);
 }
 
-/* Hover state - subtle for touch */
+/* 悬停态：触屏设备上尽量保持克制 */
 .navButton:hover {
     background: var(--button-bg-hover);
     color: var(--text-primary);
@@ -125,12 +133,12 @@
     opacity: 1;
 }
 
-/* Active/pressed state */
+/* 按下态：内阴影强化“按键”反馈 */
 .navButton:active {
     box-shadow: var(--shadow-inner);
 }
 
-/* Selected/current state */
+/* 选中态：当前视图 */
 .navButton[data-active="true"] {
     background: linear-gradient(
         180deg,
@@ -152,9 +160,7 @@
     );
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Highlight States - SEMI E95
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 高亮状态（SEMI E95） ═══ */
 
 .navButton[data-highlight="alarm"] {
     border-color: var(--color-alarm);
@@ -186,14 +192,12 @@
         0 0 15px var(--color-attention-glow);
 }
 
-/* Special spacing for Alarms button - SEMI E95 */
+/* 告警按钮：作为分隔点，右侧内容对齐 */
 .navButton[data-id="alarms"] {
     margin-left: auto;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Nav Icon & Label
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 图标与标签 ═══ */
 
 .navIconContainer {
     position: relative;
@@ -222,7 +226,7 @@
     filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
 }
 
-/* Badge for notifications */
+/* 通知徽标：用于告警数量等 */
 .badge {
     position: absolute;
     top: -8px;
@@ -246,7 +250,7 @@
 
 .badge[data-severity="warning"] {
     background: var(--color-warning);
-    color: #1a1a1a;
+    color: #1a1a1a; /* 浅色徽标：使用深色文字保证对比度 */
     box-shadow:
         0 2px 8px var(--color-warning-glow),
         0 0 0 2px var(--bg-panel);
@@ -265,7 +269,7 @@
     color: var(--text-primary);
 }
 
-/* Active indicator line */
+/* 底部选中指示条 */
 .activeIndicator {
     position: absolute;
     bottom: 0;
@@ -283,9 +287,7 @@
     box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Responsive Adjustments
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 响应式调整 ═══ */
 
 @media (max-width: 1100px) {
     .navButton {

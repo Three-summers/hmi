@@ -1,3 +1,6 @@
+/* ═══ Help / 帮助与说明视图样式 ═══ */
+
+/* ═══ Tabs 标签 ═══ */
 /* Tabs 标签内容：图标 + 文本 */
 .tabLabel {
     display: inline-flex;
@@ -19,11 +22,12 @@
     height: 16px;
 }
 
+/* ═══ 主内容容器 ═══ */
 .mainContent {
     display: flex;
     flex-direction: column;
     height: 100%;
-    min-height: 0;
+    min-height: 0; /* 允许内容区在 flex 布局中正确滚动 */
     background: var(--overlay-mid);
     border-radius: 8px;
     border: 1px solid var(--border-color);
@@ -53,6 +57,7 @@
     flex: 1;
 }
 
+/* ═══ 信息卡片（系统信息） ═══ */
 .infoCard {
     padding: 16px;
     background: linear-gradient(
@@ -87,6 +92,7 @@
     font-weight: 500;
 }
 
+/* ═══ 颜色图例（SEMI E95） ═══ */
 .colorLegend {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -146,6 +152,7 @@
     color: var(--text-secondary);
 }
 
+/* ═══ 快捷键列表 ═══ */
 .shortcutList {
     display: flex;
     flex-direction: column;
@@ -186,6 +193,7 @@
     font-family: monospace;
 }
 
+/* ═══ FAQ 常见问题 ═══ */
 .faqList {
     display: flex;
     flex-direction: column;
@@ -235,6 +243,7 @@
     padding-left: 28px;
 }
 
+/* ═══ 技术规格卡片 ═══ */
 .specList {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -262,6 +271,7 @@
     color: var(--text-primary);
 }
 
+/* ═══ 联系方式 / 支持入口 ═══ */
 .contactCard {
     padding: 20px;
     background: linear-gradient(
@@ -299,6 +309,7 @@
     margin: 0;
 }
 
+/* ═══ 响应式调整 ═══ */
 @media (max-width: 768px) {
     .colorLegend,
     .specList {

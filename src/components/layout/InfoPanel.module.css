@@ -1,47 +1,59 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   InfoPanel - Main Content Area
+   InfoPanel - 主内容区域
+   ═══════════════════════════════════════════════════════════════════════════
+   结构说明：
+   - infoPanel：主容器（列布局）
+   - viewContainer/viewWrapper：承载各 View，负责滚动与高度约束
+   - placeholder：未选择视图/无内容时的占位提示
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ═══ 容器结构 ═══ */
+/* 主内容容器：内部会放置 Tabs 与各 View 的内容 */
 .infoPanel {
     display: flex;
     flex-direction: column;
     background-color: var(--bg-panel);
     height: 100%;
-    min-height: 0;
+    min-height: 0; /* 允许内部滚动容器（viewContainer）在 flex 布局中正确收缩 */
     overflow: hidden;
     position: relative;
 }
 
-/* Subtle inner shadow for depth */
+/* ═══ 顶部内阴影（增强层次） ═══ */
 .infoPanel::before {
     content: "";
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 40px;
+    height: 40px; /* 阴影高度：只覆盖顶部一小段，避免遮挡主体内容 */
     background: linear-gradient(
         180deg,
         rgba(0, 0, 0, 0.15) 0%,
         transparent 100%
     );
     pointer-events: none;
-    z-index: 1;
+    z-index: 1; /* 作为遮罩层；Tabs sticky 需高于该层（参见 Tabs.module.css） */
 }
 
+/* ═══ View 承载容器（滚动区） ═══ */
+/* 各视图内容的滚动发生在此容器内（而不是 body/html） */
 .viewContainer {
     flex: 1;
     padding: 16px;
-    min-height: 0;
+    min-height: 0; /* 关键：避免 flex 子项默认 min-height:auto 导致无法滚动 */
     overflow: auto;
     position: relative;
 }
 
+/* 子视图外层：提供稳定的 100% 高度约束 */
 .viewWrapper {
     height: 100%;
     min-height: 0;
 }
 
+/* ═══ 空态占位 ═══ */
+/* 未选择视图或内容为空时的提示布局 */
 .placeholder {
     display: flex;
     flex-direction: column;

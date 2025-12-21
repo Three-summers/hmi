@@ -1,7 +1,6 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   TitlePanel - Industrial Futurism Header
-   ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══ TitlePanel / 顶部栏 ═══ */
 
+/* ═══ 布局结构 ═══ */
 .titlePanel {
     display: flex;
     flex-direction: column;
@@ -18,7 +17,8 @@
     overflow: hidden;
 }
 
-/* Decorative top edge glow */
+/* ═══ 装饰效果 ═══ */
+/* 顶部霓虹边缘 */
 .titlePanel::before {
     content: "";
     position: absolute;
@@ -37,7 +37,7 @@
     opacity: 0.8;
 }
 
-/* Subtle shine effect */
+/* 轻微高光（增强玻璃拟态质感） */
 .titlePanel::after {
     content: "";
     position: absolute;
@@ -101,9 +101,7 @@
     gap: 10px;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Communication Status Widget
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 通信状态 ═══ */
 
 .commStatus {
     display: flex;
@@ -135,6 +133,11 @@
     height: 22px;
     color: var(--text-secondary);
     transition: color var(--transition-fast);
+}
+
+.commIcon svg {
+    width: 100%;
+    height: 100%;
 }
 
 .commStatus[data-connected="true"] .commIcon {
@@ -182,9 +185,7 @@
     box-shadow: 0 0 8px var(--color-attention-glow);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Date & Time Display
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 日期与时间 ═══ */
 
 .dateTimeContainer {
     display: flex;
@@ -203,6 +204,11 @@
     height: 20px;
     color: var(--accent-primary);
     filter: drop-shadow(0 0 4px var(--color-processing-glow));
+}
+
+.dateIcon svg {
+    width: 100%;
+    height: 100%;
 }
 
 .dateTimeInfo {
@@ -227,9 +233,7 @@
     letter-spacing: 1px;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Alarm Badge
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 告警徽标 ═══ */
 
 .alarmBadge {
     display: flex;
@@ -267,9 +271,7 @@
     filter: drop-shadow(0 0 4px currentColor);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Login Button
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 用户 / 登录按钮 ═══ */
 
 .loginButton {
     display: flex;
@@ -322,6 +324,11 @@
     transition: all var(--transition-fast);
 }
 
+.userIcon svg {
+    width: 100%;
+    height: 100%;
+}
+
 .loginButton[data-logged-in="true"] .userIcon {
     color: var(--color-attention);
     filter: drop-shadow(0 0 4px var(--color-attention-glow));
@@ -348,9 +355,7 @@
     letter-spacing: 0.5px;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Message Area
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 顶部消息条 ═══ */
 
 .messageArea {
     height: 30px;
@@ -396,6 +401,11 @@
     filter: drop-shadow(0 0 3px currentColor);
 }
 
+.messageIcon svg {
+    width: 100%;
+    height: 100%;
+}
+
 .messageText {
     flex: 1;
     overflow: hidden;
@@ -412,9 +422,7 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Login Modal
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 快速登录弹窗 ═══ */
 
 .modalOverlay {
     position: fixed;
@@ -541,9 +549,7 @@
     color: var(--text-primary);
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Action Buttons (Exit, Theme, Fullscreen)
-   ───────────────────────────────────────────────────────────────────────── */
+/* ═══ 快捷操作按钮（主题 / 全屏 / 退出） ═══ */
 
 .exitButton,
 .themeButton,
@@ -579,7 +585,7 @@
     pointer-events: none;
 }
 
-/* Exit Button - Danger Style */
+/* 退出按钮（危险样式） */
 .exitButton {
     background: rgba(255, 59, 59, 0.12);
     border-color: var(--color-alarm);
@@ -596,7 +602,7 @@
     filter: drop-shadow(0 0 3px var(--color-alarm-glow));
 }
 
-/* Theme Button */
+/* 主题按钮 */
 .themeButton {
     background: var(--glass-bg);
     border-color: var(--border-color);
@@ -613,7 +619,7 @@
     height: 20px;
 }
 
-/* Fullscreen Button - Accent Style */
+/* 全屏按钮（强调样式） */
 .fullscreenButton {
     background: rgba(14, 165, 233, 0.1);
     border-color: var(--accent-primary);

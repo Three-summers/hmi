@@ -1,3 +1,7 @@
+/* ═══ Alarms / 告警视图样式 ═══ */
+
+/* ═══ 统计栏（概览） ═══ */
+/* 顶部统计栏：按告警等级汇总数量 */
 .statsBar {
     display: flex;
     gap: 12px;
@@ -7,6 +11,7 @@
     margin-bottom: 16px;
 }
 
+/* 单个统计项：中心对齐的数字 + 文本 */
 .statItem {
     flex: 1;
     display: flex;
@@ -69,12 +74,15 @@
     margin-top: 4px;
 }
 
+/* ═══ 内容容器与空态 ═══ */
+/* 告警列表的滚动发生在此容器内 */
 .alarmsContent {
     flex: 1;
-    min-height: 0;
+    min-height: 0; /* 允许在 flex 布局中正确滚动 */
     overflow: auto;
 }
 
+/* 空态：无告警时的提示 */
 .emptyState {
     display: flex;
     flex-direction: column;
@@ -101,6 +109,7 @@
     font-size: 16px;
 }
 
+/* ═══ 告警分组与标题 ═══ */
 .alarmSection {
     margin-bottom: 20px;
 }
@@ -122,6 +131,8 @@
     gap: 8px;
 }
 
+/* ═══ 告警卡片（含状态与动画） ═══ */
+/* 单条告警：左侧图标 + 文本 + 操作按钮 */
 .alarmCard {
     display: flex;
     align-items: center;
@@ -155,6 +166,7 @@
     animation: none;
 }
 
+/* ═══ 动画：告警脉冲（吸睛但不刺眼） ═══ */
 @keyframes alarmPulse {
     0%,
     100% {
@@ -173,6 +185,7 @@
     }
 }
 
+/* ═══ 告警图标与严重级别 ═══ */
 .alarmIcon {
     width: 36px;
     height: 36px;
@@ -202,6 +215,7 @@
     background: rgba(65, 105, 225, 0.2);
 }
 
+/* ═══ 内容区：文案、时间与状态标签 ═══ */
 .alarmContent {
     flex: 1;
     display: flex;
@@ -210,6 +224,7 @@
     min-width: 0;
 }
 
+/* 单行告警文案：超长时截断 */
 .alarmMessage {
     font-size: 13px;
     font-weight: 500;
@@ -261,6 +276,7 @@
     font-weight: 500;
 }
 
+/* ═══ 操作按钮：确认/消警 ═══ */
 .ackButton {
     display: flex;
     align-items: center;
@@ -269,7 +285,7 @@
     background: linear-gradient(
         180deg,
         var(--color-attention) 0%,
-        #228b22 100%
+        #228b22 100% /* 深绿渐变：避免纯色按钮在高亮背景下发“糊” */
     );
     border: none;
     border-radius: 6px;
