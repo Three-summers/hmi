@@ -13,6 +13,11 @@
     --nav-panel-height: 80px;
     --command-panel-width: 160px;
 
+    /* rem 变量（基于 16px 基准；根字体由 useHMIScale 动态调整，最小 12px） */
+    --title-panel-height-rem: 5rem; /* 80px */
+    --nav-panel-height-rem: 5rem; /* 80px */
+    --command-panel-width-rem: 10rem; /* 160px */
+
     /* ─────────────────────────────────────────────────────────────────────────
        间距比例（基于 4px）
        ───────────────────────────────────────────────────────────────────────── */
@@ -21,6 +26,13 @@
     --sp-md: 16px;
     --sp-lg: 24px;
     --sp-xl: 32px;
+
+    /* rem 变量（基于 16px 基准）*/
+    --sp-xs-rem: 0.25rem; /* 4px */
+    --sp-sm-rem: 0.5rem; /* 8px */
+    --sp-md-rem: 1rem; /* 16px */
+    --sp-lg-rem: 1.5rem; /* 24px */
+    --sp-xl-rem: 2rem; /* 32px */
 
     /* ─────────────────────────────────────────────────────────────────────────
        SEMI E95 状态颜色 - 增强光晕效果
@@ -53,10 +65,14 @@
        按钮尺寸（SEMI E95 触摸要求）
        ───────────────────────────────────────────────────────────────────────── */
     --button-min-size: 70px;
+    --button-min-size-rem: 3.75rem; /* 60px */
     --button-nav-size: 47px;
+    --button-nav-size-rem: 2.9375rem; /* 47px */
     --button-spacing: var(--sp-sm);
     --button-radius: 10px;
     --button-radius-lg: 14px;
+    --button-radius-rem: 0.625rem; /* 10px */
+    --button-radius-lg-rem: 0.875rem; /* 14px */
 
     /* ─────────────────────────────────────────────────────────────────────────
        表面层级（主要 / 次要 / 三级）
@@ -204,6 +220,14 @@
     --font-size-large: 16px;
     --font-size-title: 20px;
     --font-size-display: 24px;
+
+    /* 字体大小 rem（基于 16px 基准） */
+    --font-size-xs-rem: 0.625rem; /* 10px */
+    --font-size-small-rem: 0.75rem; /* 12px */
+    --font-size-normal-rem: 0.875rem; /* 14px */
+    --font-size-large-rem: 1rem; /* 16px */
+    --font-size-title-rem: 1.25rem; /* 20px */
+    --font-size-display-rem: 1.5rem; /* 24px */
 
     --font-weight-normal: 500;
     --font-weight-medium: 600;

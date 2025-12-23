@@ -51,6 +51,7 @@
     },
     "title": {
         "loginHere": "Login Here",
+        "passwordPlaceholder": "Enter password",
         "logout": "Logout",
         "commStatus": {
             "connected": "Connected",
@@ -70,7 +71,9 @@
         },
         "errors": {
             "fullscreenFailed": "Failed to toggle fullscreen",
-            "closeFailed": "Failed to close window"
+            "closeFailed": "Failed to close window",
+            "invalidPassword": "Incorrect password",
+            "missingCredentials": "Missing credentials for this role"
         }
     },
     "dialog": {

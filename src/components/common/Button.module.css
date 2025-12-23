@@ -6,25 +6,26 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--sp-sm);
-    padding: calc(var(--sp-sm) + var(--sp-xs)) calc(var(--sp-md) + var(--sp-xs));
+    gap: var(--sp-sm-rem, var(--sp-sm));
+    padding: calc(var(--sp-sm-rem, var(--sp-sm)) + var(--sp-xs-rem, var(--sp-xs)))
+        calc(var(--sp-md-rem, var(--sp-md)) + var(--sp-xs-rem, var(--sp-xs)));
     background: linear-gradient(
         180deg,
         var(--button-bg-hover) 0%,
         var(--button-bg) 50%,
         var(--button-bg-active) 100%
     );
-    border-radius: var(--button-radius);
+    border-radius: var(--button-radius-rem, var(--button-radius));
     border: 1px solid var(--border-color);
     color: var(--text-primary);
     font-family: var(--font-family);
-    font-size: var(--font-size-normal);
+    font-size: var(--font-size-normal-rem, var(--font-size-normal));
     font-weight: var(--font-weight-medium);
     text-transform: capitalize;
     letter-spacing: 0.5px;
     transition: all var(--transition-fast);
-    min-height: var(--button-min-size);
-    min-width: var(--button-min-size);
+    min-height: var(--button-min-size-rem, var(--button-min-size));
+    min-width: var(--button-min-size-rem, var(--button-min-size));
     position: relative;
     overflow: hidden;
     cursor: pointer;
@@ -74,18 +75,20 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 .button[data-size="small"] {
-    min-height: var(--button-nav-size);
-    min-width: var(--button-nav-size);
-    padding: var(--sp-xs) calc(var(--sp-sm) + var(--sp-xs));
-    font-size: var(--font-size-small);
+    min-height: var(--button-nav-size-rem, var(--button-nav-size));
+    min-width: var(--button-nav-size-rem, var(--button-nav-size));
+    padding: var(--sp-xs-rem, var(--sp-xs))
+        calc(var(--sp-sm-rem, var(--sp-sm)) + var(--sp-xs-rem, var(--sp-xs)));
+    font-size: var(--font-size-small-rem, var(--font-size-small));
 }
 
 .button[data-size="large"] {
-    min-height: calc(var(--button-min-size) * 1.2);
-    min-width: calc(var(--button-min-size) * 1.5);
-    padding: calc(var(--sp-md) - var(--sp-xs)) calc(var(--sp-lg) + var(--sp-xs));
-    font-size: var(--font-size-large);
-    border-radius: var(--button-radius-lg);
+    min-height: calc(var(--button-min-size-rem, var(--button-min-size)) * 1.2);
+    min-width: calc(var(--button-min-size-rem, var(--button-min-size)) * 1.5);
+    padding: calc(var(--sp-md-rem, var(--sp-md)) - var(--sp-xs-rem, var(--sp-xs)))
+        calc(var(--sp-lg-rem, var(--sp-lg)) + var(--sp-xs-rem, var(--sp-xs)));
+    font-size: var(--font-size-large-rem, var(--font-size-large));
+    border-radius: var(--button-radius-lg-rem, var(--button-radius-lg));
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

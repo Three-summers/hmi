@@ -26,7 +26,7 @@ import { NotificationToast } from "./NotificationToast";
 import { ViewCommandProvider } from "./ViewCommandContext";
 import { SubViewCommandProvider } from "./SubViewCommandContext";
 import { useAlarmStore, useNavigationStore, useAppStore } from "@/stores";
-import { useKeyboardShortcuts, useFrontendLogBridge } from "@/hooks";
+import { useKeyboardShortcuts, useFrontendLogBridge, useHMIScale } from "@/hooks";
 import styles from "./MainLayout.module.css";
 
 /**
@@ -57,6 +57,9 @@ export function MainLayout() {
 
     // 安装前端日志桥接（可选，通过设置开关控制）
     useFrontendLogBridge();
+
+    // 安装 HMI 缩放系统（rem + 动态根字体）
+    useHMIScale();
 
     // 初始化 Demo 告警数据（仅在首次加载且告警为空时）
     useEffect(() => {

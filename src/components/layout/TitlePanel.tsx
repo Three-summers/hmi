@@ -11,13 +11,14 @@
  * @module TitlePanel
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentProps, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/shallow";
 import type { ViewId, UserSession } from "@/types";
 import { useAlarmStore, useCommStore, useAppStore } from "@/stores";
 import { useNotify } from "@/hooks";
+import { getStoredCredentials, verifyPassword } from "@/utils/auth";
 import {
     AdminIcon,
     AlarmIcon,
@@ -91,6 +92,11 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
         })),
     );
     const [showLoginModal, setShowLoginModal] = useState(false);
+    const [pendingRole, setPendingRole] = useState<QuickLoginRole | null>(null);
+    const [password, setPassword] = useState("");
+    const [passwordError, setPasswordError] = useState<string | null>(null);
+    const [verifyingPassword, setVerifyingPassword] = useState(false);
+    const passwordInputRef = useRef<HTMLInputElement>(null);
 
     const isConnected = serialConnected || tcpConnected;
     // 展示最新未确认告警（用于顶部消息条），无未确认告警则显示“系统运行中”
@@ -103,6 +109,23 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
         }, 1000);
         return () => clearInterval(timer);
     }, []);
+
+    const resetLoginModalState = () => {
+        setPendingRole(null);
+        setPassword("");
+        setPasswordError(null);
+        setVerifyingPassword(false);
+    };
+
+    const openLoginModal = () => {
+        resetLoginModalState();
+        setShowLoginModal(true);
+    };
+
+    const closeLoginModal = () => {
+        setShowLoginModal(false);
+        resetLoginModalState();
+    };
 
     /**
      * 按当前语言格式化日期
@@ -143,7 +166,7 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
         if (user) {
             logout();
         } else {
-            setShowLoginModal(true);
+            openLoginModal();
         }
     };
 
@@ -154,8 +177,76 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
             name: t(`title.roles.${role}`),
             role,
         });
-        setShowLoginModal(false);
+        closeLoginModal();
     };
+
+    const handleRoleSelect = (role: QuickLoginRole) => {
+        if (role === "operator") {
+            handleQuickLogin(role);
+            return;
+        }
+
+        setPendingRole(role);
+        setPassword("");
+        setPasswordError(null);
+    };
+
+    const handlePasswordSubmit = async () => {
+        if (pendingRole !== "engineer" && pendingRole !== "admin") return;
+
+        setVerifyingPassword(true);
+        setPasswordError(null);
+
+        const storedCredentials = getStoredCredentials();
+        const credential = storedCredentials.find(
+            (item) => item.role === pendingRole,
+        );
+
+        if (!credential) {
+            setPasswordError(t("title.errors.missingCredentials"));
+            setVerifyingPassword(false);
+            return;
+        }
+
+        const ok = await verifyPassword(password, credential.passwordHash);
+        if (!ok) {
+            setPasswordError(t("title.errors.invalidPassword"));
+            setVerifyingPassword(false);
+            return;
+        }
+
+        setVerifyingPassword(false);
+        handleQuickLogin(pendingRole);
+    };
+
+    useEffect(() => {
+        if (!passwordError) return;
+
+        const timer = window.setTimeout(() => {
+            setPasswordError(null);
+        }, 3000);
+
+        return () => window.clearTimeout(timer);
+    }, [passwordError]);
+
+    useEffect(() => {
+        if (!showLoginModal) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== "Escape") return;
+            e.preventDefault();
+            closeLoginModal();
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [showLoginModal]);
+
+    useEffect(() => {
+        if (!showLoginModal) return;
+        if (pendingRole !== "engineer" && pendingRole !== "admin") return;
+        passwordInputRef.current?.focus();
+    }, [showLoginModal, pendingRole]);
 
     const handleToggleFullscreen = async () => {
         try {
@@ -356,7 +447,7 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
             {showLoginModal && (
                 <div
                     className={styles.modalOverlay}
-                    onClick={() => setShowLoginModal(false)}
+                    onClick={closeLoginModal}
                 >
                     <div
                         className={styles.loginModal}
@@ -373,9 +464,8 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
                                     icon={option.icon}
                                     iconWrapperAs="span"
                                     iconWrapperClassName={styles.optionIcon}
-                                    onClick={() =>
-                                        handleQuickLogin(option.role)
-                                    }
+                                    disabled={verifyingPassword}
+                                    onClick={() => handleRoleSelect(option.role)}
                                 >
                                     <span>
                                         {t(`title.roles.${option.role}`)}
@@ -383,9 +473,50 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
                                 </ActionButton>
                             ))}
                         </div>
+                        {(pendingRole === "engineer" ||
+                            pendingRole === "admin") && (
+                            <form
+                                className={styles.passwordContainer}
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    void handlePasswordSubmit();
+                                }}
+                            >
+                                <input
+                                    ref={passwordInputRef}
+                                    className={styles.passwordInput}
+                                    type="password"
+                                    value={password}
+                                    placeholder={t("title.passwordPlaceholder")}
+                                    aria-label={t("title.passwordPlaceholder")}
+                                    disabled={verifyingPassword}
+                                    onChange={(e) => {
+                                        setPassword(e.target.value);
+                                        if (passwordError)
+                                            setPasswordError(null);
+                                    }}
+                                />
+                                {passwordError && (
+                                    <div className={styles.errorMessage}>
+                                        {passwordError}
+                                    </div>
+                                )}
+                                <button
+                                    className={styles.submitButton}
+                                    type="submit"
+                                    disabled={
+                                        verifyingPassword ||
+                                        password.trim().length === 0
+                                    }
+                                >
+                                    {t("common.ok")}
+                                </button>
+                            </form>
+                        )}
                         <button
                             className={styles.cancelButton}
-                            onClick={() => setShowLoginModal(false)}
+                            onClick={closeLoginModal}
+                            disabled={verifyingPassword}
                         >
                             {t("common.cancel")}
                         </button>
