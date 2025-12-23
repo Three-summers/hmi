@@ -1,23 +1,33 @@
+/**
+ * 状态指示器组件
+ *
+ * 遵循 SEMI E95 色彩语义标准，用于显示设备/流程状态。
+ *
+ * @module StatusIndicator
+ */
+
 import type { HighlightStatus } from "@/types";
 import styles from "./StatusIndicator.module.css";
 
 type ExtendedStatus = HighlightStatus | "idle";
 
 interface StatusIndicatorProps {
-    /** Status type per SEMI E95 color semantics */
+    /** 状态类型（遵循 SEMI E95 色彩语义） */
     status: ExtendedStatus;
-    /** Label text */
+    /** 状态标签文本 */
     label?: string;
-    /** Show pulsing animation for active states */
+    /** 是否显示脉冲动画（用于激活状态） */
     animate?: boolean;
 }
 
 /**
- * Status indicator component following SEMI E95 color semantics
- * - Alarm (Red): Critical alerts
- * - Warning (Yellow): Warnings
- * - Processing (Blue): In progress / incomplete
- * - Attention (Green): Needs user attention
+ * 状态指示器组件（遵循 SEMI E95 色彩语义）
+ *
+ * - Alarm（红色）：严重告警
+ * - Warning（黄色）：警告
+ * - Processing（蓝色）：处理中 / 未完成
+ * - Attention（绿色）：需要用户关注
+ * - Idle（灰色）：空闲/未激活
  */
 export function StatusIndicator({ status, label }: StatusIndicatorProps) {
     return (

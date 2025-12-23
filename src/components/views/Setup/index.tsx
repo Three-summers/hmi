@@ -1,3 +1,17 @@
+/**
+ * 设置视图 - 系统配置与偏好设置
+ *
+ * 提供系统配置、通信设置、用户偏好等功能。
+ * 核心特性：
+ * - 语言切换：支持中文/英文
+ * - 主题切换：深色/浅色/高对比度
+ * - 布局偏好：命令面板位置（左/右）
+ * - 通信设置：串口/网络连接配置
+ * - 日志查看：系统日志和事件记录
+ *
+ * @module Setup
+ */
+
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";

@@ -1,3 +1,19 @@
+/**
+ * 频谱图组件（基于 uPlot）
+ *
+ * 使用 uPlot 库绘制高性能的频谱图，支持实时数据更新。
+ * 核心特性：
+ * - 实时曲线：当前频谱幅度曲线
+ * - Max Hold 曲线：峰值保持（可选）
+ * - Average 曲线：平均值（可选）
+ * - 阈值线：可配置阈值线
+ * - Marker 功能：鼠标悬停显示频率和幅度
+ * - 数据过滤：仅保留 0-10kHz 频段
+ * - 主题适配：根据用户设置应用深色/浅色主题
+ *
+ * @module SpectrumChart
+ */
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import uPlot from "uplot";
@@ -56,7 +72,7 @@ function buildRenderedData(
         // 仅保留 0-10kHz 的频段，避免越界数据影响显示
         if (freqHz < 0 || freqHz > 10_000) continue;
         filteredFrequenciesHz.push(freqHz);
-        filteredAmplitudesDbm.push(ampDbm);
+        filteredAmplitudesDbm.push(ampDbm)
 
         const maxHoldValue = maxHoldDbm[i];
         filteredMaxHoldDbm.push(

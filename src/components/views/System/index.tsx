@@ -1,3 +1,17 @@
+/**
+ * 系统视图 - 系统状态与子系统管理
+ *
+ * 提供系统状态监控、子系统管理、诊断信息等功能。
+ * 核心特性：
+ * - 系统概览：显示整体系统状态
+ * - 子系统列表：显示各子系统（真空、气体、RF、加热等）状态
+ * - 状态监控：实时监控子系统参数和状态
+ * - 诊断信息：系统错误和警告信息
+ * - 子系统控制：启动、停止、重置子系统
+ *
+ * @module System
+ */
+
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs, StatusIndicator, Button } from "@/components/common";

@@ -1,6 +1,16 @@
+/**
+ * 全局通知 Toast 组件
+ *
+ * 负责在页面右上角显示通知消息（成功/错误/警告/信息），
+ * 消息来源于 notificationStore，支持手动关闭和自动过期。
+ *
+ * @module NotificationToast
+ */
+
 import { useNotificationStore } from "@/stores";
 import styles from "./NotificationToast.module.css";
 
+/** 通知图标映射：根据消息类型显示对应的图标 */
 const icons: Record<string, JSX.Element> = {
     success: (
         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -24,22 +34,31 @@ const icons: Record<string, JSX.Element> = {
     ),
 };
 
+/**
+ * 全局通知 Toast
+ *
+ * @returns Toast 容器 JSX（无消息时返回 null）
+ */
 export function NotificationToast() {
     const { notifications, removeNotification } = useNotificationStore();
 
+    // 无消息时不渲染
     if (notifications.length === 0) return null;
 
     return (
         <div className={styles.container}>
+            {/* 遍历所有通知并渲染为 Toast 卡片 */}
             {notifications.map((notification) => (
                 <div
                     key={notification.id}
                     className={styles.toast}
                     data-type={notification.type}
                 >
+                    {/* 图标区域：根据消息类型显示不同颜色 */}
                     <div className={styles.icon} data-type={notification.type}>
                         {icons[notification.type]}
                     </div>
+                    {/* 内容区域：标题 + 可选消息 */}
                     <div className={styles.content}>
                         <h4 className={styles.title}>{notification.title}</h4>
                         {notification.message && (
@@ -48,6 +67,7 @@ export function NotificationToast() {
                             </p>
                         )}
                     </div>
+                    {/* 关闭按钮 */}
                     <button
                         className={styles.closeBtn}
                         onClick={() => removeNotification(notification.id)}

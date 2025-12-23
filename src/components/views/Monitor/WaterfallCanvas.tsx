@@ -1,3 +1,19 @@
+/**
+ * 瀑布图组件（Canvas 实现）
+ *
+ * 使用 Canvas 绘制瀑布图（Waterfall），展示频谱随时间的变化。
+ * 核心特性：
+ * - 实时绘制：每帧将新数据添加到顶部，历史数据向下滚动
+ * - 颜色映射：根据幅度值映射为颜色（colormap）
+ * - 颜色条图例：右侧显示颜色条和 dB 刻度
+ * - 时间刻度：左侧显示相对时间标签
+ * - 历史深度：可配置保留多少行历史数据
+ * - 阈值线：可配置阈值线标记
+ * - 性能优化：ImageData 像素操作、DPR 适配、尺寸缓存
+ *
+ * @module WaterfallCanvas
+ */
+
 import { useCallback, useEffect, useRef } from "react";
 import type { RGBA } from "@/utils/colormap";
 import { amplitudeToColor } from "@/utils/colormap";

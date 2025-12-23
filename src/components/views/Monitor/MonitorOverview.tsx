@@ -3,8 +3,10 @@ import { StatusIndicator } from "@/components/common";
 import sharedStyles from "../shared.module.css";
 import monitorStyles from "./Monitor.module.css";
 
+/** 频谱状态（用于 UI 显示） */
 type SpectrumStatus = "unavailable" | "loading" | "ready" | "error";
 
+/** 频谱统计信息 */
 interface SpectrumStats {
     peak_frequency: number;
     peak_amplitude: number;
@@ -12,25 +14,40 @@ interface SpectrumStats {
     bandwidth: number;
 }
 
+/** 监控概览组件属性 */
 export interface MonitorOverviewProps {
+    /** 频谱统计数据 */
     stats: SpectrumStats;
+    /** 显示模式（柱状图/填充/线条） */
     displayMode: "bars" | "fill" | "line";
+    /** 切换显示模式回调 */
     onChangeDisplayMode: (mode: "bars" | "fill" | "line") => void;
+    /** 是否暂停 */
     isPaused: boolean;
+    /** 切换暂停回调 */
     onTogglePaused: () => void;
+    /** 清空数据回调 */
     onClearData: () => void;
+    /** 频谱状态 */
     spectrumStatus: SpectrumStatus;
+    /** 频谱错误信息 */
     spectrumError: string | null;
+    /** 重试回调 */
     onRetrySpectrum: () => void;
+    /** Canvas 容器引用 */
     containerRef: React.RefObject<HTMLDivElement>;
+    /** Canvas 元素引用 */
     canvasRef: React.RefObject<HTMLCanvasElement>;
 }
 
 /**
  * Monitor 概览子页（拆分自 Monitor/index.tsx）
  *
- * 说明：
+ * 设计说明：
  * - 保留所有状态与副作用在父组件，仅在此处负责渲染与触发回调，降低拆分回归风险
+ * - 展示三个统计卡片：峰值频率、峰值幅度、带宽
+ * - 实时频谱图（Canvas 绘制，由父组件控制）
+ * - 控制面板：显示模式切换、暂停/恢复、清空数据
  */
 export function MonitorOverview({
     stats,
@@ -47,6 +64,7 @@ export function MonitorOverview({
 }: MonitorOverviewProps) {
     const { t } = useTranslation();
 
+    // 格式化频率显示（Hz -> kHz）
     const formatFrequency = (freq: number) => {
         if (freq >= 1000) {
             return `${(freq / 1000).toFixed(2)} kHz`;

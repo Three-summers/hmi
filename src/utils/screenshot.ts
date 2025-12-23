@@ -1,7 +1,32 @@
+/**
+ * 频谱分析仪截图工具
+ *
+ * 提供将频谱图和瀑布图合成为一张图片并下载的功能。
+ * 核心特性：
+ * - Canvas 合成：将两个 Canvas（频谱图 + 瀑布图）垂直堆叠为一张图片
+ * - 高清适配：使用 Canvas backing store 尺寸，避免截图模糊
+ * - 自动居中：宽度不一致时居中放置，保持美观
+ * - 文件命名：自动生成带时间戳的文件名（spectrum-YYYY-MM-DD-HH-mm-ss.png）
+ *
+ * @module Screenshot
+ */
+
+/**
+ * 补齐两位数字（时间格式化辅助函数）
+ *
+ * @param value - 数字值
+ * @returns 补齐后的字符串（如 1 -> "01"）
+ */
 function pad2(value: number): string {
     return value.toString().padStart(2, "0");
 }
 
+/**
+ * 构建时间戳字符串（YYYY-MM-DD-HH-mm-ss 格式）
+ *
+ * @param now - 日期对象
+ * @returns 格式化后的时间戳字符串
+ */
 function buildTimestamp(now: Date): string {
     const year = now.getFullYear();
     const month = pad2(now.getMonth() + 1);
@@ -12,6 +37,12 @@ function buildTimestamp(now: Date): string {
     return `${year}-${month}-${day}-${hours}-${minutes}-${seconds}`;
 }
 
+/**
+ * 触发 PNG 图片下载（通过临时 <a> 元素）
+ *
+ * @param dataUrl - Data URL（base64 编码的 PNG 图片）
+ * @param filename - 下载文件名
+ */
 function downloadPng(dataUrl: string, filename: string): void {
     const link = document.createElement("a");
     link.href = dataUrl;
@@ -23,6 +54,19 @@ function downloadPng(dataUrl: string, filename: string): void {
     link.remove();
 }
 
+/**
+ * 捕获频谱分析仪截图（频谱图 + 瀑布图合成）
+ *
+ * 合成流程：
+ * 1. 创建合成 Canvas，尺寸为两图表的最大宽度和高度之和
+ * 2. 填充深色背景（与应用主题一致）
+ * 3. 将频谱图和瀑布图垂直堆叠（宽度不一致时居中放置）
+ * 4. 转为 PNG Data URL
+ * 5. 触发下载，文件名带时间戳
+ *
+ * @param chartCanvas - 频谱图 Canvas 元素（uPlot 生成）
+ * @param waterfallCanvas - 瀑布图 Canvas 元素（自定义绘制）
+ */
 export async function captureSpectrumAnalyzer(
     chartCanvas: HTMLCanvasElement,
     waterfallCanvas: HTMLCanvasElement,

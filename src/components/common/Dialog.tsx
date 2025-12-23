@@ -1,3 +1,11 @@
+/**
+ * SEMI E95 对话框组件
+ *
+ * 提供符合工业 HMI 标准的对话框交互，支持信息展示、输入、消息确认等场景。
+ *
+ * @module Dialog
+ */
+
 import { useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import type { DialogType, MessageIconType, DialogButtons } from "@/types";

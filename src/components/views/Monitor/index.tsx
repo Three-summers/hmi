@@ -1,3 +1,16 @@
+/**
+ * 监控视图 - 频谱监测与分析
+ *
+ * 提供实时频谱监测、频谱分析仪、瀑布图等功能。
+ * 核心特性：
+ * - Canvas 实时绘制频谱图（支持柱状图、填充、线条三种模式）
+ * - 性能优化：ResizeObserver 尺寸缓存、渐变缓存、绘制频率控制
+ * - Tauri 事件监听：订阅后端传感器数据
+ * - 视图激活控制：后台时停止绘制以节省资源
+ *
+ * @module Monitor
+ */
+
 import {
     useEffect,
     useRef,
@@ -22,17 +35,26 @@ import { MonitorInfo } from "./MonitorInfo";
 import { MonitorOverview } from "./MonitorOverview";
 import styles from "../shared.module.css";
 
+// 懒加载频谱分析仪组件（包含 uPlot 库，避免影响主页面加载）
 const SpectrumAnalyzer = lazy(() => import("./SpectrumAnalyzer"));
 
+/** 频谱数据（后端事件推送） */
 interface SpectrumData {
+    /** 数据时间戳（毫秒） */
     timestamp: number;
+    /** 频率数组（Hz） */
     frequencies: number[];
+    /** 幅度数组（dBm） */
     amplitudes: number[];
+    /** 峰值频率（Hz） */
     peak_frequency: number;
+    /** 峰值幅度（dBm） */
     peak_amplitude: number;
+    /** 平均幅度（dBm） */
     average_amplitude: number;
 }
 
+/** 频谱统计信息（用于展示） */
 interface SpectrumStats {
     peak_frequency: number;
     peak_amplitude: number;
@@ -59,11 +81,21 @@ const SPECTRUM_COLORS = {
     background: "rgba(8, 15, 30, 0.98)",
 };
 
+/**
+ * 监控视图主组件
+ *
+ * 架构说明：
+ * - 使用 Tabs 组件切换三个子页：概览（Overview）、说明（Info）、频谱分析仪（SpectrumAnalyzer）
+ * - 概览页：实时绘制频谱图（Canvas）+ 统计卡片
+ * - 频谱分析仪：基于 uPlot 的专业频谱分析工具
+ * - 性能优化：视图激活判断、尺寸缓存、渐变缓存、绘制频率控制（~30 FPS）
+ */
 export default function MonitorView() {
     const { t } = useTranslation();
     const isViewActive = useIsViewActive();
     const { success, warning, info } = useNotify();
 
+    // 视图命令配置（刷新、暂停、导出）
     const commands = useMemo<CommandButtonConfig[]>(
         () => [
             {
@@ -99,47 +131,53 @@ export default function MonitorView() {
 
     useRegisterViewCommands("monitor", commands, isViewActive);
 
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const animationRef = useRef<number>(0);
-    const isViewActiveRef = useRef(true);
-    const spectrumDataRef = useRef<SpectrumData | null>(null);
-    const prevAmplitudesRef = useRef<number[]>([]);
+    // Ref 引用：用于 Canvas 绘制和状态维护
+    const canvasRef = useRef<HTMLCanvasElement>(null); // Canvas 元素
+    const containerRef = useRef<HTMLDivElement>(null); // Canvas 容器（用于尺寸监听）
+    const animationRef = useRef<number>(0); // requestAnimationFrame 句柄（0 表示未启动）
+    const isViewActiveRef = useRef(true); // 视图激活状态（同步至 Ref，避免动画回调闭包陈旧）
+    const spectrumDataRef = useRef<SpectrumData | null>(null); // 最新频谱数据（避免每次都触发重渲染）
+    const prevAmplitudesRef = useRef<number[]>([]); // 上一帧幅度（用于平滑动画）
     const canvasSizeRef = useRef<{
         width: number;
         height: number;
         dpr: number;
-    } | null>(null);
+    } | null>(null); // 缓存的 Canvas 尺寸（避免每帧读取 DOM）
     const gradientCacheRef = useRef<{
         key: string;
         gradient: CanvasGradient;
-    } | null>(null);
-    const lastDrawAtRef = useRef<number>(0);
-    const hasReceivedDataRef = useRef(false);
+    } | null>(null); // 渐变缓存（按尺寸 key 缓存，避免每帧重建）
+    const lastDrawAtRef = useRef<number>(0); // 上次绘制时间（用于控制帧率）
+    const hasReceivedDataRef = useRef(false); // 是否已接收到首帧数据（用于状态切换）
 
+    // 频谱状态管理
     type SpectrumStatus = "unavailable" | "loading" | "ready" | "error";
     const [spectrumStatus, setSpectrumStatus] =
-        useState<SpectrumStatus>("loading");
-    const [spectrumError, setSpectrumError] = useState<string | null>(null);
-    const [retryToken, setRetryToken] = useState(0);
+        useState<SpectrumStatus>("loading"); // 频谱状态（不可用/加载中/就绪/错误）
+    const [spectrumError, setSpectrumError] = useState<string | null>(null); // 错误信息
+    const [retryToken, setRetryToken] = useState(0); // 重试令牌（递增以触发重新订阅）
 
-    const [isPaused, setIsPaused] = useState(false);
+    // UI 控制状态
+    const [isPaused, setIsPaused] = useState(false); // 是否暂停绘制
     const [displayMode, setDisplayMode] = useState<"bars" | "fill" | "line">(
         "fill",
-    );
+    ); // 显示模式（柱状图/填充/线条）
     const [activeTab, setActiveTab] = useState<
         "overview" | "info" | "spectrum-analyzer"
-    >("overview");
+    >("overview"); // 当前激活的子页
     const [stats, setStats] = useState<SpectrumStats>({
         peak_frequency: 0,
         peak_amplitude: -90,
         average_amplitude: -90,
         bandwidth: 0,
-    });
+    }); // 频谱统计信息
 
+    // 视图激活状态判断：仅在监控页可见且当前子页为概览时绘制频谱图
     const isSpectrumActive = isViewActive && activeTab === "overview";
     const isSpectrumAnalyzerTabActive =
         isViewActive && activeTab === "spectrum-analyzer";
+
+    // 频谱分析仪状态（从全局 Store 获取）
 
     const spectrumAnalyzerPaused = useSpectrumAnalyzerStore((s) => s.isPaused);
     const spectrumAnalyzerShowMaxHold = useSpectrumAnalyzerStore(
@@ -231,6 +269,7 @@ export default function MonitorView() {
             let lowFreq = frequencies[0];
             let highFreq = frequencies[frequencies.length - 1];
 
+            // 从左侧找到第一个 >= 阈值的频率
             for (let i = 0; i < amplitudes.length; i++) {
                 if (amplitudes[i] >= threshold) {
                     lowFreq = frequencies[i];
@@ -238,6 +277,7 @@ export default function MonitorView() {
                 }
             }
 
+            // 从右侧找到最后一个 >= 阈值的频率
             for (let i = amplitudes.length - 1; i >= 0; i--) {
                 if (amplitudes[i] >= threshold) {
                     highFreq = frequencies[i];
@@ -250,7 +290,25 @@ export default function MonitorView() {
         [],
     );
 
-    // 绘制频谱图
+    /**
+     * 绘制频谱图（Canvas 实时绘制）
+     *
+     * 性能优化策略：
+     * - 视图激活判断：后台时不绘制，避免占用 CPU
+     * - 尺寸缓存：从 ResizeObserver 缓存的尺寸读取，避免每帧触发 layout 测量
+     * - 渐变缓存：按尺寸 key 缓存渐变对象，避免每帧重建
+     * - 绘制频率控制：约 30 FPS（33ms 间隔），避免满速重绘
+     * - 平滑动画：复用同一缓冲数组进行增量更新，避免每帧分配内存
+     * - setTransform：替代 scale，避免累积变换与重复缩放风险
+     *
+     * 绘制流程：
+     * 1. 视图激活判断 -> 跳过或继续
+     * 2. 获取 Canvas 上下文和尺寸
+     * 3. DPR 处理（高清屏适配）
+     * 4. 绘制频率控制（30 FPS）
+     * 5. 清空画布 -> 绘制网格 -> 绘制坐标轴 -> 绘制频谱 -> 标记峰值
+     * 6. 调度下一帧（requestAnimationFrame）
+     */
     const drawSpectrum = useCallback(() => {
         // 视图在后台时不重绘，避免占用 CPU；状态仍然保留在内存中
         if (!isViewActiveRef.current) return;
@@ -606,7 +664,14 @@ export default function MonitorView() {
         scheduleNextFrame();
     }, [displayMode, isPaused, t]);
 
-    // 仅在容器尺寸变化时调整 Canvas backing store，避免每帧重复 resize 导致性能抖动
+    /**
+     * 监听容器尺寸变化，更新 Canvas backing store
+     *
+     * 优化说明：
+     * - 仅在容器尺寸真正变化时调整 Canvas，避免每帧重复 resize 导致性能抖动
+     * - 视图缓存 + 标签页模式下，隐藏面板可能为 0 尺寸；此时不把画布缩放到 0，避免切回显示空白
+     * - 使用 ResizeObserver 替代 resize 事件监听，更高效且支持容器级监听
+     */
     useEffect(() => {
         if (spectrumStatus !== "ready") return;
 
@@ -732,6 +797,13 @@ export default function MonitorView() {
         updateSpectrumRef.current = updateSpectrum;
     }, [updateSpectrum]);
 
+    /**
+     * 控制绘制动画循环的启动与停止
+     *
+     * 触发条件：isSpectrumActive（视图可见 + 当前子页为概览）或 spectrumStatus 变化
+     * - 激活时：启动 requestAnimationFrame 循环
+     * - 停止时：取消动画帧，释放资源
+     */
     useEffect(() => {
         const shouldDrawSpectrum =
             isSpectrumActive && spectrumStatus === "ready";
@@ -755,7 +827,19 @@ export default function MonitorView() {
         };
     }, [drawSpectrum, isSpectrumActive, spectrumStatus]);
 
-    // 仅在“监控页可见 + 当前子页为概览”时启动数据订阅，避免后台页面持续消耗资源
+    /**
+     * Tauri 事件订阅：监听后端传感器数据推送
+     *
+     * 订阅条件：仅在"监控页可见 + 当前子页为概览"时启动，避免后台页面持续消耗资源
+     * 订阅流程：
+     * 1. 检查 Tauri 环境（浏览器模式下不可用）
+     * 2. 注册 "spectrum-data" 事件监听器
+     * 3. 调用后端 start_sensor_simulation 启动数据推送
+     * 4. 清理：停止推送 + 注销监听器
+     *
+     * 错误处理：捕获异常并设置错误状态，支持重试
+     */
+    // 仅在"监控页可见 + 当前子页为概览"时启动数据订阅，避免后台页面持续消耗资源
     useEffect(() => {
         if (!isSpectrumActive) return;
 

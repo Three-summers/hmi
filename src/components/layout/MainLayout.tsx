@@ -35,12 +35,16 @@ import styles from "./MainLayout.module.css";
  * @returns 主布局 JSX
  */
 export function MainLayout() {
+    // 从导航 Store 获取当前视图和切换方法
+    // 使用 useShallow 避免无关字段变化导致的重渲染
     const { currentView, setCurrentView } = useNavigationStore(
         useShallow((state) => ({
             currentView: state.currentView,
             setCurrentView: state.setCurrentView,
         })),
     );
+
+    // 从应用 Store 获取命令面板位置和主题配置
     const { commandPanelPosition, theme } = useAppStore(
         useShallow((state) => ({
             commandPanelPosition: state.commandPanelPosition,
@@ -48,15 +52,20 @@ export function MainLayout() {
         })),
     );
 
+    // 安装全局键盘快捷键（如 Ctrl+K 打开命令面板）
     useKeyboardShortcuts();
+
+    // 安装前端日志桥接（可选，通过设置开关控制）
     useFrontendLogBridge();
 
+    // 初始化 Demo 告警数据（仅在首次加载且告警为空时）
     useEffect(() => {
         const seedDemoAlarmsIfEmpty = () => {
             const { alarms, addAlarm } = useAlarmStore.getState();
+            // 如果已有告警数据，跳过初始化
             if (alarms.length > 0) return;
 
-            // Demo 数据：仅在“告警历史为空”时注入一组示例告警，方便演示 UI 效果。
+            // Demo 数据：仅在"告警历史为空"时注入一组示例告警，方便演示 UI 效果。
             addAlarm({
                 severity: "alarm",
                 message: "Chamber pressure exceeds limit (>100 mTorr)",
@@ -86,6 +95,7 @@ export function MainLayout() {
             return;
         }
 
+        // 订阅 hydration 完成事件，确保在持久化数据加载完成后再初始化
         const unsubscribe = useAlarmStore.persist.onFinishHydration(() => {
             seedDemoAlarmsIfEmpty();
         });
@@ -99,25 +109,31 @@ export function MainLayout() {
     }, [theme]);
 
     return (
+        // 命令 Context 提供者：管理主视图和子视图的命令按钮状态
         <ViewCommandProvider>
             <SubViewCommandProvider>
                 <>
+                    {/* 主布局容器：通过 data-command-position 控制命令面板位置（left/right） */}
                     <div
                         className={styles.mainLayout}
                         data-command-position={commandPanelPosition}
                     >
+                        {/* 顶部标题栏：显示系统状态、消息、快捷操作 */}
                         <div className={styles.titlePanel}>
                             <TitlePanel currentView={currentView} />
                         </div>
 
+                        {/* 主视图区域：支持 Keep-Alive，切换视图时保留状态 */}
                         <div className={styles.infoPanel}>
                             <InfoPanel currentView={currentView} />
                         </div>
 
+                        {/* 命令面板：根据当前视图显示对应的命令按钮 */}
                         <div className={styles.commandPanel}>
                             <CommandPanel currentView={currentView} />
                         </div>
 
+                        {/* 底部导航栏：主视图切换 */}
                         <div className={styles.navPanel}>
                             <NavPanel
                                 currentView={currentView}
@@ -125,6 +141,8 @@ export function MainLayout() {
                             />
                         </div>
                     </div>
+
+                    {/* 全局通知 Toast：浮动在最顶层 */}
                     <NotificationToast />
                 </>
             </SubViewCommandProvider>

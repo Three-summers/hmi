@@ -1,20 +1,20 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   HMI Design System - Industrial Futurism Theme
-   Based on SEMI E95 standards with modern glass morphism aesthetics
+   HMI 设计系统 - 工业未来主义主题
+   基于 SEMI E95 标准，结合现代玻璃拟态美学
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
 :root {
     /* ─────────────────────────────────────────────────────────────────────────
-       Panel Dimensions (Responsive)
+       面板尺寸（响应式）
        ───────────────────────────────────────────────────────────────────────── */
     --title-panel-height: 80px;
     --nav-panel-height: 80px;
     --command-panel-width: 160px;
 
     /* ─────────────────────────────────────────────────────────────────────────
-       Spacing Scale (4px base)
+       间距比例（基于 4px）
        ───────────────────────────────────────────────────────────────────────── */
     --sp-xs: 4px;
     --sp-sm: 8px;
@@ -23,18 +23,18 @@
     --sp-xl: 32px;
 
     /* ─────────────────────────────────────────────────────────────────────────
-       SEMI E95 Status Colors - Enhanced with Glow Effects
+       SEMI E95 状态颜色 - 增强光晕效果
        ───────────────────────────────────────────────────────────────────────── */
-    --color-alarm: #ff3b3b; /* Alarm (Red) - Vibrant */
+    --color-alarm: #ff3b3b; /* 告警（红色）- 鲜艳 */
     --color-alarm-glow: rgba(255, 59, 59, 0.6);
-    --color-warning: #ffc107; /* Warning (Amber/Gold) */
+    --color-warning: #ffc107; /* 警告（琥珀/金色）*/
     --color-warning-glow: rgba(255, 193, 7, 0.5);
-    --color-processing: #0ea5e9; /* Processing (Cyan Blue) */
+    --color-processing: #0ea5e9; /* 处理中（青蓝色）*/
     --color-processing-glow: rgba(14, 165, 233, 0.5);
-    --color-attention: #22c55e; /* Ready/Attention (Green) */
+    --color-attention: #22c55e; /* 就绪/注意（绿色）*/
     --color-attention-glow: rgba(34, 197, 94, 0.5);
 
-    /* Status Highlight Shadows - Enhanced with Multi-layer Glow */
+    /* 状态高亮阴影 - 增强多层光晕效果 */
     --highlight-alarm:
         0 0 0 2px var(--color-alarm), 0 0 20px var(--color-alarm-glow),
         inset 0 0 15px rgba(255, 59, 59, 0.1);
@@ -50,7 +50,7 @@
         inset 0 0 15px rgba(34, 197, 94, 0.1);
 
     /* ─────────────────────────────────────────────────────────────────────────
-       Button Dimensions (SEMI E95 Touch Requirements)
+       按钮尺寸（SEMI E95 触摸要求）
        ───────────────────────────────────────────────────────────────────────── */
     --button-min-size: 70px;
     --button-nav-size: 47px;
@@ -59,7 +59,7 @@
     --button-radius-lg: 14px;
 
     /* ─────────────────────────────────────────────────────────────────────────
-       Surface Levels (primary / secondary / tertiary)
+       表面层级（主要 / 次要 / 三级）
        ───────────────────────────────────────────────────────────────────────── */
     --card-bg: linear-gradient(
         180deg,
@@ -70,13 +70,13 @@
     --card-radius: var(--button-radius);
     --card-padding: var(--sp-md);
 
-    /* Text on strong color backgrounds (theme-aware) */
+    /* 强调色背景上的文字（根据主题调整）*/
     --text-on-accent: #ffffff;
     --text-on-warning: #1a1a1a;
     --text-on-attention: #ffffff;
     --text-on-alarm: #ffffff;
 
-    /* Button tier backgrounds (avoid hard-coded component colors) */
+    /* 按钮层级背景（避免组件硬编码颜色）*/
     --button-primary-bg: linear-gradient(
         180deg,
         var(--accent-primary) 0%,
@@ -99,7 +99,7 @@
     --button-warning-bg-hover: var(--color-warning);
     --button-warning-border: var(--color-warning);
 
-    /* Shine overlays (used by pseudo elements) */
+    /* 光泽叠加层（用于伪元素）*/
     --shine-top-weak: linear-gradient(
         180deg,
         rgba(255, 255, 255, 0.08) 0%,
@@ -117,10 +117,10 @@
     );
 
     /* ─────────────────────────────────────────────────────────────────────────
-       DARK THEME (Default) - Deep Space Industrial
+       深色主题（默认）- 深空工业风
        ───────────────────────────────────────────────────────────────────────── */
 
-    /* Background Gradient Palette */
+    /* 背景渐变调色板 */
     --bg-primary: #0a0e1a;
     --bg-secondary: #0f1629;
     --bg-tertiary: #151d35;
@@ -128,24 +128,24 @@
     --bg-panel-header: #141e33;
     --bg-elevated: #1a2540;
 
-    /* Accent Colors */
+    /* 强调色 */
     --accent-primary: #0ea5e9;
     --accent-secondary: #6366f1;
     --accent-tertiary: #8b5cf6;
 
-    /* Text Colors */
+    /* 文字颜色 */
     --text-primary: #f0f4fc;
     --text-secondary: #94a3b8;
     --text-disabled: #475569;
     --text-accent: #38bdf8;
 
-    /* Border Colors */
+    /* 边框颜色 */
     --border-color: rgba(99, 102, 241, 0.25);
     --border-subtle: rgba(148, 163, 184, 0.1);
     --border-active: var(--accent-primary);
     --border-glow: rgba(14, 165, 233, 0.4);
 
-    /* Button Colors - Glass Morphism */
+    /* 按钮颜色 - 玻璃拟态 */
     --button-bg: rgba(30, 41, 70, 0.8);
     --button-bg-hover: rgba(45, 60, 100, 0.9);
     --button-bg-active: rgba(20, 30, 55, 0.95);
@@ -154,7 +154,7 @@
     --button-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     --button-shadow-hover: 0 8px 30px rgba(14, 165, 233, 0.25);
 
-    /* Glass Effect Overlays */
+    /* 玻璃效果叠加层 */
     --glass-bg: rgba(15, 22, 41, 0.7);
     --glass-border: rgba(255, 255, 255, 0.08);
     --glass-shine: linear-gradient(
@@ -163,13 +163,13 @@
         transparent 50%
     );
 
-    /* Overlays */
+    /* 遮罩层 */
     --overlay-weak: rgba(0, 0, 0, 0.2);
     --overlay-mid: rgba(0, 0, 0, 0.4);
     --overlay-strong: rgba(0, 0, 0, 0.6);
     --overlay-modal: rgba(5, 10, 20, 0.85);
 
-    /* Gradients */
+    /* 渐变 */
     --gradient-panel: linear-gradient(
         180deg,
         var(--bg-panel-header) 0%,
@@ -192,7 +192,7 @@
     );
 
     /* ─────────────────────────────────────────────────────────────────────────
-       Typography - Industrial Display Fonts
+       排版 - 工业显示字体
        ───────────────────────────────────────────────────────────────────────── */
     --font-display: "Orbitron", "Rajdhani", system-ui, sans-serif;
     --font-family: "Rajdhani", "Noto Sans", system-ui, sans-serif;
@@ -210,7 +210,7 @@
     --font-weight-bold: 700;
 
     /* ─────────────────────────────────────────────────────────────────────────
-       Animation & Transitions
+       动画 & 过渡
        ───────────────────────────────────────────────────────────────────────── */
     --transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -218,7 +218,7 @@
     --transition-bounce: 400ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
     /* ─────────────────────────────────────────────────────────────────────────
-       Shadows & Depth
+       阴影 & 深度
        ───────────────────────────────────────────────────────────────────────── */
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
@@ -229,10 +229,10 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DARK THEME - Explicit Override
+   深色主题 - 显式覆盖
    ═══════════════════════════════════════════════════════════════════════════ */
 [data-theme="dark"] {
-    /* Inherits all :root values - explicitly defined for clarity */
+    /* 继承所有 :root 值 - 为清晰起见显式定义 */
     --bg-primary: #0a0e1a;
     --bg-secondary: #0f1629;
     --bg-tertiary: #151d35;
@@ -241,10 +241,10 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   LIGHT THEME - Clean Industrial White
+   浅色主题 - 简洁工业白
    ═══════════════════════════════════════════════════════════════════════════ */
 [data-theme="light"] {
-    /* Background - Soft Blue-Gray Gradient */
+    /* 背景 - 柔和蓝灰渐变 */
     --bg-primary: #f1f5f9;
     --bg-secondary: #e2e8f0;
     --bg-tertiary: #cbd5e1;
@@ -252,24 +252,24 @@
     --bg-panel-header: #f8fafc;
     --bg-elevated: #ffffff;
 
-    /* Accent Colors - Deeper for contrast */
+    /* 强调色 - 加深以提升对比度 */
     --accent-primary: #0284c7;
     --accent-secondary: #4f46e5;
     --accent-tertiary: #7c3aed;
 
-    /* Text Colors - High contrast */
+    /* 文字颜色 - 高对比度 */
     --text-primary: #0f172a;
     --text-secondary: #475569;
     --text-disabled: #94a3b8;
     --text-accent: #0369a1;
 
-    /* Border Colors */
+    /* 边框颜色 */
     --border-color: rgba(71, 85, 105, 0.2);
     --border-subtle: rgba(148, 163, 184, 0.15);
     --border-active: var(--accent-primary);
     --border-glow: rgba(2, 132, 199, 0.3);
 
-    /* Button Colors - Subtle Glass */
+    /* 按钮颜色 - 微妙玻璃效果 */
     --button-bg: rgba(255, 255, 255, 0.9);
     --button-bg-hover: rgba(248, 250, 252, 1);
     --button-bg-active: rgba(226, 232, 240, 1);
@@ -278,7 +278,7 @@
     --button-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     --button-shadow-hover: 0 4px 16px rgba(2, 132, 199, 0.15);
 
-    /* Glass Effect */
+    /* 玻璃效果 */
     --glass-bg: rgba(255, 255, 255, 0.8);
     --glass-border: rgba(255, 255, 255, 0.5);
     --glass-shine: linear-gradient(
@@ -287,13 +287,13 @@
         transparent 50%
     );
 
-    /* Overlays */
+    /* 遮罩层 */
     --overlay-weak: rgba(0, 0, 0, 0.03);
     --overlay-mid: rgba(0, 0, 0, 0.06);
     --overlay-strong: rgba(0, 0, 0, 0.1);
     --overlay-modal: rgba(15, 23, 42, 0.6);
 
-    /* Gradients */
+    /* 渐变 */
     --gradient-panel: linear-gradient(
         180deg,
         var(--bg-panel) 0%,
@@ -306,14 +306,14 @@
         var(--accent-secondary) 100%
     );
 
-    /* Shadows - Softer */
+    /* 阴影 - 更柔和 */
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
     --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.15);
     --shadow-inner: inset 0 1px 2px rgba(0, 0, 0, 0.06);
 
-    /* Status Colors - Slightly adjusted for light bg */
+    /* 状态颜色 - 针对浅色背景微调 */
     --color-alarm: #dc2626;
     --color-alarm-glow: rgba(220, 38, 38, 0.4);
     --color-warning: #d97706;
@@ -323,7 +323,7 @@
     --color-attention: #16a34a;
     --color-attention-glow: rgba(22, 163, 74, 0.35);
 
-    /* Highlights - tuned for light backgrounds */
+    /* 高亮 - 针对浅色背景调整 */
     --highlight-alarm:
         0 0 0 2px var(--color-alarm), 0 0 20px var(--color-alarm-glow),
         inset 0 0 15px rgba(220, 38, 38, 0.08);
@@ -340,11 +340,11 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   HIGH CONTRAST THEME - Maximum Visibility
-   For bright environments and distance viewing
+   高对比度主题 - 最大可见性
+   适用于明亮环境和远距离查看
    ═══════════════════════════════════════════════════════════════════════════ */
 [data-theme="high-contrast"] {
-    /* Pure Black Background */
+    /* 纯黑背景 */
     --bg-primary: #000000;
     --bg-secondary: #080808;
     --bg-tertiary: #101010;
@@ -352,24 +352,24 @@
     --bg-panel-header: #0a0a0a;
     --bg-elevated: #141414;
 
-    /* Accent Colors - Maximum Brightness */
+    /* 强调色 - 最大亮度 */
     --accent-primary: #00e5ff;
     --accent-secondary: #7c4dff;
     --accent-tertiary: #e040fb;
 
-    /* Text Colors - Pure White */
+    /* 文字颜色 - 纯白 */
     --text-primary: #ffffff;
     --text-secondary: #e0e0e0;
     --text-disabled: #808080;
     --text-accent: #00e5ff;
 
-    /* Border Colors - High Visibility */
+    /* 边框颜色 - 高可见性 */
     --border-color: rgba(255, 255, 255, 0.25);
     --border-subtle: rgba(255, 255, 255, 0.1);
     --border-active: #00e5ff;
     --border-glow: rgba(0, 229, 255, 0.6);
 
-    /* Button Colors */
+    /* 按钮颜色 */
     --button-bg: rgba(20, 20, 20, 0.95);
     --button-bg-hover: rgba(35, 35, 35, 1);
     --button-bg-active: rgba(10, 10, 10, 1);
@@ -378,7 +378,7 @@
     --button-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
     --button-shadow-hover: 0 0 25px rgba(0, 229, 255, 0.4);
 
-    /* Glass Effect - Subtle on pure black */
+    /* 玻璃效果 - 纯黑上的微妙效果 */
     --glass-bg: rgba(10, 10, 10, 0.9);
     --glass-border: rgba(255, 255, 255, 0.15);
     --glass-shine: linear-gradient(
@@ -387,25 +387,25 @@
         transparent 50%
     );
 
-    /* Overlays */
+    /* 遮罩层 */
     --overlay-weak: rgba(255, 255, 255, 0.05);
     --overlay-mid: rgba(255, 255, 255, 0.08);
     --overlay-strong: rgba(255, 255, 255, 0.12);
     --overlay-modal: rgba(0, 0, 0, 0.9);
 
-    /* Gradients */
+    /* 渐变 */
     --gradient-panel: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
     --gradient-button: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
     --gradient-accent: linear-gradient(135deg, #00e5ff 0%, #7c4dff 100%);
 
-    /* Shadows - Emphasized Glow */
+    /* 阴影 - 强调光晕 */
     --shadow-sm: 0 0 8px rgba(0, 229, 255, 0.2);
     --shadow-md: 0 0 16px rgba(0, 229, 255, 0.25);
     --shadow-lg: 0 0 32px rgba(0, 229, 255, 0.3);
     --shadow-xl: 0 0 48px rgba(0, 229, 255, 0.35);
     --shadow-inner: inset 0 0 10px rgba(0, 0, 0, 0.5);
 
-    /* Status Colors - Maximum Saturation */
+    /* 状态颜色 - 最大饱和度 */
     --color-alarm: #ff1744;
     --color-alarm-glow: rgba(255, 23, 68, 0.7);
     --color-warning: #ffea00;
@@ -415,18 +415,18 @@
     --color-attention: #00e676;
     --color-attention-glow: rgba(0, 230, 118, 0.6);
 
-    /* Text on strong color backgrounds (maximize contrast) */
+    /* 强调色背景上的文字（最大化对比度）*/
     --text-on-accent: #000000;
     --text-on-warning: #000000;
     --text-on-attention: #000000;
     --text-on-alarm: #ffffff;
 
-    /* Button tier backgrounds (high contrast prefers solid fills) */
+    /* 按钮层级背景（高对比度偏好纯色填充）*/
     --button-primary-bg: var(--accent-primary);
     --button-primary-bg-hover: var(--accent-primary);
     --button-primary-bg-active: var(--accent-primary);
 
-    /* Enhanced Highlights for High Contrast */
+    /* 高对比度增强高亮 */
     --highlight-alarm:
         0 0 0 3px var(--color-alarm), 0 0 30px var(--color-alarm-glow),
         inset 0 0 20px rgba(255, 23, 68, 0.15);

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Tabs Component - Industrial Futurism Style
+   Tabs 组件 - 工业未来主义风格
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .tabs {
@@ -26,7 +26,7 @@
     background: var(--bg-panel);
 }
 
-/* Subtle bottom border for tab list */
+/* 标签列表底部细微边框 */
 .tabList::after {
     content: "";
     position: absolute;
@@ -44,7 +44,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Tab Button
+   标签按钮
    ───────────────────────────────────────────────────────────────────────── */
 
 .tab {
@@ -70,7 +70,7 @@
     overflow: hidden;
 }
 
-/* Glass shine */
+/* 玻璃高光效果 */
 .tab::before {
     content: "";
     position: absolute;
@@ -87,21 +87,21 @@
     transition: opacity var(--transition-fast);
 }
 
-/* Hover state - subtle for touch */
+/* 悬停状态 - 触屏设备上保持克制 */
 .tab:hover:not(:disabled) {
     border-color: var(--accent-primary);
     background: var(--button-bg-hover);
     color: var(--text-primary);
 }
 
-/* Disabled state */
+/* 禁用状态 */
 .tab:disabled {
     opacity: 0.5;
     cursor: not-allowed;
     background: var(--button-bg-disabled);
 }
 
-/* Active/Selected state */
+/* 激活/选中状态 */
 .tab[data-active="true"] {
     background: linear-gradient(
         180deg,
@@ -123,7 +123,7 @@
     );
 }
 
-/* Active indicator */
+/* 激活指示器 */
 .tab[data-active="true"]::after {
     content: "";
     position: absolute;
@@ -137,7 +137,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Tab with Badge/Count
+   带徽标/计数的标签
    ───────────────────────────────────────────────────────────────────────── */
 
 .tab[data-count]::before {
@@ -183,7 +183,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Tab Highlight States
+   标签高亮状态
    ───────────────────────────────────────────────────────────────────────── */
 
 .tab[data-highlight="alarm"] {
@@ -207,7 +207,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Panels Container
+   面板容器
    ───────────────────────────────────────────────────────────────────────── */
 
 .panels {
@@ -222,17 +222,17 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Tab Variants
+   标签变体
    ───────────────────────────────────────────────────────────────────────── */
 
-/* Compact tabs */
+/* 紧凑标签 */
 .tabList[data-variant="compact"] .tab {
     min-height: 36px;
     padding: 8px 14px;
     font-size: var(--font-size-xs);
 }
 
-/* Pill-style tabs */
+/* 药丸样式标签 */
 .tabList[data-variant="pills"] .tab {
     border-radius: 20px;
 }
@@ -241,7 +241,7 @@
     display: none;
 }
 
-/* Underline-style tabs */
+/* 下划线样式标签 */
 .tabList[data-variant="underline"] .tab {
     background: transparent;
     border: none;

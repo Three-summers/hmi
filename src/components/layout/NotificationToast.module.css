@@ -1,3 +1,14 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   NotificationToast - 全局通知 Toast
+   ═══════════════════════════════════════════════════════════════════════════
+   结构说明：
+   - container：右上角固定定位的 Toast 容器
+   - toast：单个通知卡片（图标 + 内容 + 关闭按钮）
+   - 根据 data-type 显示不同的边框颜色和图标颜色
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ═══ Toast 容器 ═══ */
+/* 右上角固定定位：堆叠显示多条通知 */
 .container {
     position: fixed;
     top: 60px;
@@ -7,9 +18,11 @@
     flex-direction: column;
     gap: 10px;
     max-width: 400px;
-    pointer-events: none;
+    pointer-events: none; /* 容器本身不拦截点击，只有 toast 卡片可交互 */
 }
 
+/* ═══ Toast 卡片 ═══ */
+/* 单条通知卡片：支持从右侧滑入动画 */
 .toast {
     display: flex;
     align-items: flex-start;
@@ -24,9 +37,10 @@
     border-radius: 10px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     animation: slideIn 0.3s ease-out;
-    pointer-events: auto;
+    pointer-events: auto; /* 卡片可交互 */
 }
 
+/* 滑入动画：从右侧进入 */
 @keyframes slideIn {
     from {
         opacity: 0;
@@ -38,21 +52,29 @@
     }
 }
 
+/* ═══ 消息类型样式 ═══ */
+
+/* 成功消息：绿色左边框 */
 .toast[data-type="success"] {
     border-left: 4px solid var(--color-attention);
 }
 
+/* 错误消息：红色左边框 */
 .toast[data-type="error"] {
     border-left: 4px solid var(--color-alarm);
 }
 
+/* 警告消息：黄色左边框 */
 .toast[data-type="warning"] {
     border-left: 4px solid var(--color-warning);
 }
 
+/* 信息消息：蓝色左边框 */
 .toast[data-type="info"] {
     border-left: 4px solid var(--color-processing);
 }
+
+/* ═══ 图标区域 ═══ */
 
 .icon {
     width: 24px;
@@ -65,25 +87,31 @@
     height: 100%;
 }
 
+/* 成功图标：绿色 */
 .icon[data-type="success"] {
     color: var(--color-attention);
 }
 
+/* 错误图标：红色 */
 .icon[data-type="error"] {
     color: var(--color-alarm);
 }
 
+/* 警告图标：黄色 */
 .icon[data-type="warning"] {
     color: var(--color-warning);
 }
 
+/* 信息图标：蓝色 */
 .icon[data-type="info"] {
     color: var(--color-processing);
 }
 
+/* ═══ 内容区域 ═══ */
+
 .content {
     flex: 1;
-    min-width: 0;
+    min-width: 0; /* 允许文本截断 */
 }
 
 .title {
@@ -99,6 +127,8 @@
     margin: 0;
     line-height: 1.4;
 }
+
+/* ═══ 关闭按钮 ═══ */
 
 .closeBtn {
     width: 20px;

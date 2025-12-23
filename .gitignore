@@ -4,6 +4,7 @@ node_modules/
 # Build outputs
 dist/
 src-tauri/target/
+docs/raspberry-pi-deploy/output/
 
 # IDE
 .vscode/

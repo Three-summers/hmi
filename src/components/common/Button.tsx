@@ -1,3 +1,11 @@
+/**
+ * SEMI E95 标准按钮组件
+ *
+ * 提供符合工业 HMI 标准的按钮交互，支持瞬时/保持两种行为模式。
+ *
+ * @module Button
+ */
+
 import { useState, useCallback, type ButtonHTMLAttributes } from "react";
 import type { ButtonBehavior, HighlightStatus } from "@/types";
 import styles from "./Button.module.css";
@@ -53,12 +61,16 @@ export function Button({
         (e: React.MouseEvent<HTMLButtonElement>) => {
             if (disabled) return;
 
+            // toggle 模式：切换按下状态
             if (behavior === "toggle") {
                 const newPressed = !isPressed;
+                // 更新内部状态（未受控时）
                 setInternalPressed(newPressed);
+                // 通知外部受控状态变化
                 onPressedChange?.(newPressed);
             }
 
+            // 触发用户定义的 onClick 回调
             onClick?.(e);
         },
         [behavior, isPressed, disabled, onClick, onPressedChange],

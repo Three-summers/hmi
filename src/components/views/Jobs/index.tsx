@@ -1,3 +1,17 @@
+/**
+ * 作业视图 - 作业管理与监控
+ *
+ * 提供作业列表、历史记录、状态监控等功能。
+ * 核心特性：
+ * - 作业列表：显示当前作业和历史作业
+ * - 作业控制：启动、暂停、停止、删除作业
+ * - 进度监控：实时显示作业进度和预计完成时间
+ * - 状态显示：空闲/运行中/已完成/错误/已暂停
+ * - Wafer 计数：显示当前批次的 Wafer 数量和完成情况
+ *
+ * @module Jobs
+ */
+
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";

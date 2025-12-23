@@ -1,3 +1,18 @@
+/**
+ * 帮助视图 - 系统帮助与文档
+ *
+ * 提供系统说明、SEMI E95 标准、快捷键、常见问题等帮助信息。
+ * 核心特性：
+ * - 关于：系统版本和基本信息
+ * - 色彩语义：SEMI E95 色彩标准说明
+ * - 快捷键：键盘快捷键列表
+ * - SEMI E95：工业 HMI 标准介绍
+ * - FAQ：常见问题解答
+ * - 技术支持：联系方式和支持信息
+ *
+ * @module Help
+ */
+
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";

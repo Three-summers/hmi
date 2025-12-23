@@ -1,3 +1,17 @@
+/**
+ * 告警视图 - 告警管理与历史记录
+ *
+ * 提供告警列表、确认操作、历史记录查看等功能。
+ * 核心特性：
+ * - 告警列表：显示未确认和已确认的告警
+ * - 批量确认：一键确认所有未确认告警
+ * - 清空已确认：清空已确认的历史告警
+ * - 告警统计：显示告警/警告数量和优先级
+ * - SEMI E95 色彩语义：Alarm（红色）、Warning（黄色）
+ *
+ * @module Alarms
+ */
+
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";

@@ -1,3 +1,17 @@
+/**
+ * 配方视图 - 配方管理与编辑
+ *
+ * 提供配方列表、步骤编辑、参数配置等功能。
+ * 核心特性：
+ * - 配方列表：显示可用配方和步骤数量
+ * - 配方详情：查看配方步骤和参数
+ * - 配方操作：导入、导出、克隆、删除配方
+ * - 步骤编辑：添加、删除、修改配方步骤
+ * - 参数配置：配置工艺参数（温度、压力、时间等）
+ *
+ * @module Recipes
+ */
+
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";

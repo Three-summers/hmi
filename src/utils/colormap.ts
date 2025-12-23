@@ -1,13 +1,34 @@
+/**
+ * 频谱瀑布图配色映射工具
+ *
+ * 提供将频谱幅度值映射为颜色的功能，支持多种配色方案。
+ * 核心特性：
+ * - 多配色方案：grayscale（灰度）、jet、viridis、turbo
+ * - 阈值过滤：低于阈值的区域显示为半透明深蓝（底噪）
+ * - 归一化映射：将 dBm 幅度值归一化到 [0, 1] 后映射到颜色
+ * - 平滑渐变：使用线性插值确保颜色平滑过渡
+ *
+ * @module Colormap
+ */
+
 import type { ColorScheme } from "@/types";
 
+/** RGBA 颜色值 */
 export type RGBA = { r: number; g: number; b: number; a: number };
 
 /**
- * 频谱瀑布图配色映射
+ * 将频谱幅度值映射为 RGBA 颜色
  *
  * 约定：
  * - 输入幅度单位为 dBm，默认范围 [-100, 0]
  * - 低于阈值的区域视为底噪：返回半透明深蓝，便于与背景区分
+ *
+ * @param amp - 幅度值（dBm）
+ * @param threshold - 阈值（dBm），低于此值视为底噪
+ * @param minAmp - 最小幅度值（默认 -100 dBm）
+ * @param maxAmp - 最大幅度值（默认 0 dBm）
+ * @param scheme - 配色方案（默认 turbo）
+ * @returns RGBA 颜色对象
  */
 export function amplitudeToColor(
     amp: number,
@@ -75,6 +96,14 @@ export function amplitudeToColor(
     }
 }
 
+/**
+ * 颜色线性插值
+ *
+ * @param a - 起始颜色
+ * @param b - 目标颜色
+ * @param t - 插值系数 [0, 1]
+ * @returns 插值后的颜色
+ */
 function lerp(a: RGBA, b: RGBA, t: number): RGBA {
     return {
         r: Math.round(a.r + (b.r - a.r) * t),
@@ -84,6 +113,13 @@ function lerp(a: RGBA, b: RGBA, t: number): RGBA {
     };
 }
 
+/**
+ * 多段颜色插值（根据 stops 定义的颜色节点进行插值）
+ *
+ * @param stops - 颜色节点数组，每个节点包含位置 t 和颜色
+ * @param value - 插值目标值 [0, 1]
+ * @returns 插值后的颜色
+ */
 function lerpStops(
     stops: Array<{ t: number; color: RGBA }>,
     value: number,

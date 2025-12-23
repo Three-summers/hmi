@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Dialog Component - Industrial Modal Style
+   Dialog 组件 - 工业模态框风格
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .overlay {
@@ -39,7 +39,7 @@
     position: relative;
 }
 
-/* Decorative top edge */
+/* 装饰性顶部边缘 */
 .dialog::before {
     content: "";
     position: absolute;
@@ -51,7 +51,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Dialog Title Bar
+   对话框标题栏
    ───────────────────────────────────────────────────────────────────────── */
 
 .titleBar {
@@ -94,7 +94,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Dialog Content Area
+   对话框内容区
    ───────────────────────────────────────────────────────────────────────── */
 
 .content {
@@ -103,7 +103,7 @@
     overflow: auto;
 }
 
-/* Message Dialog Layout */
+/* 消息对话框布局 */
 .messageContent {
     display: flex;
     align-items: flex-start;
@@ -157,7 +157,7 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Dialog Button Area
+   对话框按钮区
    ───────────────────────────────────────────────────────────────────────── */
 
 .buttonArea {
@@ -170,7 +170,7 @@
     border-top: 1px solid var(--border-color);
 }
 
-/* Per SEMI E95: Primary buttons centered, auxiliary right-aligned */
+/* 按 SEMI E95 标准：主按钮居中，辅助按钮右对齐 */
 .primaryButtons {
     display: flex;
     gap: 14px;
@@ -205,7 +205,7 @@
     overflow: hidden;
 }
 
-/* Glass shine */
+/* 玻璃高光效果 */
 .dialogButton::before {
     content: "";
     position: absolute;
@@ -237,7 +237,7 @@
     cursor: not-allowed;
 }
 
-/* Primary button variant */
+/* 主按钮变体 */
 .dialogButton[data-primary="true"] {
     background: linear-gradient(
         180deg,
@@ -260,7 +260,7 @@
     background: #0284c7;
 }
 
-/* Danger button variant */
+/* 危险按钮变体 */
 .dialogButton[data-variant="danger"] {
     background: linear-gradient(180deg, var(--color-alarm) 0%, #dc2626 100%);
     color: white;

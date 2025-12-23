@@ -1,3 +1,17 @@
+/**
+ * 频谱分析仪组件
+ *
+ * 提供专业的频谱分析功能，基于 uPlot 绘制实时频谱图和瀑布图。
+ * 核心特性：
+ * - 双图显示：频谱图（Spectrum Chart）+ 瀑布图（Waterfall）
+ * - Max Hold / Average 功能：显示峰值保持和平均值曲线
+ * - 可配置参数：阈值、历史深度、刷新率、配色方案
+ * - 截图功能：支持导出当前分析结果
+ * - 性能优化：刷新率控制、数据节流、视图激活判断
+ *
+ * @module SpectrumAnalyzer
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { listen } from "@tauri-apps/api/event";
