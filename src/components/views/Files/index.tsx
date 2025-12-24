@@ -25,6 +25,7 @@ import { useTranslation } from "react-i18next";
 import { readTextFile, readDir } from "@tauri-apps/plugin-fs";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
+import { useAppStore } from "@/stores";
 import { Tabs, StatusIndicator } from "@/components/common";
 import type { CommandButtonConfig } from "@/types";
 import { useIsViewActive } from "@/components/layout/ViewContext";
@@ -32,7 +33,8 @@ import { useRegisterViewCommands } from "@/components/layout/ViewCommandContext"
 import { isTauri } from "@/platform/tauri";
 import { invoke } from "@/platform/invoke";
 import { FILES_CONFIG } from "@/constants";
-import { useNotify } from "@/hooks";
+import { useCanvasScale, useNotify } from "@/hooks";
+import { readCssVar, withAlpha } from "@/utils";
 import styles from "../shared.module.css";
 import filesStyles from "./Files.module.css";
 
@@ -89,10 +91,26 @@ function formatHms(seconds: number): string {
     return `${hh}:${mm}:${ss}`;
 }
 
-function xAxisValues(_u: uPlot, splits: number[]): string[] {
-    return splits.map((value) =>
-        Number.isFinite(value) ? formatHms(value) : "",
-    );
+/**
+ * X 轴刻度格式化函数（支持缩放自适应）
+ *
+ * 在界面缩放较大时，自动减少刻度密度以避免标签重叠。
+ * 通过闭包捕获 scaleFactor，根据缩放系数动态调整显示间隔。
+ */
+function createXAxisValuesFormatter(scaleFactor: number) {
+    return (_u: uPlot, splits: number[]): string[] => {
+        // 根据缩放系数计算步长：缩放越大，步长越大（显示刻度越少）
+        // scaleFactor = 1.0 → step = 1 (显示全部)
+        // scaleFactor = 1.5 → step = 2 (显示一半)
+        // scaleFactor = 2.0 → step = 3 (显示三分之一)
+        const step = Math.max(1, Math.ceil(scaleFactor));
+
+        return splits.map((value, index) => {
+            // 跳过非步长倍数的刻度（用空字符串隐藏标签）
+            if (index % step !== 0) return "";
+            return Number.isFinite(value) ? formatHms(value) : "";
+        });
+    };
 }
 
 function getXRange(xData: number[]): { min: number; max: number } | null {
@@ -170,32 +188,23 @@ function parseCsv(content: string): CsvData | null {
     return { headers, rows };
 }
 
-function getSeriesColor(index: number): string {
-    const colors = [
-        "#00d4ff",
-        "#ff6b6b",
-        "#00ff88",
-        "#ffaa00",
-        "#aa66ff",
-        "#ff66aa",
-        "#66ffaa",
-        "#ff8800",
-    ];
+const DEFAULT_CHART_COLORS = [
+    "#00d4ff",
+    "#ff6b6b",
+    "#00ff88",
+    "#ffaa00",
+    "#aa66ff",
+    "#ff66aa",
+    "#66ffaa",
+    "#ff8800",
+];
+
+function getSeriesColor(index: number, colors: string[] = DEFAULT_CHART_COLORS): string {
     return colors[(index - 1) % colors.length];
 }
 
-function getSeriesFill(index: number): string {
-    const colors: Record<string, string> = {
-        "#00d4ff": "rgba(0, 212, 255, 0.1)",
-        "#ff6b6b": "rgba(255, 107, 107, 0.1)",
-        "#00ff88": "rgba(0, 255, 136, 0.1)",
-        "#ffaa00": "rgba(255, 170, 0, 0.1)",
-        "#aa66ff": "rgba(170, 102, 255, 0.1)",
-        "#ff66aa": "rgba(255, 102, 170, 0.1)",
-        "#66ffaa": "rgba(102, 255, 170, 0.1)",
-        "#ff8800": "rgba(255, 136, 0, 0.1)",
-    };
-    return colors[getSeriesColor(index)] || "rgba(0, 212, 255, 0.1)";
+function getSeriesFill(color: string): string {
+    return withAlpha(color, 0.1, "rgba(0, 212, 255, 0.1)");
 }
 
 type VisibleTreeItem = {
@@ -267,7 +276,7 @@ const FileTreeRow = memo(function FileTreeRow({
     return (
         <div
             className={filesStyles.fileItem}
-            style={{ paddingLeft: `${12 + level * 16}px` }}
+            style={{ paddingLeft: `${0.75 + level * 1}rem` }}
             data-selected={isSelected}
             data-directory={entry.isDirectory}
             data-expanded={entry.isDirectory ? isExpanded : undefined}
@@ -379,6 +388,8 @@ export default function FilesView() {
     const { t } = useTranslation();
     const isViewActive = useIsViewActive();
     const { info } = useNotify();
+    const theme = useAppStore((s) => s.theme);
+    const scaleFactor = useCanvasScale(16);
 
     const commands = useMemo<CommandButtonConfig[]>(
         () => [
@@ -419,6 +430,7 @@ export default function FilesView() {
     const [enlargedColumn, setEnlargedColumn] = useState<number | null>(null);
     const chartRefs = useRef<Map<number, HTMLDivElement>>(new Map());
     const uplotInstances = useRef<Map<number, uPlot>>(new Map());
+    const uplotScaleFactorRef = useRef(scaleFactor);
     const plotDataCacheRef = useRef<{
         csvData: CsvData;
         xData: number[];
@@ -430,6 +442,16 @@ export default function FilesView() {
     const enlargedFullXRange = useRef<{ min: number; max: number } | null>(
         null,
     );
+    const chartColorsRef = useRef<string[]>(DEFAULT_CHART_COLORS);
+
+    useEffect(() => {
+        const computed = getComputedStyle(document.documentElement);
+        const colors: string[] = [];
+        for (let i = 1; i <= 8; i++) {
+            colors.push(readCssVar(computed, `--chart-color-${i}`, DEFAULT_CHART_COLORS[i - 1]));
+        }
+        chartColorsRef.current = colors;
+    }, [theme]);
 
     // 获取日志目录路径（由后端提供，避免前端硬编码）
     const loadLogBasePath = useCallback(async () => {
@@ -609,6 +631,17 @@ export default function FilesView() {
         // 视图缓存 + keepMounted 场景下，后台视图不做图表创建/更新，避免无意义开销
         if (!isViewActive || activeTab !== "overview") return;
 
+        const safeScaleFactor =
+            Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1;
+        const px = (value: number) => Math.round(value * safeScaleFactor);
+
+        // 根字号变化时，必须重建实例（轴尺寸/字体等配置无法可靠热更新）
+        if (uplotScaleFactorRef.current !== safeScaleFactor) {
+            uplotScaleFactorRef.current = safeScaleFactor;
+            uplotInstances.current.forEach((instance) => instance.destroy());
+            uplotInstances.current.clear();
+        }
+
         const raf = requestAnimationFrame(() => {
             const existingCache = plotDataCacheRef.current;
 
@@ -647,7 +680,7 @@ export default function FilesView() {
                 const width = container.clientWidth;
                 if (width <= 0) continue;
 
-                const height = 200;
+                const height = px(200);
 
                 let yData = cache.yByCol.get(colIndex);
                 if (!yData) {
@@ -659,6 +692,10 @@ export default function FilesView() {
 
                 const existing = uplotInstances.current.get(colIndex);
                 if (!existing) {
+                    const axisFontSize = px(11); // 11px @ 16px base（≈ 0.6875rem）
+                    const xAxisSize = px(30); // 30px @ 16px base
+                    const yAxisSize = px(50); // 50px @ 16px base
+
                     const opts: uPlot.Options = {
                         width,
                         height,
@@ -670,9 +707,9 @@ export default function FilesView() {
                             {},
                             {
                                 label: csvData.headers[colIndex],
-                                stroke: getSeriesColor(colIndex),
-                                width: 2,
-                                fill: getSeriesFill(colIndex),
+                                stroke: getSeriesColor(colIndex, chartColorsRef.current),
+                                width: 2 * safeScaleFactor,
+                                fill: getSeriesFill(getSeriesColor(colIndex, chartColorsRef.current)),
                             },
                         ],
                         axes: [
@@ -680,14 +717,16 @@ export default function FilesView() {
                                 stroke: "rgba(180, 200, 230, 0.9)",
                                 grid: { stroke: "rgba(100, 150, 200, 0.2)" },
                                 ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
-                                size: 30,
-                                values: xAxisValues,
+                                size: xAxisSize,
+                                font: `${axisFontSize}px Arial, sans-serif`,
+                                values: createXAxisValuesFormatter(safeScaleFactor),
                             },
                             {
                                 stroke: "rgba(180, 200, 230, 0.9)",
                                 grid: { stroke: "rgba(100, 150, 200, 0.2)" },
                                 ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
-                                size: 50,
+                                size: yAxisSize,
+                                font: `${axisFontSize}px Arial, sans-serif`,
                             },
                         ],
                         cursor: {
@@ -711,7 +750,7 @@ export default function FilesView() {
         });
 
         return () => cancelAnimationFrame(raf);
-    }, [activeTab, csvData, enabledColumns, isViewActive]);
+    }, [activeTab, csvData, enabledColumns, isViewActive, scaleFactor]);
 
     // 放大图表：点击小图打开弹窗，并支持“拖拽选择区域缩放”
     useEffect(() => {
@@ -742,8 +781,15 @@ export default function FilesView() {
         enlargedFullXRange.current = getXRange(xData);
 
         requestAnimationFrame(() => {
-            const width = container.clientWidth || 800;
-            const height = container.clientHeight || 520;
+            const safeScaleFactor =
+                Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1;
+            const px = (value: number) => Math.round(value * safeScaleFactor);
+            const width = container.clientWidth || px(800);
+            const height = container.clientHeight || px(520);
+
+            const axisFontSize = px(12); // 略大于小图
+            const xAxisSize = px(40); // 40px @ 16px base
+            const yAxisSize = px(60); // 60px @ 16px base
 
             const opts: uPlot.Options = {
                 width,
@@ -756,9 +802,9 @@ export default function FilesView() {
                     {},
                     {
                         label: csvData.headers[enlargedColumn],
-                        stroke: getSeriesColor(enlargedColumn),
-                        width: 2,
-                        fill: getSeriesFill(enlargedColumn),
+                        stroke: getSeriesColor(enlargedColumn, chartColorsRef.current),
+                        width: 2 * safeScaleFactor,
+                        fill: getSeriesFill(getSeriesColor(enlargedColumn, chartColorsRef.current)),
                     },
                 ],
                 axes: [
@@ -766,14 +812,16 @@ export default function FilesView() {
                         stroke: "rgba(180, 200, 230, 0.9)",
                         grid: { stroke: "rgba(100, 150, 200, 0.2)" },
                         ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
-                        size: 40,
-                        values: xAxisValues,
+                        size: xAxisSize,
+                        font: `${axisFontSize}px Arial, sans-serif`,
+                        values: createXAxisValuesFormatter(safeScaleFactor),
                     },
                     {
                         stroke: "rgba(180, 200, 230, 0.9)",
                         grid: { stroke: "rgba(100, 150, 200, 0.2)" },
                         ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
-                        size: 60,
+                        size: yAxisSize,
+                        font: `${axisFontSize}px Arial, sans-serif`,
                     },
                 ],
                 cursor: {
@@ -817,7 +865,7 @@ export default function FilesView() {
         });
 
         return cleanup;
-    }, [csvData, enlargedColumn]);
+    }, [csvData, enlargedColumn, scaleFactor]);
 
     const closeEnlargedChart = () => {
         setEnlargedColumn(null);
@@ -835,11 +883,14 @@ export default function FilesView() {
         if (!isViewActive) return;
 
         if (activeTab === "overview") {
+            const safeScaleFactor =
+                Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1;
+            const height = Math.round(200 * safeScaleFactor);
             uplotInstances.current.forEach((instance, colIndex) => {
                 const container = chartRefs.current.get(colIndex);
                 const width = container?.clientWidth ?? 0;
                 if (width <= 0) return;
-                instance.setSize({ width, height: 200 });
+                instance.setSize({ width, height });
             });
         }
 
@@ -852,7 +903,7 @@ export default function FilesView() {
                 enlarged.setSize({ width, height });
             }
         }
-    }, [activeTab, isViewActive]);
+    }, [activeTab, isViewActive, scaleFactor]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -1092,6 +1143,7 @@ export default function FilesView() {
                                                                                 getSeriesColor(
                                                                                     idx +
                                                                                         1,
+                                                                                    chartColorsRef.current
                                                                                 ),
                                                                         }}
                                                                     >
@@ -1164,6 +1216,7 @@ export default function FilesView() {
                                                                             background:
                                                                                 getSeriesColor(
                                                                                     colIndex,
+                                                                                    chartColorsRef.current
                                                                                 ),
                                                                         }}
                                                                     />

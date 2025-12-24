@@ -26,9 +26,9 @@
 }
 
 .sectionIcon {
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -38,8 +38,8 @@
 }
 
 .sectionIcon svg {
-    width: 20px;
-    height: 20px;
+    width: 1.25rem;
+    height: 1.25rem;
 }
 
 .sectionTitle {
@@ -78,7 +78,7 @@
     font-size: var(--font-size-normal-rem, var(--font-size-normal));
     cursor: pointer;
     transition: all var(--transition-fast);
-    min-width: 120px;
+    min-width: 7.5rem;
 }
 
 .optionButton:hover {
@@ -97,8 +97,8 @@
 }
 
 .optionIcon {
-    width: 24px;
-    height: 24px;
+    width: 1.5rem;
+    height: 1.5rem;
 }
 
 .optionIcon svg {
@@ -212,8 +212,8 @@
 }
 
 .connectButton svg {
-    width: 18px;
-    height: 18px;
+    width: 1.125rem;
+    height: 1.125rem;
 }
 
 /* ═══ 连接状态指示 ═══ */
@@ -228,8 +228,8 @@
 }
 
 .statusDot {
-    width: 10px;
-    height: 10px;
+    width: 0.625rem;
+    height: 0.625rem;
     border-radius: 50%;
     background: var(--color-alarm);
 }

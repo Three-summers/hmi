@@ -5,12 +5,12 @@
 .tabLabel {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.5rem;
 }
 
 .tabIcon {
-    width: 16px;
-    height: 16px;
+    width: 1rem;
+    height: 1rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -18,8 +18,8 @@
 }
 
 .tabIcon svg {
-    width: 16px;
-    height: 16px;
+    width: 1rem;
+    height: 1rem;
 }
 
 /* ═══ 主内容容器 ═══ */
@@ -31,7 +31,7 @@
     background: var(--overlay-mid);
     border-radius: 8px;
     border: 1px solid var(--border-color);
-    padding: 20px;
+    padding: 1.25rem;
     overflow: auto;
 }
 
@@ -39,17 +39,17 @@
     font-size: var(--font-size-title-rem, var(--font-size-title));
     font-weight: 600;
     color: var(--text-primary);
-    margin: 0 0 16px 0;
-    padding-bottom: 12px;
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.75rem;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 0.625rem;
 }
 
 .sectionTitle svg {
-    width: 24px;
-    height: 24px;
+    width: 1.5rem;
+    height: 1.5rem;
     color: var(--color-processing);
 }
 
@@ -59,7 +59,7 @@
 
 /* ═══ 信息卡片（系统信息） ═══ */
 .infoCard {
-    padding: 16px;
+    padding: 1rem;
     background: linear-gradient(
         180deg,
         var(--bg-secondary) 0%,
@@ -67,13 +67,13 @@
     );
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 1rem;
 }
 
 .infoRow {
     display: flex;
     justify-content: space-between;
-    padding: 8px 0;
+    padding: 0.5rem 0;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -96,21 +96,21 @@
 .colorLegend {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    gap: 0.75rem;
 }
 
 .colorItem {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px;
+    gap: 0.75rem;
+    padding: 0.75rem;
     background: var(--overlay-mid);
     border-radius: 6px;
 }
 
 .colorDot {
-    width: 24px;
-    height: 24px;
+    width: 1.5rem;
+    height: 1.5rem;
     border-radius: 50%;
     flex-shrink: 0;
 }
@@ -138,7 +138,7 @@
 .colorInfo {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 0.125rem;
 }
 
 .colorName {
@@ -156,14 +156,14 @@
 .shortcutList {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0.5rem;
 }
 
 .shortcutItem {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 14px;
+    padding: 0.625rem 0.875rem;
     background: var(--overlay-mid);
     border-radius: 6px;
 }
@@ -175,11 +175,11 @@
 
 .shortcutKey {
     display: flex;
-    gap: 6px;
+    gap: 0.375rem;
 }
 
 .key {
-    padding: 4px 10px;
+    padding: 0.25rem 0.625rem;
     background: linear-gradient(
         180deg,
         var(--button-bg) 0%,
@@ -197,11 +197,11 @@
 .faqList {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 0.75rem;
 }
 
 .faqItem {
-    padding: 14px;
+    padding: 0.875rem;
     background: linear-gradient(
         180deg,
         var(--bg-secondary) 0%,
@@ -215,10 +215,10 @@
     font-size: var(--font-size-normal-rem, var(--font-size-normal));
     font-weight: 600;
     color: var(--text-primary);
-    margin: 0 0 8px 0;
+    margin: 0 0 0.5rem 0;
     display: flex;
     align-items: flex-start;
-    gap: 8px;
+    gap: 0.5rem;
 }
 
 .faqQuestion::before {
@@ -226,8 +226,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 1.25rem;
+    height: 1.25rem;
     background: var(--color-processing);
     color: white;
     border-radius: 4px;
@@ -240,18 +240,18 @@
     font-size: 0.8125rem;
     color: var(--text-secondary);
     line-height: 1.5;
-    padding-left: 28px;
+    padding-left: 1.75rem;
 }
 
 /* ═══ 技术规格卡片 ═══ */
 .specList {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    gap: 0.75rem;
 }
 
 .specCard {
-    padding: 14px;
+    padding: 0.875rem;
     background: var(--overlay-mid);
     border-radius: 6px;
     border: 1px solid var(--border-color);
@@ -263,7 +263,7 @@
     color: var(--color-processing);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin: 0 0 6px 0;
+    margin: 0 0 0.375rem 0;
 }
 
 .specValue {
@@ -273,7 +273,7 @@
 
 /* ═══ 联系方式 / 支持入口 ═══ */
 .contactCard {
-    padding: 20px;
+    padding: 1.25rem;
     background: linear-gradient(
         135deg,
         rgba(65, 105, 225, 0.1) 0%,
@@ -285,9 +285,9 @@
 }
 
 .contactIcon {
-    width: 48px;
-    height: 48px;
-    margin: 0 auto 12px;
+    width: 3rem;
+    height: 3rem;
+    margin: 0 auto 0.75rem;
     color: var(--color-processing);
 }
 
@@ -300,7 +300,7 @@
     font-size: var(--font-size-large-rem, var(--font-size-large));
     font-weight: 600;
     color: var(--text-primary);
-    margin: 0 0 8px 0;
+    margin: 0 0 0.5rem 0;
 }
 
 .contactText {
@@ -310,7 +310,7 @@
 }
 
 /* ═══ 响应式调整 ═══ */
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .colorLegend,
     .specList {
         grid-template-columns: 1fr;

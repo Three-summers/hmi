@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { RGBA } from "@/utils/colormap";
 import { amplitudeToColor } from "@/utils/colormap";
 import type { ColorScheme } from "@/types";
+import { useCanvasScale } from "@/hooks";
 import { useAppStore } from "@/stores";
 import styles from "./WaterfallCanvas.module.css";
 
@@ -61,10 +62,11 @@ function normalizePositiveInt(value: number, fallback: number): number {
     return Math.max(1, Math.floor(value));
 }
 
-function getLegendWidth(totalWidth: number): number {
-    // 颜色条 + 刻度标签区域的“期望宽度”
-    const preferred = 80;
-    const minWaterfallWidth = 64;
+function getLegendWidth(totalWidth: number, scaleFactor: number): number {
+    const safeScaleFactor =
+        Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1;
+    const preferred = Math.round(80 * safeScaleFactor);
+    const minWaterfallWidth = Math.round(64 * safeScaleFactor);
     if (!Number.isFinite(totalWidth) || totalWidth <= 0) return preferred;
     if (totalWidth <= minWaterfallWidth) return 0;
     return Math.min(
@@ -73,9 +75,11 @@ function getLegendWidth(totalWidth: number): number {
     );
 }
 
-function getTimeScaleWidth(totalWidth: number): number {
-    const preferred = TIME_SCALE_WIDTH_PX;
-    const minWaterfallWidth = 64;
+function getTimeScaleWidth(totalWidth: number, scaleFactor: number): number {
+    const safeScaleFactor =
+        Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1;
+    const preferred = Math.round(TIME_SCALE_WIDTH_PX * safeScaleFactor);
+    const minWaterfallWidth = Math.round(64 * safeScaleFactor);
     if (!Number.isFinite(totalWidth) || totalWidth <= 0) return preferred;
     if (totalWidth <= minWaterfallWidth) return 0;
     return Math.min(
@@ -96,16 +100,25 @@ function drawColorBar(
     threshold: number,
     colorScheme: ColorScheme,
     palette: WaterfallPalette,
+    scaleFactor: number,
 ): void {
     if (legendWidth <= 0 || height <= 0) return;
 
-    const barWidth = Math.min(12, Math.max(6, Math.floor(legendWidth * 0.18)));
-    const barPaddingRight = 8;
+    const safeScaleFactor =
+        Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1;
+    const px = (value: number) => Math.round(value * safeScaleFactor);
+    const lw = (value: number) => value * safeScaleFactor;
+
+    const barWidth = Math.min(
+        px(12),
+        Math.max(px(6), Math.floor(legendWidth * 0.18)),
+    );
+    const barPaddingRight = px(8);
     const barX = Math.max(
         0,
         Math.floor(legendWidth - barWidth - barPaddingRight),
     );
-    const labelX = Math.max(0, barX - 6);
+    const labelX = Math.max(0, barX - px(6));
 
     // 颜色条背景
     ctx.fillStyle = palette.legendBg;
@@ -128,18 +141,18 @@ function drawColorBar(
 
     // 边框
     ctx.strokeStyle = palette.axis;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = lw(1);
     ctx.strokeRect(barX + 0.5, 0.5, barWidth, Math.max(0, height - 1));
 
     // 刻度与标签
     const ticks = [-100, -80, -60, -40, -20, 0];
-    ctx.font = "12px system-ui, sans-serif";
+    ctx.font = `${px(12)}px system-ui, sans-serif`;
     ctx.fillStyle = palette.text;
     ctx.textAlign = "right";
     ctx.textBaseline = "middle";
 
     ctx.strokeStyle = palette.grid;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = lw(1);
 
     for (const tick of ticks) {
         const ratio =
@@ -148,18 +161,21 @@ function drawColorBar(
 
         // 刻度线（延伸到瀑布图边界前，避免挡住图像）
         ctx.beginPath();
-        ctx.moveTo(Math.max(0, barX - 3) + 0.5, y + 0.5);
-        ctx.lineTo(Math.min(legendWidth, barX + barWidth + 3) + 0.5, y + 0.5);
+        ctx.moveTo(Math.max(0, barX - px(3)) + 0.5, y + 0.5);
+        ctx.lineTo(
+            Math.min(legendWidth, barX + barWidth + px(3)) + 0.5,
+            y + 0.5,
+        );
         ctx.stroke();
 
         ctx.fillText(`${tick}`, labelX, y);
     }
 
     // 单位提示
-    ctx.font = "11px system-ui, sans-serif";
+    ctx.font = `${px(11)}px system-ui, sans-serif`;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillText("dBm", 6, 6);
+    ctx.fillText("dBm", px(6), px(6));
 }
 
 export default function WaterfallCanvas({
@@ -170,6 +186,7 @@ export default function WaterfallCanvas({
     colorScheme = "turbo",
 }: WaterfallCanvasProps) {
     const theme = useAppStore((s) => s.theme);
+    const scaleFactor = useCanvasScale(16);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -196,6 +213,11 @@ export default function WaterfallCanvas({
 
     const pendingRowRef = useRef<number[] | null>(null);
     const rafRef = useRef<number>(0);
+    const scaleFactorRef = useRef(scaleFactor);
+
+    useEffect(() => {
+        scaleFactorRef.current = scaleFactor;
+    }, [scaleFactor]);
 
     const ensureBuffer = useCallback(
         (waterfallWidth: number, depth: number) => {
@@ -357,8 +379,16 @@ export default function WaterfallCanvas({
             ctx.fillStyle = palette.background;
             ctx.fillRect(0, 0, width, height);
 
-            const timeScaleWidth = getTimeScaleWidth(width);
-            const legendWidth = getLegendWidth(width - timeScaleWidth);
+            const safeScaleFactor =
+                Number.isFinite(scaleFactorRef.current) &&
+                scaleFactorRef.current > 0
+                    ? scaleFactorRef.current
+                    : 1;
+            const px = (value: number) => Math.round(value * safeScaleFactor);
+            const lw = (value: number) => value * safeScaleFactor;
+
+            const timeScaleWidth = getTimeScaleWidth(width, safeScaleFactor);
+            const legendWidth = getLegendWidth(width - timeScaleWidth, safeScaleFactor);
             const waterfallWidth = Math.max(
                 0,
                 width - legendWidth - timeScaleWidth,
@@ -394,7 +424,7 @@ export default function WaterfallCanvas({
             // 分隔线（颜色条与瀑布图区）
             if (legendWidth > 0 && waterfallWidth > 0) {
                 ctx.strokeStyle = palette.divider;
-                ctx.lineWidth = 1;
+                ctx.lineWidth = lw(1);
                 ctx.beginPath();
                 ctx.moveTo(legendWidth + 0.5, 0);
                 ctx.lineTo(legendWidth + 0.5, height);
@@ -405,7 +435,7 @@ export default function WaterfallCanvas({
             const timeScaleX = legendWidth + waterfallWidth;
             if (timeScaleWidth > 0 && waterfallWidth > 0) {
                 ctx.strokeStyle = palette.divider;
-                ctx.lineWidth = 1;
+                ctx.lineWidth = lw(1);
                 ctx.beginPath();
                 ctx.moveTo(timeScaleX + 0.5, 0);
                 ctx.lineTo(timeScaleX + 0.5, height);
@@ -419,6 +449,7 @@ export default function WaterfallCanvas({
                 threshold,
                 colorScheme,
                 palette,
+                safeScaleFactor,
             );
 
             if (timeScaleWidth > 0) {
@@ -428,7 +459,7 @@ export default function WaterfallCanvas({
                 const timestamps = rowTimestampRef.current;
                 const latestTs = timestamps[0] ?? 0;
                 const rowCount = Math.max(1, safeDepth);
-                const targetLabelSpacingPx = 18;
+                const targetLabelSpacingPx = px(18);
                 const minRowStep = 10;
                 const rowStepBySpacing = Math.ceil(
                     (targetLabelSpacingPx * rowCount) / Math.max(1, height),
@@ -436,13 +467,13 @@ export default function WaterfallCanvas({
                 const rowStep = Math.max(minRowStep, rowStepBySpacing);
 
                 ctx.font =
-                    '12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+                    `${px(12)}px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace`;
                 ctx.fillStyle = palette.timeText;
                 ctx.textAlign = "left";
                 ctx.textBaseline = "middle";
 
                 ctx.strokeStyle = palette.grid;
-                ctx.lineWidth = 1;
+                ctx.lineWidth = lw(1);
 
                 for (
                     let rowIndex = 0;
@@ -461,10 +492,13 @@ export default function WaterfallCanvas({
 
                     ctx.beginPath();
                     ctx.moveTo(timeScaleX + 0.5, y + 0.5);
-                    ctx.lineTo(Math.min(width, timeScaleX + 6) + 0.5, y + 0.5);
+                    ctx.lineTo(
+                        Math.min(width, timeScaleX + px(6)) + 0.5,
+                        y + 0.5,
+                    );
                     ctx.stroke();
 
-                    ctx.fillText(label, timeScaleX + 8, y);
+                    ctx.fillText(label, timeScaleX + px(8), y);
                 }
             }
         });
@@ -504,6 +538,11 @@ export default function WaterfallCanvas({
 
         scheduleDraw();
     }, [theme, scheduleDraw]);
+
+    // 根字号变化时，重绘一帧以更新字体与刻度布局（不写入新行，避免历史滚动被破坏）
+    useEffect(() => {
+        scheduleDraw();
+    }, [scaleFactor, scheduleDraw]);
 
     // 新数据到来：使用 rAF 合并绘制，避免同一帧重复写入/重绘
     useEffect(() => {

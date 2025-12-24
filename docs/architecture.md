@@ -21,7 +21,8 @@
 13. [平台抽象层](#13-平台抽象层)
 14. [国际化架构](#14-国际化架构)
 15. [主题系统](#15-主题系统)
-16. [部署架构](#16-部署架构)
+16. [响应式缩放系统](#16-响应式缩放系统)
+17. [部署架构](#17-部署架构)
 
 ---
 
@@ -272,7 +273,9 @@ hmi/
 │   │   ├── useConfirm.ts           # 确认对话框
 │   │   ├── useFrontendLogBridge.ts # 日志桥接
 │   │   ├── useKeyboardShortcuts.ts # 键盘快捷键
-│   │   └── useNotify.ts            # 通知触发
+│   │   ├── useNotify.ts            # 通知触发
+│   │   ├── useHMIScale.ts          # HMI 缩放系统（rem + 动态根字号）
+│   │   └── useCanvasScale.ts       # Canvas 缩放适配
 │   │
 │   ├── i18n/                       # 国际化
 │   │   ├── index.ts                # i18next 配置
@@ -295,8 +298,14 @@ hmi/
 │   │
 │   ├── styles/                     # 全局样式
 │   │   ├── global.css              # 全局样式
-│   │   ├── variables.css           # CSS 变量
+│   │   ├── variables.css           # CSS 变量（含 rem 变量、响应式断点）
 │   │   └── components/             # 组件样式
+│   │
+│   ├── utils/                      # 工具函数
+│   │   ├── index.ts                # 导出入口
+│   │   ├── readCssVar.ts           # 动态读取 CSS 变量
+│   │   ├── parseCssColorToRgb.ts   # 解析 CSS 颜色为 RGB
+│   │   └── withAlpha.ts            # 添加透明度到 RGB
 │   │
 │   └── types/                      # 类型定义
 │       ├── index.ts                # 导出入口
@@ -1232,11 +1241,336 @@ if (!isTauri()) {
 | | --transition-normal | 正常 (200ms) |
 | | --transition-slow | 慢速 (350ms) |
 
+### 15.3 动态颜色读取
+
+系统支持运行时读取 CSS 变量值，用于 Canvas 绘图、图表渲染等场景：
+
+```typescript
+import { readCssVar, parseCssColorToRgb, withAlpha } from '@/utils';
+
+// 读取 CSS 变量
+const accentColor = readCssVar('--accent-primary');  // "#0ea5e9"
+
+// 解析颜色为 RGB
+const [r, g, b] = parseCssColorToRgb(accentColor)!;  // [14, 165, 233]
+
+// 添加透明度
+const rgba = withAlpha([r, g, b], 0.5);  // "rgba(14, 165, 233, 0.5)"
+```
+
+**应用场景**：
+- uPlot 图表动态主题适配
+- Canvas 2D 绘图颜色同步
+- 动画渐变效果
+
 ---
 
-## 16. 部署架构
+## 16. 响应式缩放系统
 
-### 16.1 构建产物
+### 16.1 缩放架构概览
+
+HMI 采用 **rem 变量 + 动态根字号** 的统一缩放方案，确保所有组件在不同分辨率下保持一致的空间比例与视觉协调性。
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   Responsive Scaling System                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  useHMIScale Hook (全局缩放)                                     │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  监听窗口尺寸变化                                           │  │
+│  │       ▼                                                    │  │
+│  │  计算缩放因子                                               │  │
+│  │  fontSize = max(12, (currentWidth / 1280) * 16 * override)│  │
+│  │       ▼                                                    │  │
+│  │  更新 document.documentElement.style.fontSize              │  │
+│  │       ▼                                                    │  │
+│  │  所有 rem 单位自动响应                                      │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                            │                                     │
+│                            ▼                                     │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                CSS Variables (rem)                         │  │
+│  │  --sp-xs-rem: 0.25rem      (4px @ 1x)                     │  │
+│  │  --sp-sm-rem: 0.5rem       (8px @ 1x)                     │  │
+│  │  --sp-md-rem: 1rem         (16px @ 1x)                    │  │
+│  │  --button-min-size-rem: 3.75rem  (60px @ 1x)              │  │
+│  │  --font-size-normal-rem: 0.875rem (14px @ 1x)             │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                            │                                     │
+│         ┌──────────────────┼──────────────────┐                 │
+│         ▼                  ▼                  ▼                 │
+│  ┌──────────┐      ┌──────────┐      ┌──────────────┐          │
+│  │  Layout  │      │  Common  │      │    View      │          │
+│  │Components│      │Components│      │  Components  │          │
+│  │          │      │          │      │              │          │
+│  │ padding  │      │ gap      │      │ Canvas需特殊处理│        │
+│  │ margin   │      │ size     │      │              │          │
+│  │ width    │      │ radius   │      │    ▼         │          │
+│  └──────────┘      └──────────┘      └──────┬───────┘          │
+│                                              │                  │
+│                                              ▼                  │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  useCanvasScale Hook (Canvas 专用)                         │  │
+│  │  ┌─────────────────────────────────────────────────────┐  │  │
+│  │  │  监听根字号变化                                      │  │  │
+│  │  │       ▼                                             │  │  │
+│  │  │  scaleFactor = currentFontSize / 16                 │  │  │
+│  │  │       ▼                                             │  │  │
+│  │  │  所有 Canvas 绘制操作乘以 scaleFactor                │  │  │
+│  │  │  (文字、坐标、padding、lineWidth 等)                │  │  │
+│  │  └─────────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 16.2 核心 Hooks
+
+#### useHMIScale
+
+**文件**: `src/hooks/useHMIScale.ts`
+
+**功能**: 全局 HMI 缩放系统，通过动态调整根元素字号实现 rem 单位的响应式缩放。
+
+**缩放公式**:
+```typescript
+const baseFontSize = 16;  // 基准字号 (px)
+const baseWidth = 1280;   // 基准宽度 (px)
+
+fontSize = max(12, (currentWidth / baseWidth) * baseFontSize * scaleOverride)
+```
+
+**特性**:
+- 自动监听窗口 resize 事件
+- 支持手动缩放倍率 (`scaleOverride`，范围 0.75x - 2.0x)
+- 最小字号限制 12px，防止过小不可读
+- 在 `MainLayout` 中调用，全局生效
+
+**示例**:
+```typescript
+// MainLayout.tsx
+import { useHMIScale } from '@/hooks';
+
+export function MainLayout() {
+    useHMIScale();  // 启用全局缩放
+    // ...
+}
+```
+
+#### useCanvasScale
+
+**文件**: `src/hooks/useCanvasScale.ts`
+
+**功能**: 为 Canvas 2D 绘图提供缩放因子，使 Canvas 元素能够响应 `useHMIScale` 的字号变化。
+
+**计算公式**:
+```typescript
+scaleFactor = currentRootFontSize / baseFontSize
+```
+
+**监听机制**:
+- `window.resize` 事件
+- `MutationObserver` 监听 `document.documentElement` 的 `style`/`class`/`data-theme` 属性变化
+
+**使用方式**:
+```typescript
+// SpectrumChart.tsx
+import { useCanvasScale } from '@/hooks';
+
+const scaleFactor = useCanvasScale(16);
+
+// 绘制时乘以 scaleFactor
+ctx.font = `bold ${15 * scaleFactor}px system-ui`;
+ctx.fillRect(x * scaleFactor, y * scaleFactor, w * scaleFactor, h * scaleFactor);
+```
+
+### 16.3 CSS 变量体系
+
+**文件**: `src/styles/variables.css`
+
+#### 双单位变量
+
+每个尺寸变量提供 **px** 和 **-rem** 两个版本，优先使用 rem 变量：
+
+```css
+:root {
+    /* 间距 */
+    --sp-xs: 4px;
+    --sp-xs-rem: 0.25rem;   /* 优先使用 */
+
+    --sp-sm: 8px;
+    --sp-sm-rem: 0.5rem;
+
+    --sp-md: 16px;
+    --sp-md-rem: 1rem;
+
+    /* 按钮 */
+    --button-min-size: 70px;
+    --button-min-size-rem: 3.75rem;  /* 优先使用 */
+
+    /* 字号 */
+    --font-size-xs: 10px;
+    --font-size-xs-rem: 0.625rem;   /* 优先使用 */
+
+    --font-size-normal: 14px;
+    --font-size-normal-rem: 0.875rem;
+}
+```
+
+#### 面板尺寸
+
+```css
+:root {
+    --title-panel-height: 80px;
+    --title-panel-height-rem: 5rem;
+
+    --nav-panel-height: 80px;
+    --nav-panel-height-rem: 5rem;
+
+    --command-panel-width: 180px;
+    --command-panel-width-rem: 11.25rem;
+}
+```
+
+#### 响应式断点
+
+统一的断点标准（使用 px，不受缩放影响）：
+
+```css
+:root {
+    --breakpoint-sm: 600px;
+    --breakpoint-md: 900px;
+    --breakpoint-lg: 1200px;
+    --breakpoint-xl: 1600px;
+}
+```
+
+### 16.4 响应式策略
+
+#### 媒体查询
+
+全局响应式调整（`src/styles/global.css`）：
+
+```css
+@media (max-width: 1200px) {
+    :root {
+        --command-panel-width: 160px;
+    }
+}
+
+@media (max-width: 900px) {
+    :root {
+        --command-panel-width: 140px;
+        --button-min-size: 60px;
+    }
+}
+```
+
+#### 组件级适配
+
+单个组件的响应式调整（如 `Monitor.module.css`）：
+
+```css
+@media (max-width: 1200px) {
+    .monitor {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 900px) {
+    .monitor {
+        padding: var(--sp-sm-rem);
+    }
+}
+```
+
+### 16.5 最佳实践
+
+#### 1. 组件样式
+
+✅ **推荐**：使用 rem 变量 + `var()` 回退
+```css
+.button {
+    padding: var(--sp-sm-rem, var(--sp-sm));
+    font-size: var(--font-size-normal-rem, var(--font-size-normal));
+    min-height: var(--button-min-size-rem, var(--button-min-size));
+}
+```
+
+❌ **不推荐**：硬编码 px 值
+```css
+.button {
+    padding: 8px;
+    font-size: 14px;
+    min-height: 60px;
+}
+```
+
+#### 2. Canvas 绘图
+
+✅ **推荐**：使用 `useCanvasScale` Hook
+```typescript
+const scaleFactor = useCanvasScale(16);
+
+ctx.font = `${14 * scaleFactor}px sans-serif`;
+ctx.fillText(text, x * scaleFactor, y * scaleFactor);
+```
+
+❌ **不推荐**：固定 px 值
+```typescript
+ctx.font = '14px sans-serif';  // 不会响应缩放
+ctx.fillText(text, x, y);
+```
+
+#### 3. 内联样式
+
+✅ **推荐**：使用 rem 单位
+```typescript
+<div style={{ padding: 'var(--sp-md-rem, 1rem)' }}>
+```
+
+❌ **不推荐**：硬编码 px
+```typescript
+<div style={{ padding: '16px' }}>
+```
+
+### 16.6 缩放控制
+
+用户可在 **Setup → 显示设置** 中调整全局缩放倍率：
+
+```typescript
+// appStore.ts
+interface AppState {
+    scaleOverride: number;  // 0.75 ~ 2.0
+    setScaleOverride: (scale: number) => void;
+}
+
+// 使用
+const { scaleOverride, setScaleOverride } = useAppStore();
+setScaleOverride(1.5);  // 放大到 1.5x
+```
+
+**效果**：
+- 1.0x (默认)：16px 根字号，1rem = 16px
+- 1.5x：24px 根字号，1rem = 24px
+- 2.0x：32px 根字号，1rem = 32px
+
+### 16.7 故障排查
+
+| 问题 | 原因 | 解决方案 |
+|------|------|----------|
+| 组件不随缩放变化 | 使用了硬编码 px 值 | 改用 rem 变量 |
+| Canvas 绘图模糊 | 未应用 `scaleFactor` | 使用 `useCanvasScale` Hook |
+| 文字过小不可读 | 缩放倍率过小 | 检查 `scaleOverride`，最小值 0.75x |
+| 布局错位 | 混用 px 和 rem | 统一使用 rem 变量 |
+| 响应式断点失效 | 断点值使用了 rem | 断点必须使用 px |
+
+---
+
+## 17. 部署架构
+
+### 17.1 构建产物
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1272,7 +1606,7 @@ if (!isTauri()) {
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 16.2 树莓派部署
+### 17.2 树莓派部署
 
 详见 `docs/raspberry-pi-deploy/README.md`
 
@@ -1353,5 +1687,5 @@ if (!isTauri()) {
 
 ---
 
-*文档版本: 1.0.0*
-*最后更新: 2025-12*
+*文档版本: 1.1.0*
+*最后更新: 2025-12-24*

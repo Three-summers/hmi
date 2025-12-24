@@ -18,7 +18,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
+import { useCanvasScale } from "@/hooks";
 import { useAppStore } from "@/stores";
+import { readCssVar, withAlpha } from "@/utils";
 import styles from "./SpectrumChart.module.css";
 
 export interface SpectrumChartProps {
@@ -127,70 +129,10 @@ function xAxisValues(_u: uPlot, splits: number[]): string[] {
     return splits.map((value) => value.toFixed(0));
 }
 
-type RGB = { r: number; g: number; b: number };
-
-function clampByte(value: number): number {
-    if (!Number.isFinite(value)) return 0;
-    return Math.max(0, Math.min(255, Math.round(value)));
-}
-
-function parseCssColorToRgb(input: string): RGB | null {
-    const color = input.trim();
-
-    if (!color) return null;
-
-    // #rgb, #rgba, #rrggbb, #rrggbbaa
-    if (color.startsWith("#")) {
-        const hex = color.slice(1);
-        if (hex.length === 3 || hex.length === 4) {
-            const r = parseInt(hex[0] + hex[0], 16);
-            const g = parseInt(hex[1] + hex[1], 16);
-            const b = parseInt(hex[2] + hex[2], 16);
-            return { r, g, b };
-        }
-        if (hex.length === 6 || hex.length === 8) {
-            const r = parseInt(hex.slice(0, 2), 16);
-            const g = parseInt(hex.slice(2, 4), 16);
-            const b = parseInt(hex.slice(4, 6), 16);
-            return { r, g, b };
-        }
-    }
-
-    // rgb(r, g, b) / rgba(r, g, b, a)
-    const match = color.match(
-        /^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+)\s*)?\)$/i,
-    );
-    if (match) {
-        const r = clampByte(Number(match[1]));
-        const g = clampByte(Number(match[2]));
-        const b = clampByte(Number(match[3]));
-        return { r, g, b };
-    }
-
-    return null;
-}
-
-function withAlpha(color: string, alpha: number, fallback: string): string {
-    const rgb = parseCssColorToRgb(color);
-    if (!rgb) return fallback;
-    const safeAlpha = Number.isFinite(alpha)
-        ? Math.max(0, Math.min(1, alpha))
-        : 1;
-    return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${safeAlpha})`;
-}
-
-function readCssVar(
-    style: CSSStyleDeclaration,
-    name: string,
-    fallback: string,
-): string {
-    const value = style.getPropertyValue(name).trim();
-    return value || fallback;
-}
-
 export default function SpectrumChart(props: SpectrumChartProps) {
     const { t } = useTranslation();
     const theme = useAppStore((s) => s.theme);
+    const scaleFactor = useCanvasScale(16);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const uplotRef = useRef<uPlot | null>(null);
     const renderedRef = useRef<RenderedSpectrumData | null>(null);
@@ -308,6 +250,14 @@ export default function SpectrumChart(props: SpectrumChartProps) {
                 "rgba(255, 50, 50, 0.9)",
             );
 
+            const safeScaleFactor =
+                Number.isFinite(scaleFactor) && scaleFactor > 0
+                    ? scaleFactor
+                    : 1;
+            const px = (value: number) => Math.round(value * safeScaleFactor);
+            const lw = (value: number) => value * safeScaleFactor;
+            const axisFontSize = px(12);
+
             const opts: uPlot.Options = {
                 width: nextWidth,
                 height: nextHeight,
@@ -320,7 +270,7 @@ export default function SpectrumChart(props: SpectrumChartProps) {
                     {
                         label: "Spectrum",
                         stroke: warningBase,
-                        width: 2,
+                        width: lw(2),
                         points: { show: false },
                         fill: (u, seriesIdx) => {
                             void seriesIdx;
@@ -350,24 +300,24 @@ export default function SpectrumChart(props: SpectrumChartProps) {
                     },
                     {
                         label: "Max Hold",
-                        stroke: "#ffcc00",
-                        width: 1.5,
-                        dash: [4, 4],
+                        stroke: warningBase,
+                        width: lw(1.5),
+                        dash: [px(4), px(4)],
                         points: { show: false },
                         show: props.showMaxHold,
                     },
                     {
                         label: "Average",
-                        stroke: "#00ccff",
-                        width: 1.5,
+                        stroke: processingBase,
+                        width: lw(1.5),
                         points: { show: false },
                         show: props.showAverage,
                     },
                     {
                         label: "Threshold",
                         stroke: thresholdStroke,
-                        width: 1,
-                        dash: [6, 6],
+                        width: lw(1),
+                        dash: [px(6), px(6)],
                         points: { show: false },
                     },
                 ],
@@ -376,7 +326,8 @@ export default function SpectrumChart(props: SpectrumChartProps) {
                         stroke: axisStroke,
                         grid: { stroke: gridStroke },
                         ticks: { stroke: tickStroke },
-                        size: 40,
+                        size: px(40),
+                        font: `${axisFontSize}px system-ui, sans-serif`,
                         label: "kHz",
                         values: xAxisValues,
                     },
@@ -384,7 +335,8 @@ export default function SpectrumChart(props: SpectrumChartProps) {
                         stroke: axisStroke,
                         grid: { stroke: gridStroke },
                         ticks: { stroke: tickStroke },
-                        size: 60,
+                        size: px(60),
+                        font: `${axisFontSize}px system-ui, sans-serif`,
                         label: "dBm",
                     },
                 ],
@@ -466,7 +418,7 @@ export default function SpectrumChart(props: SpectrumChartProps) {
                 uplotRef.current = null;
             }
         };
-    }, [theme]);
+    }, [scaleFactor, theme]);
 
     useEffect(() => {
         const chart = uplotRef.current;

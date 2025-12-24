@@ -11,12 +11,20 @@
        ───────────────────────────────────────────────────────────────────────── */
     --title-panel-height: 80px;
     --nav-panel-height: 80px;
-    --command-panel-width: 160px;
+    --command-panel-width: 180px; /* 增加宽度：从 160px 改为 180px */
 
     /* rem 变量（基于 16px 基准；根字体由 useHMIScale 动态调整，最小 12px） */
     --title-panel-height-rem: 5rem; /* 80px */
     --nav-panel-height-rem: 5rem; /* 80px */
-    --command-panel-width-rem: 10rem; /* 160px */
+    --command-panel-width-rem: 11.25rem; /* 180px (从 10rem 增加到 11.25rem) */
+
+    /* ─────────────────────────────────────────────────────────────────────────
+       响应式断点
+       ───────────────────────────────────────────────────────────────────────── */
+    --breakpoint-sm: 600px;
+    --breakpoint-md: 900px;
+    --breakpoint-lg: 1200px;
+    --breakpoint-xl: 1600px;
 
     /* ─────────────────────────────────────────────────────────────────────────
        间距比例（基于 4px）
@@ -45,6 +53,30 @@
     --color-processing-glow: rgba(14, 165, 233, 0.5);
     --color-attention: #22c55e; /* 就绪/注意（绿色）*/
     --color-attention-glow: rgba(34, 197, 94, 0.5);
+
+    /* 状态颜色（亮色变体 - 用于渐变高光） */
+    --color-alarm-light: #ff6b6b;
+    --color-warning-light: #ffe066;
+    --color-processing-light: #5ebbff;
+    --color-attention-light: #6ee7a0;
+    --color-neutral-light: #6b7280;
+    --color-neutral: #4b5563;
+
+    /* 状态颜色（暗色变体 - 用于渐变深色端） */
+    --color-alarm-dark: #b91c1c;
+    --color-warning-dark: #b45309;
+    --color-processing-dark: #0369a1;
+    --color-attention-dark: #15803d;
+
+    /* 数据可视化/图表颜色 */
+    --chart-color-1: #00d4ff;
+    --chart-color-2: #ff6b6b;
+    --chart-color-3: #00ff88;
+    --chart-color-4: #ffaa00;
+    --chart-color-5: #aa66ff;
+    --chart-color-6: #ff66aa;
+    --chart-color-7: #66ffaa;
+    --chart-color-8: #ff8800;
 
     /* 状态高亮阴影 - 增强多层光晕效果 */
     --highlight-alarm:

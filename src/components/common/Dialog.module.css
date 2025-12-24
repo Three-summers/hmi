@@ -4,10 +4,10 @@
 
 .overlay {
     position: fixed;
-    top: var(--title-panel-height);
+    top: var(--title-panel-height-rem, 5rem);
     left: 0;
     right: 0;
-    bottom: var(--nav-panel-height);
+    bottom: var(--nav-panel-height-rem, 5rem);
     background: var(--overlay-modal);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
@@ -30,8 +30,8 @@
     border-radius: var(--button-radius-lg);
     box-shadow:
         var(--shadow-xl),
-        0 0 50px rgba(14, 165, 233, 0.1);
-    min-width: 320px;
+        0 0 3.125rem rgba(14, 165, 233, 0.1);
+    min-width: 20rem;
     max-width: 90%;
     max-height: 90%;
     overflow: hidden;
@@ -46,7 +46,7 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
+    height: 0.1875rem;
     background: var(--gradient-accent);
 }
 
@@ -58,7 +58,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 20px;
+    padding: 1rem 1.25rem;
     background: var(--overlay-weak);
     border-bottom: 1px solid var(--border-color);
 }
@@ -76,13 +76,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 2.25rem;
+    height: 2.25rem;
     background: transparent;
     border: 1px solid transparent;
     border-radius: var(--button-radius);
     color: var(--text-secondary);
-    font-size: 20px;
+    font-size: 1.25rem;
     cursor: pointer;
     transition: all var(--transition-fast);
 }
@@ -99,7 +99,7 @@
 
 .content {
     flex: 1;
-    padding: 20px;
+    padding: 1.25rem;
     overflow: auto;
 }
 
@@ -107,13 +107,13 @@
 .messageContent {
     display: flex;
     align-items: flex-start;
-    gap: 18px;
+    gap: 1.125rem;
 }
 
 .messageIcon {
-    font-size: 36px;
+    font-size: 2.25rem;
     flex-shrink: 0;
-    filter: drop-shadow(0 0 8px currentColor);
+    filter: drop-shadow(0 0 0.5rem currentColor);
 }
 
 .messageIcon[data-type="information"] {
@@ -140,11 +140,11 @@
     }
     20%,
     60% {
-        transform: translateX(-3px);
+        transform: translateX(-0.1875rem);
     }
     40%,
     80% {
-        transform: translateX(3px);
+        transform: translateX(0.1875rem);
     }
 }
 
@@ -164,8 +164,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 14px;
-    padding: 16px 20px;
+    gap: 0.875rem;
+    padding: 1rem 1.25rem;
     background: var(--overlay-weak);
     border-top: 1px solid var(--border-color);
 }
@@ -173,22 +173,22 @@
 /* 按 SEMI E95 标准：主按钮居中，辅助按钮右对齐 */
 .primaryButtons {
     display: flex;
-    gap: 14px;
+    gap: 0.875rem;
 }
 
 .auxiliaryButtons {
     margin-left: auto;
     display: flex;
-    gap: 12px;
-    padding-left: 24px;
+    gap: 0.75rem;
+    padding-left: 1.5rem;
     border-left: 1px solid var(--border-color);
 }
 
 .dialogButton {
     position: relative;
-    min-width: 90px;
+    min-width: 5.625rem;
     min-height: var(--button-nav-size);
-    padding: 10px 20px;
+    padding: 0.625rem 1.25rem;
     background: linear-gradient(
         180deg,
         var(--button-bg-hover) 0%,
@@ -257,16 +257,20 @@
 }
 
 .dialogButton[data-primary="true"]:hover:not(:disabled) {
-    background: #0284c7;
+    background: var(--accent-primary);
 }
 
 /* 危险按钮变体 */
 .dialogButton[data-variant="danger"] {
-    background: linear-gradient(180deg, var(--color-alarm) 0%, #dc2626 100%);
+    background: linear-gradient(
+        180deg,
+        var(--color-alarm) 0%,
+        var(--color-alarm) 100%
+    );
     color: white;
     border-color: var(--color-alarm);
 }
 
 .dialogButton[data-variant="danger"]:hover:not(:disabled) {
-    background: #dc2626;
+    background: var(--color-alarm);
 }

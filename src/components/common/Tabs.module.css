@@ -11,8 +11,8 @@
 
 .tabList {
     display: flex;
-    gap: 8px;
-    padding: 10px 0;
+    gap: 0.5rem;
+    padding: 0.625rem 0;
     flex-wrap: wrap;
     /* Sticky：在 InfoPanel 的滚动容器内固定在顶部，避免滚动时被顶层遮罩覆盖 */
     position: sticky;
@@ -49,9 +49,9 @@
 
 .tab {
     position: relative;
-    min-height: 42px;
-    padding: 10px 18px;
-    border-radius: var(--button-radius);
+    min-height: 2.625rem;
+    padding: 0.625rem 1.125rem;
+    border-radius: var(--button-radius-rem, var(--button-radius));
     border: 1px solid var(--border-color);
     background: linear-gradient(
         180deg,
@@ -61,9 +61,9 @@
     );
     color: var(--text-secondary);
     font-family: var(--font-family);
-    font-size: var(--font-size-small);
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: var(--font-weight-bold);
-    letter-spacing: 0.5px;
+    letter-spacing: 0.03em;
     cursor: pointer;
     transition: all var(--transition-fast);
     user-select: none;
@@ -127,13 +127,13 @@
 .tab[data-active="true"]::after {
     content: "";
     position: absolute;
-    bottom: -1px;
+    bottom: -0.0625rem;
     left: 20%;
     right: 20%;
-    height: 3px;
+    height: 0.1875rem;
     background: white;
-    border-radius: 3px 3px 0 0;
-    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    border-radius: 0.1875rem 0.1875rem 0 0;
+    box-shadow: 0 0 0.5rem rgba(255, 255, 255, 0.5);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -143,21 +143,21 @@
 .tab[data-count]::before {
     content: attr(data-count);
     position: absolute;
-    top: -6px;
-    right: -6px;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
+    top: -0.375rem;
+    right: -0.375rem;
+    min-width: 1.125rem;
+    height: 1.125rem;
+    padding: 0 0.3125rem;
     background: var(--accent-primary);
-    border-radius: 9px;
+    border-radius: 0.5625rem;
     color: white;
     font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
+    font-size: var(--font-size-xs-rem, var(--font-size-xs));
     font-weight: var(--font-weight-bold);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 6px var(--color-processing-glow);
+    box-shadow: 0 0.125rem 0.375rem var(--color-processing-glow);
 }
 
 .tab[data-highlight="alarm"][data-count]::before {
@@ -168,7 +168,7 @@
 
 .tab[data-highlight="warning"][data-count]::before {
     background: var(--color-warning);
-    color: #1a1a1a;
+    color: var(--text-on-warning);
     box-shadow: 0 2px 6px var(--color-warning-glow);
 }
 
@@ -227,14 +227,14 @@
 
 /* 紧凑标签 */
 .tabList[data-variant="compact"] .tab {
-    min-height: 36px;
-    padding: 8px 14px;
-    font-size: var(--font-size-xs);
+    min-height: 2.25rem;
+    padding: 0.5rem 0.875rem;
+    font-size: var(--font-size-xs-rem, var(--font-size-xs));
 }
 
 /* 药丸样式标签 */
 .tabList[data-variant="pills"] .tab {
-    border-radius: 20px;
+    border-radius: 1.25rem;
 }
 
 .tabList[data-variant="pills"] .tab[data-active="true"]::after {
@@ -245,9 +245,9 @@
 .tabList[data-variant="underline"] .tab {
     background: transparent;
     border: none;
-    border-bottom: 2px solid transparent;
+    border-bottom: 0.125rem solid transparent;
     border-radius: 0;
-    padding: 10px 16px;
+    padding: 0.625rem 1rem;
 }
 
 .tabList[data-variant="underline"] .tab:hover:not(:disabled) {

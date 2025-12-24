@@ -54,7 +54,10 @@ export function useAsync<T>(
 ): UseAsyncReturn<T> {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { addNotification } = useNotificationStore();
+    // 只订阅 action，避免通知列表变化导致本 Hook/使用方无关重渲染
+    const addNotification = useNotificationStore(
+        (state) => state.addNotification,
+    );
 
     const {
         successTitle,

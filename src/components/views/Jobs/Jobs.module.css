@@ -4,11 +4,11 @@
 /* 顶部统计栏：按作业状态汇总数量 */
 .statsBar {
     display: flex;
-    gap: 12px;
-    padding: 12px;
+    gap: 0.75rem;
+    padding: 0.75rem;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 8px;
-    margin-bottom: 16px;
+    margin-bottom: 1rem;
 }
 
 /* 单个统计项：数字 + 标签 */
@@ -17,7 +17,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 12px;
+    padding: 0.75rem;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 6px;
     border: 1px solid var(--border-color);
@@ -60,7 +60,7 @@
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-top: 4px;
+    margin-top: 0.25rem;
 }
 
 /* ═══ 作业列表（滚动区） ═══ */
@@ -74,7 +74,7 @@
 .jobsList {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0.625rem;
 }
 
 /* ═══ 作业卡片（含状态条） ═══ */
@@ -87,7 +87,7 @@
     );
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 14px;
+    padding: 0.875rem;
     cursor: pointer;
     transition: all var(--transition-fast);
 }
@@ -103,33 +103,33 @@
 }
 
 .jobCard[data-status="processing"] {
-    border-left: 4px solid var(--color-processing);
+    border-left: 0.25rem solid var(--color-processing);
 }
 
 .jobCard[data-status="alarm"] {
-    border-left: 4px solid var(--color-alarm);
+    border-left: 0.25rem solid var(--color-alarm);
 }
 
 .jobCard[data-status="attention"] {
-    border-left: 4px solid var(--color-attention);
+    border-left: 0.25rem solid var(--color-attention);
 }
 
 .jobCard[data-status="warning"] {
-    border-left: 4px solid var(--color-warning);
+    border-left: 0.25rem solid var(--color-warning);
 }
 
 /* ═══ 卡片头部：状态、标题与进度 ═══ */
 .jobHeader {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 10px;
+    gap: 0.75rem;
+    margin-bottom: 0.625rem;
 }
 
 /* 状态圆点：颜色随 status 变化 */
 .jobStatus {
-    width: 32px;
-    height: 32px;
+    width: 2rem;
+    height: 2rem;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -139,8 +139,8 @@
 }
 
 .jobStatus svg {
-    width: 18px;
-    height: 18px;
+    width: 1.125rem;
+    height: 1.125rem;
 }
 
 .jobStatus[data-status="processing"] {
@@ -164,7 +164,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 0.125rem;
 }
 
 .jobName {
@@ -191,17 +191,17 @@
 }
 
 .progressBar {
-    height: 6px;
+    height: 0.375rem;
     background: rgba(0, 0, 0, 0.3);
-    border-radius: 3px;
+    border-radius: 0.1875rem;
     overflow: hidden;
-    margin-bottom: 10px;
+    margin-bottom: 0.625rem;
 }
 
 .progressFill {
     height: 100%;
     background: var(--color-processing);
-    border-radius: 3px;
+    border-radius: 0.1875rem;
     transition: width 0.3s ease; /* 模拟实时进度变化的平滑过渡 */
 }
 
@@ -220,13 +220,13 @@
 
 .jobDetails {
     display: flex;
-    gap: 20px;
+    gap: 1.25rem;
 }
 
 .detailItem {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 0.125rem;
 }
 
 .detailLabel {
@@ -251,13 +251,13 @@
     background: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 16px;
+    padding: 1rem;
 }
 
 /* 空态：未选择作业时 */
 .detailsEmpty {
     height: 100%;
-    min-height: 160px;
+    min-height: 10rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -270,8 +270,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 14px;
+    gap: 0.75rem;
+    margin-bottom: 0.875rem;
 }
 
 .detailsTitle {
@@ -282,7 +282,7 @@
 }
 
 .detailsBadge {
-    padding: 6px 10px;
+    padding: 0.375rem 0.625rem;
     border-radius: 999px; /* 胶囊形徽标 */
     border: 1px solid var(--border-color);
     background: rgba(0, 0, 0, 0.25);
@@ -315,7 +315,7 @@
 .detailsGrid {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 0.625rem;
 }
 
 /* 详情行：左右对齐的键值对 */
@@ -323,8 +323,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 10px 12px;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
     border-radius: 8px;
     border: 1px solid var(--border-color);
     background: rgba(0, 0, 0, 0.18);

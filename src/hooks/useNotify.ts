@@ -41,7 +41,10 @@ interface UseNotifyReturn {
  * ```
  */
 export function useNotify(): UseNotifyReturn {
-    const { addNotification } = useNotificationStore();
+    // 只订阅 action（函数引用稳定），避免通知列表变化导致本 Hook/消费组件无关重渲染
+    const addNotification = useNotificationStore(
+        (state) => state.addNotification,
+    );
 
     // 通用通知方法：调用 store 的 addNotification
     const notify = useCallback(

@@ -7,7 +7,7 @@
     height: 100vh;
     display: grid;
     grid-template-rows:
-        var(--title-panel-height-rem, var(--title-panel-height)) 1fr
+        var(--title-panel-height-rem, var(--title-panel-height)) minmax(0, 1fr)
         var(--nav-panel-height-rem, var(--nav-panel-height)); /* 使用 design token 控制上下栏高度 */
     grid-template-columns: 1fr
         var(--command-panel-width-rem, var(--command-panel-width)); /* 主内容区 + CommandPanel */

@@ -7,6 +7,8 @@
  * @module semi-e95
  */
 
+import type { ReactNode } from "react";
+
 /** 主导航视图 ID */
 export type ViewId =
     | "jobs"
@@ -74,7 +76,8 @@ export interface DialogConfig {
     id: string;
     type: DialogType;
     title: string;
-    content?: React.ReactNode;
+    /** 自定义内容（例如复杂表单、进度条等） */
+    content?: ReactNode;
     message?: string;
     icon?: MessageIconType;
     buttons: DialogButtons;

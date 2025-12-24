@@ -51,8 +51,9 @@ function isModalOpen(): boolean {
  * @description 该 Hook 仅负责注册/清理事件监听，不返回任何值。
  */
 export function useKeyboardShortcuts() {
-    const { setCurrentView } = useNavigationStore();
-    const { acknowledgeAll } = useAlarmStore();
+    // 仅订阅需要的 action（函数引用稳定），避免 store 其他字段变化触发无关重渲染
+    const setCurrentView = useNavigationStore((state) => state.setCurrentView);
+    const acknowledgeAll = useAlarmStore((state) => state.acknowledgeAll);
 
     const handleKeyDown = useCallback(
         (event: KeyboardEvent) => {

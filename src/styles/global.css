@@ -456,7 +456,7 @@ td[data-type="number"] {
 
 @media (max-width: 1200px) {
     :root {
-        --command-panel-width: 140px;
+        --command-panel-width: 160px; /* 从 140px 增加到 160px */
     }
 }
 
@@ -464,7 +464,7 @@ td[data-type="number"] {
     :root {
         --title-panel-height: 70px;
         --nav-panel-height: 70px;
-        --command-panel-width: 120px;
+        --command-panel-width: 140px; /* 从 120px 增加到 140px */
         --button-min-size: 60px;
     }
 }

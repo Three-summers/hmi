@@ -29,8 +29,9 @@ import { useRegisterViewCommands } from "@/components/layout/ViewCommandContext"
 import { useRegisterSubViewCommands } from "@/components/layout/SubViewCommandContext";
 import { invoke } from "@/platform/invoke";
 import { isTauri } from "@/platform/tauri";
-import { useNotify } from "@/hooks";
+import { useCanvasScale, useNotify } from "@/hooks";
 import { useSpectrumAnalyzerStore } from "@/stores";
+import { readCssVar } from "@/utils";
 import { MonitorInfo } from "./MonitorInfo";
 import { MonitorOverview } from "./MonitorOverview";
 import styles from "../shared.module.css";
@@ -74,11 +75,6 @@ const SPECTRUM_COLORS = {
         { pos: 0.9, color: "rgba(255, 150, 0, 0.95)" }, // 橙色
         { pos: 1, color: "rgba(255, 50, 50, 1)" }, // 红色 (高幅值)
     ],
-    grid: "rgba(100, 150, 200, 0.2)",
-    axis: "rgba(180, 200, 230, 0.9)",
-    text: "rgba(220, 235, 255, 0.95)",
-    peak: "#ff4444",
-    background: "rgba(8, 15, 30, 0.98)",
 };
 
 /**
@@ -94,6 +90,7 @@ export default function MonitorView() {
     const { t } = useTranslation();
     const isViewActive = useIsViewActive();
     const { success, warning, info } = useNotify();
+    const scaleFactor = useCanvasScale(16);
 
     // 视图命令配置（刷新、暂停、导出）
     const commands = useMemo<CommandButtonConfig[]>(
@@ -373,6 +370,15 @@ export default function MonitorView() {
         // 使用 setTransform 替代 scale，避免累积变换与重复缩放风险
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+        // 获取当前主题颜色
+        const computed = getComputedStyle(canvas);
+        const peakColor = readCssVar(computed, "--color-alarm", "#ff4444");
+        const textColor = readCssVar(computed, "--text-secondary", "rgba(220, 235, 255, 0.95)");
+        const axisColor = readCssVar(computed, "--text-disabled", "rgba(180, 200, 230, 0.9)");
+        const gridColor = readCssVar(computed, "--border-subtle", "rgba(100, 150, 200, 0.2)");
+        const bgColor = readCssVar(computed, "--bg-primary", "rgba(8, 15, 30, 0.98)");
+        const titleColor = readCssVar(computed, "--text-primary", "#ffffff");
+
         // 控制绘制频率（默认约 30 FPS），避免不必要的满速重绘
         if (!isPaused) {
             const now = performance.now();
@@ -382,25 +388,44 @@ export default function MonitorView() {
             }
             lastDrawAtRef.current = now;
         }
+        const safeScaleFactor =
+            Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1;
+        const px = (value: number) => Math.round(value * safeScaleFactor);
+        const lw = (value: number) => value * safeScaleFactor;
+
         // 增加左侧 padding 以显示完整的 dB 标签
-        const padding = { top: 40, right: 30, bottom: 60, left: 80 };
+        const padding = {
+            top: px(40),
+            right: px(30),
+            bottom: px(60),
+            left: px(80),
+        };
         const chartWidth = width - padding.left - padding.right;
         const chartHeight = height - padding.top - padding.bottom;
 
         // 清空画布
-        ctx.fillStyle = SPECTRUM_COLORS.background;
+        ctx.fillStyle = bgColor;
         ctx.fillRect(0, 0, width, height);
 
         const data = spectrumDataRef.current;
         if (!data || data.frequencies.length === 0) {
             // 显示等待数据提示
-            ctx.fillStyle = SPECTRUM_COLORS.text;
-            ctx.font = "16px system-ui, sans-serif";
+            ctx.fillStyle = textColor;
+            ctx.font = `${px(16)}px system-ui, sans-serif`;
             ctx.textAlign = "center";
             ctx.fillText(t("monitor.canvas.waiting"), width / 2, height / 2);
 
             // 绘制空白网格
-            drawGrid(ctx, padding, chartWidth, chartHeight, width, height);
+            drawGrid(
+                ctx,
+                padding,
+                chartWidth,
+                chartHeight,
+                width,
+                height,
+                gridColor,
+                lw(1),
+            );
 
             scheduleNextFrame();
             return;
@@ -443,12 +468,21 @@ export default function MonitorView() {
         }
 
         // 绘制网格
-        drawGrid(ctx, padding, chartWidth, chartHeight, width, height);
+        drawGrid(
+            ctx,
+            padding,
+            chartWidth,
+            chartHeight,
+            width,
+            height,
+            gridColor,
+            lw(1),
+        );
 
         // 绘制 dB 刻度标签
         const dbSteps = [-100, -90, -80, -70, -60, -50, -40, -30, -20, -10, 0];
-        ctx.fillStyle = SPECTRUM_COLORS.text;
-        ctx.font = "12px system-ui, sans-serif";
+        ctx.fillStyle = textColor;
+        ctx.font = `${px(12)}px system-ui, sans-serif`;
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
 
@@ -456,7 +490,7 @@ export default function MonitorView() {
             const y =
                 padding.top +
                 chartHeight * (1 - (db - minAmp) / (maxAmp - minAmp));
-            ctx.fillText(`${db}`, padding.left - 10, y);
+            ctx.fillText(`${db}`, padding.left - px(10), y);
         });
 
         // 绘制频率刻度标签
@@ -466,22 +500,22 @@ export default function MonitorView() {
 
         freqSteps.forEach((freq) => {
             const x = padding.left + chartWidth * (freq / 10);
-            ctx.fillText(`${freq}k`, x, padding.top + chartHeight + 8);
+            ctx.fillText(`${freq}k`, x, padding.top + chartHeight + px(8));
         });
 
         // 绘制坐标轴标题
-        ctx.fillStyle = SPECTRUM_COLORS.axis;
-        ctx.font = "13px system-ui, sans-serif";
+        ctx.fillStyle = axisColor;
+        ctx.font = `${px(13)}px system-ui, sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         ctx.fillText(
             t("monitor.canvas.axisFrequency"),
             padding.left + chartWidth / 2,
-            height - 20,
+            height - px(20),
         );
 
         ctx.save();
-        ctx.translate(20, padding.top + chartHeight / 2);
+        ctx.translate(px(20), padding.top + chartHeight / 2);
         ctx.rotate(-Math.PI / 2);
         ctx.textBaseline = "middle";
         ctx.fillText(t("monitor.canvas.axisAmplitude"), 0, 0);
@@ -502,7 +536,12 @@ export default function MonitorView() {
                 const y = padding.top + chartHeight - barHeight;
 
                 ctx.fillStyle = gradient;
-                ctx.fillRect(x, y, Math.max(barWidth - 0.5, 1), barHeight);
+                ctx.fillRect(
+                    x,
+                    y,
+                    Math.max(barWidth - 0.5 * safeScaleFactor, 1),
+                    barHeight,
+                );
             });
         } else if (displayMode === "fill") {
             // 填充区域模式
@@ -541,12 +580,12 @@ export default function MonitorView() {
                 }
             });
             ctx.strokeStyle = "rgba(100, 220, 255, 0.9)";
-            ctx.lineWidth = 2;
+            ctx.lineWidth = lw(2);
             ctx.stroke();
 
             // 添加发光效果
             ctx.strokeStyle = "rgba(100, 220, 255, 0.25)";
-            ctx.lineWidth = 8;
+            ctx.lineWidth = lw(8);
             ctx.stroke();
         } else {
             // 线条模式
@@ -566,7 +605,7 @@ export default function MonitorView() {
                 }
             });
             ctx.strokeStyle = "rgba(0, 255, 200, 0.9)";
-            ctx.lineWidth = 2;
+            ctx.lineWidth = lw(2);
             ctx.stroke();
         }
 
@@ -588,9 +627,9 @@ export default function MonitorView() {
         const peakY = padding.top + chartHeight * (1 - peakNorm);
 
         // 峰值标记线
-        ctx.setLineDash([4, 4]);
+        ctx.setLineDash([px(4), px(4)]);
         ctx.strokeStyle = "rgba(255, 100, 100, 0.5)";
-        ctx.lineWidth = 1;
+        ctx.lineWidth = lw(1);
         ctx.beginPath();
         ctx.moveTo(peakX, padding.top);
         ctx.lineTo(peakX, padding.top + chartHeight);
@@ -599,11 +638,11 @@ export default function MonitorView() {
 
         // 峰值点
         ctx.beginPath();
-        ctx.arc(peakX, peakY, 6, 0, Math.PI * 2);
-        ctx.fillStyle = SPECTRUM_COLORS.peak;
+        ctx.arc(peakX, peakY, px(6), 0, Math.PI * 2);
+        ctx.fillStyle = peakColor;
         ctx.fill();
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = titleColor;
+        ctx.lineWidth = lw(2);
         ctx.stroke();
 
         // 峰值标签背景
@@ -611,58 +650,58 @@ export default function MonitorView() {
         const labelText1 = `${(peakFreq / 1000).toFixed(2)} kHz`;
         const labelText2 = `${smoothedAmps[peakIdx].toFixed(1)} dB`;
 
-        ctx.font = "bold 11px system-ui, sans-serif";
+        ctx.font = `bold ${px(11)}px system-ui, sans-serif`;
         const textWidth =
             Math.max(
                 ctx.measureText(labelText1).width,
                 ctx.measureText(labelText2).width,
-            ) + 12;
+            ) + px(12);
 
         let labelX = peakX - textWidth / 2;
-        let labelY = peakY - 45;
+        let labelY = peakY - px(45);
 
         // 防止标签超出边界
         if (labelX < padding.left) labelX = padding.left;
         if (labelX + textWidth > width - padding.right)
             labelX = width - padding.right - textWidth;
-        if (labelY < padding.top) labelY = peakY + 15;
+        if (labelY < padding.top) labelY = peakY + px(15);
 
         ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-        ctx.fillRect(labelX - 2, labelY, textWidth + 4, 36);
-        ctx.strokeStyle = SPECTRUM_COLORS.peak;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(labelX - 2, labelY, textWidth + 4, 36);
+        ctx.fillRect(labelX - px(2), labelY, textWidth + px(4), px(36));
+        ctx.strokeStyle = peakColor;
+        ctx.lineWidth = lw(1);
+        ctx.strokeRect(labelX - px(2), labelY, textWidth + px(4), px(36));
 
         // 峰值标签文字
-        ctx.fillStyle = "#fff";
+        ctx.fillStyle = titleColor;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillText(labelText1, labelX + textWidth / 2, labelY + 5);
-        ctx.fillStyle = SPECTRUM_COLORS.peak;
-        ctx.fillText(labelText2, labelX + textWidth / 2, labelY + 20);
+        ctx.fillText(labelText1, labelX + textWidth / 2, labelY + px(5));
+        ctx.fillStyle = peakColor;
+        ctx.fillText(labelText2, labelX + textWidth / 2, labelY + px(20));
 
         // 绘制边框
-        ctx.strokeStyle = SPECTRUM_COLORS.axis;
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = axisColor;
+        ctx.lineWidth = lw(1);
         ctx.strokeRect(padding.left, padding.top, chartWidth, chartHeight);
 
         // 添加标题
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 15px system-ui, sans-serif";
+        ctx.fillStyle = titleColor;
+        ctx.font = `bold ${px(15)}px system-ui, sans-serif`;
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
-        ctx.fillText(t("monitor.spectrum.title"), padding.left, 20);
+        ctx.fillText(t("monitor.spectrum.title"), padding.left, px(20));
 
         // 时间戳
-        ctx.fillStyle = SPECTRUM_COLORS.text;
-        ctx.font = "12px system-ui, sans-serif";
+        ctx.fillStyle = textColor;
+        ctx.font = `${px(12)}px system-ui, sans-serif`;
         ctx.textAlign = "right";
         const time = new Date(data.timestamp).toLocaleTimeString();
-        ctx.fillText(time, width - padding.right, 20);
+        ctx.fillText(time, width - padding.right, px(20));
 
         // 继续动画循环
         scheduleNextFrame();
-    }, [displayMode, isPaused, t]);
+    }, [displayMode, isPaused, scaleFactor, t]);
 
     /**
      * 监听容器尺寸变化，更新 Canvas backing store
@@ -734,9 +773,11 @@ export default function MonitorView() {
         chartHeight: number,
         _width: number,
         _height: number,
+        gridColor: string,
+        lineWidth: number,
     ) => {
-        ctx.strokeStyle = SPECTRUM_COLORS.grid;
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = lineWidth;
 
         // 水平网格线 (dB)
         const dbSteps = [-100, -90, -80, -70, -60, -50, -40, -30, -20, -10, 0];

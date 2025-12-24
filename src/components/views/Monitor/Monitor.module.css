@@ -95,9 +95,9 @@
 }
 
 .cardIcon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -106,8 +106,8 @@
 }
 
 .cardIcon svg {
-    width: 18px;
-    height: 18px;
+    width: 1.125rem;
+    height: 1.125rem;
 }
 
 .statusBadge {
@@ -201,8 +201,8 @@
 }
 
 .chartTitle svg {
-    width: 20px;
-    height: 20px;
+    width: 1.25rem;
+    height: 1.25rem;
     color: var(--color-processing);
 }
 
@@ -215,15 +215,15 @@
 .timeRangeGroup {
     display: flex;
     background: var(--overlay-mid);
-    border-radius: 6px;
-    padding: 2px;
+    border-radius: 0.375rem;
+    padding: 0.125rem;
 }
 
 .timeRangeBtn {
     padding: var(--sp-xs) calc(var(--sp-sm) + var(--sp-xs));
     background: transparent;
     border: none;
-    border-radius: 4px;
+    border-radius: 0.25rem;
     color: var(--text-secondary);
     font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 500;
@@ -275,14 +275,14 @@
 }
 
 .controlBtn svg {
-    width: 14px;
-    height: 14px;
+    width: 0.875rem;
+    height: 0.875rem;
 }
 
 .chart {
     width: 100%;
     flex: 1;
-    min-height: 300px;
+    min-height: 18.75rem;
 }
 
 .chartLegend {
@@ -359,7 +359,7 @@
 /* 监控说明（说明子页） */
 .monitorInfo {
     height: 100%;
-    min-height: 160px;
+    min-height: 10rem;
     padding: var(--card-padding);
     border-radius: var(--card-radius);
     border: 1px solid var(--card-border);
@@ -385,7 +385,7 @@
     line-height: 1.6;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .statsGrid {
         grid-template-columns: 1fr;
     }

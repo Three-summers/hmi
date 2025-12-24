@@ -15,7 +15,8 @@ import { isTauri } from "@/platform/tauri";
 import { LOG_BRIDGE_CONFIG } from "@/constants";
 
 interface FrontendLogEntry {
-    level: string;
+    /** 后端可识别的日志等级（避免随意字符串导致后端解析分支膨胀） */
+    level: NormalizedLogLevel;
     message: string;
     timestamp_ms: number;
     source?: string;
@@ -26,6 +27,15 @@ const { MAX_BATCH_SIZE, FLUSH_INTERVAL_MS, MAX_MESSAGE_LENGTH } =
 
 const consoleLevels = ["log", "info", "warn", "error", "debug"] as const;
 type ConsoleLevel = (typeof consoleLevels)[number];
+
+/**
+ * 归一化后的日志等级
+ *
+ * 说明：
+ * - 前端来源很多（console/window/promise），这里收敛为后端可稳定处理的一组等级
+ * - 不使用 string，可在编译期约束后续新增等级时同步更新后端/配置
+ */
+type NormalizedLogLevel = "info" | "warn" | "error" | "debug";
 
 /**
  * 将未知值格式化为可读字符串
@@ -113,7 +123,9 @@ function formatConsoleArgs(args: unknown[]): string {
  * @param level - console 等级或窗口事件来源
  * @returns 归一化后的等级字符串
  */
-function normalizeLevel(level: ConsoleLevel | "window" | "promise"): string {
+function normalizeLevel(
+    level: ConsoleLevel | "window" | "promise",
+): NormalizedLogLevel {
     if (level === "error") return "error";
     if (level === "warn") return "warn";
     if (level === "debug") return "debug";
@@ -200,7 +212,7 @@ export function useFrontendLogBridge() {
             inFlush = true;
             try {
                 const batch = queue.splice(0, MAX_BATCH_SIZE);
-                await invoke("frontend_log_batch", { entries: batch });
+                await invoke<void>("frontend_log_batch", { entries: batch });
             } catch {
                 // 转发失败时静默丢弃，避免影响业务
                 queue.length = 0;
