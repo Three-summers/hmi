@@ -53,7 +53,7 @@
 }
 
 .statValue {
-    font-size: 28px;
+    font-size: 1.75rem;
     font-weight: 700;
     color: var(--text-primary);
     line-height: 1;
@@ -67,7 +67,7 @@
 }
 
 .statLabel {
-    font-size: 10px;
+    font-size: var(--font-size-xs-rem, var(--font-size-xs));
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -106,7 +106,7 @@
 }
 
 .emptyText {
-    font-size: 16px;
+    font-size: var(--font-size-large-rem, var(--font-size-large));
 }
 
 /* ═══ 告警分组与标题 ═══ */
@@ -115,7 +115,7 @@
 }
 
 .sectionTitle {
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
@@ -226,7 +226,7 @@
 
 /* 单行告警文案：超长时截断 */
 .alarmMessage {
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
     color: var(--text-primary);
     white-space: nowrap;
@@ -241,13 +241,13 @@
 }
 
 .alarmTime {
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
 }
 
 .alarmSeverity {
-    font-size: 10px;
+    font-size: var(--font-size-xs-rem, var(--font-size-xs));
     font-weight: 600;
     padding: 2px 6px;
     border-radius: 3px;
@@ -271,7 +271,7 @@
 }
 
 .alarmAcked {
-    font-size: 10px;
+    font-size: var(--font-size-xs-rem, var(--font-size-xs));
     color: var(--color-attention);
     font-weight: 500;
 }
@@ -290,7 +290,7 @@
     border: none;
     border-radius: 6px;
     color: white;
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-fast);

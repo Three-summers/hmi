@@ -81,6 +81,20 @@ interface AppState {
      */
     setCommandPanelPosition: (position: CommandPanelPosition) => void;
 
+    // 缩放：在自动缩放（基于窗口宽度）之上叠加用户手动系数
+    /** 手动缩放系数（范围：0.75 - 2.0，默认 1.0 表示自动） */
+    scaleOverride: number;
+
+    /**
+     * 设置缩放系数
+     *
+     * @param scale - 缩放系数（0.75 - 2.0）
+     */
+    setScaleOverride: (scale: number) => void;
+
+    /** 重置为自动缩放（scaleOverride = 1.0） */
+    resetScale: () => void;
+
     // 系统信息
     /** 顶部信息区显示的消息内容 */
     message: string;
@@ -140,6 +154,13 @@ export const useAppStore = create<AppState>()(
             setCommandPanelPosition: (position) =>
                 set({ commandPanelPosition: position }),
 
+            scaleOverride: 1.0,
+            setScaleOverride: (scale) =>
+                set({
+                    scaleOverride: Math.max(0.75, Math.min(2.0, scale)),
+                }),
+            resetScale: () => set({ scaleOverride: 1.0 }),
+
             message: "",
             messageType: null,
             setMessage: (msg, type = "info") =>
@@ -155,6 +176,7 @@ export const useAppStore = create<AppState>()(
                 language: state.language,
                 theme: state.theme,
                 commandPanelPosition: state.commandPanelPosition,
+                scaleOverride: state.scaleOverride,
             }),
             onRehydrateStorage: () => (state, error) => {
                 if (error) {

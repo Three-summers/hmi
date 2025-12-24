@@ -1,5 +1,5 @@
 {
-    "common": {
+	    "common": {
         "ok": "OK",
         "cancel": "Cancel",
         "close": "Close",
@@ -15,11 +15,12 @@
         "stop": "Stop",
         "pause": "Pause",
         "resume": "Resume",
-        "reset": "Reset",
-        "theme": "Theme",
-        "clear": "Clear",
-        "retry": "Retry",
-        "loading": "Loading...",
+	        "reset": "Reset",
+	        "theme": "Theme",
+	        "scale": "Scale",
+	        "clear": "Clear",
+	        "retry": "Retry",
+	        "loading": "Loading...",
         "languages": {
             "zh": "中文",
             "en": "English"
@@ -34,15 +35,19 @@
         "exit": "Exit",
         "commands": "Commands"
     },
-    "theme": {
-        "dark": "Dark",
-        "light": "Light",
-        "high-contrast": "High Contrast"
-    },
-    "nav": {
-        "jobs": "Jobs",
-        "system": "System",
-        "monitor": "Monitor",
+	    "theme": {
+	        "dark": "Dark",
+	        "light": "Light",
+	        "high-contrast": "High Contrast"
+	    },
+	    "scale": {
+	        "title": "Interface Scale",
+	        "reset": "Reset to Auto"
+	    },
+	    "nav": {
+	        "jobs": "Jobs",
+	        "system": "System",
+	        "monitor": "Monitor",
         "recipes": "Recipes",
         "files": "Files",
         "setup": "Setup",

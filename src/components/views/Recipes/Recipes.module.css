@@ -25,7 +25,7 @@
 }
 
 .listTitle {
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
@@ -99,7 +99,7 @@
 }
 
 .recipeName {
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
     color: var(--text-primary);
     white-space: nowrap;
@@ -108,12 +108,12 @@
 }
 
 .recipeMeta {
-    font-size: 10px;
+    font-size: var(--font-size-xs-rem, var(--font-size-xs));
     color: var(--text-secondary);
 }
 
 .recipeStatus {
-    font-size: 9px;
+    font-size: 0.5625rem;
     font-weight: 600;
     padding: 3px 6px;
     border-radius: 3px;
@@ -158,20 +158,20 @@
 }
 
 .detailsTitle {
-    font-size: 20px;
+    font-size: var(--font-size-title-rem, var(--font-size-title));
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 6px 0;
 }
 
 .detailsDesc {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: var(--text-secondary);
     margin: 0;
 }
 
 .headerBadge {
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 600;
     padding: 6px 12px;
     border-radius: 4px;
@@ -204,14 +204,14 @@
 }
 
 .statLabel {
-    font-size: 10px;
+    font-size: var(--font-size-xs-rem, var(--font-size-xs));
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .statValue {
-    font-size: 16px;
+    font-size: var(--font-size-large-rem, var(--font-size-large));
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -225,7 +225,7 @@
 }
 
 .sectionTitle {
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
@@ -264,7 +264,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 700;
     flex-shrink: 0;
 }
@@ -283,13 +283,13 @@
 }
 
 .stepName {
-    font-size: 14px;
+    font-size: var(--font-size-normal-rem, var(--font-size-normal));
     font-weight: 600;
     color: var(--text-primary);
 }
 
 .stepDuration {
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     color: var(--color-processing);
     font-weight: 500;
 }
@@ -301,7 +301,7 @@
 }
 
 .param {
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--text-secondary);
     padding: 3px 8px;
     background: rgba(0, 0, 0, 0.2);
@@ -346,7 +346,7 @@
     border: 1px solid var(--border-color);
     background: rgba(0, 0, 0, 0.2);
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     text-align: center;
 }
 

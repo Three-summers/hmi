@@ -43,14 +43,14 @@
 }
 
 .sectionTitle {
-    font-size: 16px;
+    font-size: var(--font-size-large-rem, var(--font-size-large));
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
 }
 
 .sectionDesc {
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     color: var(--text-secondary);
     margin: var(--sp-xs) 0 0 0;
 }
@@ -75,7 +75,7 @@
     border: 1px solid var(--border-color);
     border-radius: var(--button-radius);
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: var(--font-size-normal-rem, var(--font-size-normal));
     cursor: pointer;
     transition: all var(--transition-fast);
     min-width: 120px;
@@ -113,7 +113,7 @@
 
 .formLabel {
     display: block;
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 500;
     color: var(--text-secondary);
     margin-bottom: var(--sp-xs);
@@ -189,7 +189,7 @@
     border: 1px solid var(--border-color);
     border-radius: calc(var(--button-radius) - var(--sp-xs));
     color: var(--text-primary);
-    font-size: 14px;
+    font-size: var(--font-size-normal-rem, var(--font-size-normal));
     font-weight: 500;
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -240,7 +240,7 @@
 }
 
 .statusText {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: var(--text-secondary);
 }
 

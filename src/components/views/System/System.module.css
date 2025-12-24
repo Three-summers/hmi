@@ -26,7 +26,7 @@
 
 /* 面板标题：统一的强调风格 */
 .panelTitle {
-    font-size: 14px;
+    font-size: var(--font-size-normal-rem, var(--font-size-normal));
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 16px 0;
@@ -80,14 +80,14 @@
 }
 
 .overviewLabel {
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .overviewValue {
-    font-size: 16px;
+    font-size: var(--font-size-large-rem, var(--font-size-large));
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -112,13 +112,13 @@
 }
 
 .resourceLabel {
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     color: var(--text-secondary);
     font-weight: 500;
 }
 
 .resourceValue {
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
@@ -225,7 +225,7 @@
 }
 
 .subsystemName {
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
     color: var(--text-primary);
     white-space: nowrap;
@@ -234,13 +234,13 @@
 }
 
 .subsystemValue {
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
 }
 
 .subsystemStatus {
-    font-size: 10px;
+    font-size: var(--font-size-xs-rem, var(--font-size-xs));
     font-weight: 600;
     padding: 4px 8px;
     border-radius: 4px;

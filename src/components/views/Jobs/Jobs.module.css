@@ -39,7 +39,7 @@
 }
 
 .statValue {
-    font-size: 28px;
+    font-size: 1.75rem;
     font-weight: 700;
     color: var(--text-primary);
     line-height: 1;
@@ -56,7 +56,7 @@
 }
 
 .statLabel {
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -168,13 +168,13 @@
 }
 
 .jobName {
-    font-size: 15px;
+    font-size: 0.9375rem;
     font-weight: 600;
     color: var(--text-primary);
 }
 
 .jobRecipe {
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--text-secondary);
 }
 
@@ -184,7 +184,7 @@
 
 /* ═══ 进度条 ═══ */
 .progressValue {
-    font-size: 20px;
+    font-size: var(--font-size-title-rem, var(--font-size-title));
     font-weight: 700;
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
@@ -230,14 +230,14 @@
 }
 
 .detailLabel {
-    font-size: 10px;
+    font-size: var(--font-size-xs-rem, var(--font-size-xs));
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .detailValue {
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
@@ -262,7 +262,7 @@
     align-items: center;
     justify-content: center;
     color: var(--text-secondary);
-    font-size: 13px;
+    font-size: 0.8125rem;
 }
 
 /* 详情头：标题 + 状态徽标 */
@@ -275,7 +275,7 @@
 }
 
 .detailsTitle {
-    font-size: 16px;
+    font-size: var(--font-size-large-rem, var(--font-size-large));
     font-weight: 800;
     color: var(--text-primary);
     letter-spacing: 0.5px;
@@ -286,7 +286,7 @@
     border-radius: 999px; /* 胶囊形徽标 */
     border: 1px solid var(--border-color);
     background: rgba(0, 0, 0, 0.25);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 800;
     color: var(--text-secondary);
     letter-spacing: 0.8px;
@@ -331,14 +331,14 @@
 }
 
 .detailsLabel {
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.6px;
 }
 
 .detailsValue {
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 700;
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;

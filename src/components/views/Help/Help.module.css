@@ -36,7 +36,7 @@
 }
 
 .sectionTitle {
-    font-size: 20px;
+    font-size: var(--font-size-title-rem, var(--font-size-title));
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 16px 0;
@@ -82,12 +82,12 @@
 }
 
 .infoLabel {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: var(--text-secondary);
 }
 
 .infoValue {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: var(--text-primary);
     font-weight: 500;
 }
@@ -142,13 +142,13 @@
 }
 
 .colorName {
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-primary);
 }
 
 .colorDesc {
-    font-size: 11px;
+    font-size: 0.6875rem;
     color: var(--text-secondary);
 }
 
@@ -169,7 +169,7 @@
 }
 
 .shortcutAction {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: var(--text-primary);
 }
 
@@ -187,7 +187,7 @@
     );
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 600;
     color: var(--text-primary);
     font-family: monospace;
@@ -212,7 +212,7 @@
 }
 
 .faqQuestion {
-    font-size: 14px;
+    font-size: var(--font-size-normal-rem, var(--font-size-normal));
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 8px 0;
@@ -231,13 +231,13 @@
     background: var(--color-processing);
     color: white;
     border-radius: 4px;
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
     flex-shrink: 0;
 }
 
 .faqAnswer {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: var(--text-secondary);
     line-height: 1.5;
     padding-left: 28px;
@@ -258,7 +258,7 @@
 }
 
 .specTitle {
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 600;
     color: var(--color-processing);
     text-transform: uppercase;
@@ -267,7 +267,7 @@
 }
 
 .specValue {
-    font-size: 14px;
+    font-size: var(--font-size-normal-rem, var(--font-size-normal));
     color: var(--text-primary);
 }
 
@@ -297,14 +297,14 @@
 }
 
 .contactTitle {
-    font-size: 16px;
+    font-size: var(--font-size-large-rem, var(--font-size-large));
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 8px 0;
 }
 
 .contactText {
-    font-size: 13px;
+    font-size: 0.8125rem;
     color: var(--text-secondary);
     margin: 0;
 }

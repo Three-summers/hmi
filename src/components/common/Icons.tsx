@@ -41,6 +41,7 @@ import {
     MdStop,
     MdUsb,
     MdWarning,
+    MdZoomIn,
 } from "react-icons/md";
 
 // 命令按钮（CommandPanel）兼容层：保持历史导出名不变
@@ -80,6 +81,7 @@ export const AlarmIcon = MdNotificationsActive;
 export const ThemeIcon = MdPalette;
 export const UserIcon = MdAccountCircle;
 export const FullscreenIcon = MdFullscreen;
+export const ZoomIcon = MdZoomIn;
 export const ExitIcon = MdExitToApp;
 export const OkIcon = MdCheck;
 export const OperatorIcon = MdPerson;

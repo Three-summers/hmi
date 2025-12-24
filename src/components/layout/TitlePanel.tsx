@@ -33,6 +33,7 @@ import {
     SerialIcon,
     ThemeIcon,
     UserIcon,
+    ZoomIcon,
 } from "@/components/common/Icons";
 import { closeWindow, toggleFullscreen } from "@/platform/window";
 import { ActionButton, StatusItem } from "./TitlePanelItems";
@@ -83,15 +84,27 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
                 alarms: state.alarms,
             })),
         );
-    const { user, logout, theme, cycleTheme } = useAppStore(
+    const {
+        user,
+        logout,
+        theme,
+        cycleTheme,
+        scaleOverride,
+        setScaleOverride,
+        resetScale,
+    } = useAppStore(
         useShallow((state) => ({
             user: state.user,
             logout: state.logout,
             theme: state.theme,
             cycleTheme: state.cycleTheme,
+            scaleOverride: state.scaleOverride,
+            setScaleOverride: state.setScaleOverride,
+            resetScale: state.resetScale,
         })),
     );
     const [showLoginModal, setShowLoginModal] = useState(false);
+    const [showScaleModal, setShowScaleModal] = useState(false);
     const [pendingRole, setPendingRole] = useState<QuickLoginRole | null>(null);
     const [password, setPassword] = useState("");
     const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -126,6 +139,18 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
         setShowLoginModal(false);
         resetLoginModalState();
     };
+
+    const closeScaleModal = () => {
+        setShowScaleModal(false);
+    };
+
+    const scalePresets = [
+        { label: "75%", value: 0.75 },
+        { label: "100%", value: 1.0 },
+        { label: "125%", value: 1.25 },
+        { label: "150%", value: 1.5 },
+        { label: "200%", value: 2.0 },
+    ];
 
     /**
      * 按当前语言格式化日期
@@ -241,6 +266,19 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [showLoginModal]);
+
+    useEffect(() => {
+        if (!showScaleModal) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== "Escape") return;
+            e.preventDefault();
+            closeScaleModal();
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [showScaleModal]);
 
     useEffect(() => {
         if (!showLoginModal) return;
@@ -359,6 +397,14 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
                     )}
                 </div>
             ),
+        },
+        {
+            key: "scale",
+            className: styles.scaleButton,
+            icon: <ZoomIcon />,
+            onClick: () => setShowScaleModal(true),
+            title: `${t("common.scale")}: ${Math.round(scaleOverride * 100)}%`,
+            "aria-label": t("common.scale"),
         },
         {
             key: "fullscreen",
@@ -519,6 +565,69 @@ export function TitlePanel({ currentView }: TitlePanelProps) {
                             disabled={verifyingPassword}
                         >
                             {t("common.cancel")}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {showScaleModal && (
+                <div
+                    className={styles.modalOverlay}
+                    onClick={closeScaleModal}
+                >
+                    <div
+                        className={styles.scaleModal}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 className={styles.modalTitle}>
+                            {t("scale.title")}
+                        </h3>
+
+                        <div className={styles.scalePresets}>
+                            {scalePresets.map((preset) => (
+                                <button
+                                    key={preset.value}
+                                    type="button"
+                                    className={styles.scalePresetButton}
+                                    data-active={
+                                        Math.abs(scaleOverride - preset.value) <
+                                        0.01
+                                    }
+                                    onClick={() =>
+                                        setScaleOverride(preset.value)
+                                    }
+                                >
+                                    {preset.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className={styles.scaleSliderContainer}>
+                            <input
+                                type="range"
+                                className={styles.scaleSlider}
+                                min="0.75"
+                                max="2.0"
+                                step="0.05"
+                                value={scaleOverride}
+                                aria-label={t("common.scale")}
+                                onChange={(e) =>
+                                    setScaleOverride(
+                                        Number.parseFloat(e.target.value),
+                                    )
+                                }
+                            />
+                            <div className={styles.scaleValue}>
+                                {Math.round(scaleOverride * 100)}%
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            className={styles.resetButton}
+                            onClick={resetScale}
+                        >
+                            {t("scale.reset")}
                         </button>
                     </div>
                 </div>

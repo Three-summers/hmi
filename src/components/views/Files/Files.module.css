@@ -23,7 +23,7 @@
 
 .treeHeader {
     padding: calc(var(--sp-sm) + var(--sp-xs)) var(--sp-md);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-primary);
     border-bottom: 1px solid var(--border-color);
@@ -102,7 +102,7 @@
 }
 
 .fileName {
-    font-size: 13px;
+    font-size: 0.8125rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -166,7 +166,7 @@
     border: 1px solid var(--border-color);
     border-radius: calc(var(--button-radius) - var(--sp-xs));
     color: var(--text-primary);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -202,7 +202,7 @@
 
 .textHeader {
     padding: calc(var(--sp-sm) + var(--sp-xs)) var(--sp-md);
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-primary);
     border-bottom: 1px solid var(--border-color);
@@ -214,7 +214,7 @@
     padding: var(--card-padding);
     margin: 0;
     font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     line-height: 1.6;
     color: var(--text-primary);
     overflow: auto;
@@ -243,7 +243,7 @@
 }
 
 .csvTitle {
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -257,7 +257,7 @@
 
 .columnBtn {
     padding: var(--sp-xs) calc(var(--sp-sm) + var(--sp-xs));
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 500;
     background: transparent;
     border: 1px solid var(--border-color);
@@ -281,7 +281,7 @@
 
 .moreBtn {
     padding: var(--sp-xs) calc(var(--sp-sm) + var(--sp-xs));
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 500;
     background: linear-gradient(
         180deg,
@@ -337,7 +337,7 @@
     align-items: center;
     gap: var(--sp-sm);
     padding: calc(var(--sp-sm) + var(--sp-xs)) var(--sp-md);
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 600;
     color: var(--text-primary);
     background: var(--overlay-mid);
@@ -381,7 +381,7 @@
 
 .filesInfoTitle {
     margin: 0 0 var(--sp-sm) 0;
-    font-size: 14px;
+    font-size: var(--font-size-normal-rem, var(--font-size-normal));
     font-weight: 700;
     color: var(--text-primary);
 }
@@ -392,7 +392,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--sp-sm);
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.6;
 }
 
@@ -431,7 +431,7 @@
 }
 
 .chartModalTitle {
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 700;
     color: var(--text-primary);
 }
@@ -443,7 +443,7 @@
 
 .chartModalBtn {
     padding: var(--sp-xs) calc(var(--sp-sm) + var(--sp-xs));
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 600;
     background: linear-gradient(
         180deg,
@@ -474,7 +474,7 @@
 
 .chartModalHint {
     padding: calc(var(--sp-sm) + var(--sp-xs)) var(--sp-md);
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     color: var(--text-secondary);
     border-top: 1px solid var(--border-color);
     background: var(--overlay-weak);

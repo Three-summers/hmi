@@ -4,12 +4,13 @@
  * 通过动态设置 `<html>` 的 `font-size`，让 rem 单位的尺寸可以随窗口宽度等比例缩放。
  *
  * 计算公式：
- * - fontSize = max(12, (currentWidth / baseWidth) * baseFontSize)
+ * - fontSize = max(12, (currentWidth / baseWidth) * baseFontSize * scaleOverride)
  *
  * @module useHMIScale
  */
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useAppStore } from "@/stores";
 
 const MIN_ROOT_FONT_SIZE_PX = 12;
 const RESIZE_DEBOUNCE_MS = 100;
@@ -22,19 +23,41 @@ const RESIZE_DEBOUNCE_MS = 100;
  * @returns void
  */
 export function useHMIScale(baseWidth = 1280, baseFontSize = 16): void {
+    const scaleOverride = useAppStore((state) => state.scaleOverride);
+    const previousInlineFontSizeRef = useRef<string | null>(null);
+
     useEffect(() => {
         if (typeof window === "undefined") return;
 
-        const previousInlineFontSize = document.documentElement.style.fontSize;
+        if (previousInlineFontSizeRef.current === null) {
+            previousInlineFontSizeRef.current =
+                document.documentElement.style.fontSize;
+        }
+
+        return () => {
+            if (previousInlineFontSizeRef.current === null) return;
+            document.documentElement.style.fontSize =
+                previousInlineFontSizeRef.current;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === "undefined") return;
 
         const applyScale = () => {
             const safeBaseWidth = baseWidth > 0 ? baseWidth : 1280;
             const safeBaseFontSize = baseFontSize > 0 ? baseFontSize : 16;
+            const safeScaleOverride = Math.max(
+                0.75,
+                Math.min(2.0, scaleOverride || 1.0),
+            );
             const currentWidth = window.innerWidth;
 
             const nextFontSize = Math.max(
                 MIN_ROOT_FONT_SIZE_PX,
-                (currentWidth / safeBaseWidth) * safeBaseFontSize,
+                (currentWidth / safeBaseWidth) *
+                    safeBaseFontSize *
+                    safeScaleOverride,
             );
 
             document.documentElement.style.fontSize = `${nextFontSize}px`;
@@ -58,8 +81,6 @@ export function useHMIScale(baseWidth = 1280, baseFontSize = 16): void {
             if (resizeTimer !== undefined) {
                 window.clearTimeout(resizeTimer);
             }
-            document.documentElement.style.fontSize = previousInlineFontSize;
         };
-    }, [baseWidth, baseFontSize]);
+    }, [baseWidth, baseFontSize, scaleOverride]);
 }
-

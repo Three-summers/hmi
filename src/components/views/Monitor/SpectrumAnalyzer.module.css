@@ -26,7 +26,7 @@
     border: 1px solid var(--border-color);
     background: var(--overlay-weak);
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     line-height: 1;
 }
 
@@ -84,7 +84,7 @@
     border: 1px solid var(--border-color);
     background: var(--overlay-modal);
     color: var(--text-primary);
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     max-width: 520px;
     text-align: center;
 }
@@ -112,7 +112,7 @@
     border: 1px solid var(--button-border);
     border-radius: calc(var(--card-radius) - var(--sp-xs));
     color: var(--text-primary);
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     font-weight: 500;
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -181,7 +181,7 @@
 }
 
 .drawerTitle {
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -192,7 +192,7 @@
     border: 1px solid var(--button-border);
     background: var(--overlay-weak);
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     cursor: pointer;
     transition: all var(--transition-fast);
 }
@@ -229,7 +229,7 @@
 }
 
 .fieldLabel {
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 700;
     color: var(--text-secondary);
     letter-spacing: 0.08em;
@@ -238,7 +238,7 @@
 
 .fieldValue {
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
 }
@@ -297,7 +297,7 @@
 
     .statusItem {
         padding: 3px 8px;
-        font-size: 11px;
+        font-size: 0.6875rem;
     }
 
     .statusItem[data-priority="secondary"] {

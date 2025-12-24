@@ -13,7 +13,7 @@
 }
 
 .title {
-    font-size: var(--font-size-title);
+    font-size: var(--font-size-title-rem, var(--font-size-title));
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -61,7 +61,7 @@
 }
 
 .itemMeta {
-    font-size: var(--font-size-small);
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     color: var(--text-secondary);
 }
 
@@ -80,7 +80,7 @@
 }
 
 .emptyIcon {
-    font-size: 48px;
+    font-size: 3rem;
     margin-bottom: 16px;
     opacity: 0.5;
 }

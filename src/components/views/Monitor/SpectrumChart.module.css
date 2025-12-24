@@ -20,7 +20,7 @@
     border: 1px solid var(--color-attention);
     background: var(--overlay-modal);
     color: var(--color-attention);
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     line-height: 1;
     font-family:
         ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
@@ -41,7 +41,7 @@
         var(--overlay-modal) 100%
     );
     color: var(--text-secondary);
-    font-size: 12px;
+    font-size: var(--font-size-small-rem, var(--font-size-small));
     letter-spacing: 0.02em;
     pointer-events: none;
     user-select: none;
