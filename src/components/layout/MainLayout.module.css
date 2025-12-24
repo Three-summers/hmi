@@ -7,18 +7,16 @@
     height: 100vh;
     display: grid;
     grid-template-rows:
-        var(--title-panel-height-rem, var(--title-panel-height)) minmax(0, 1fr)
-        var(--nav-panel-height-rem, var(--nav-panel-height)); /* 使用 design token 控制上下栏高度 */
+        var(--title-panel-height) minmax(0, 1fr) var(--nav-panel-height); /* 使用 design token 控制上下栏高度 */
     grid-template-columns: 1fr
-        var(--command-panel-width-rem, var(--command-panel-width)); /* 主内容区 + CommandPanel */
+        var(--command-panel-width); /* 主内容区 + CommandPanel */
     background-color: var(--bg-primary);
     overflow: hidden; /* 禁止页面本身滚动，滚动交由各 Panel 内部容器处理 */
 }
 
 /* ═══ 布局变体：命令栏在左侧 ═══ */
 .mainLayout[data-command-position="left"] {
-    grid-template-columns: var(--command-panel-width-rem, var(--command-panel-width))
-        1fr;
+    grid-template-columns: var(--command-panel-width) 1fr;
 }
 
 /* ═══ 区域插槽（由 MainLayout.tsx 组合） ═══ */

@@ -108,11 +108,15 @@ export function CommandPanel({ currentView }: CommandPanelProps) {
                                 disabled={cmd.disabled}
                                 data-highlight={cmd.highlight}
                                 onClick={cmd.onClick}
-                                title={t(cmd.labelKey)}
+                                title={cmd.title ?? t(cmd.titleKey ?? cmd.labelKey)}
+                                aria-label={
+                                    cmd.ariaLabel ??
+                                    (cmd.ariaLabelKey ? t(cmd.ariaLabelKey) : undefined)
+                                }
                             >
-                                {CommandIcons[cmd.id] && (
+                                {(cmd.icon ?? CommandIcons[cmd.id]) && (
                                     <span className={styles.commandIcon}>
-                                        {CommandIcons[cmd.id]}
+                                        {cmd.icon ?? CommandIcons[cmd.id]}
                                     </span>
                                 )}
                                 <span className={styles.commandLabel}>
@@ -127,11 +131,15 @@ export function CommandPanel({ currentView }: CommandPanelProps) {
                                 disabled={cmd.disabled}
                                 data-highlight={cmd.highlight}
                                 onClick={cmd.onClick}
-                                title={t(cmd.labelKey)}
+                                title={cmd.title ?? t(cmd.titleKey ?? cmd.labelKey)}
+                                aria-label={
+                                    cmd.ariaLabel ??
+                                    (cmd.ariaLabelKey ? t(cmd.ariaLabelKey) : undefined)
+                                }
                             >
-                                {CommandIcons[cmd.id] && (
+                                {(cmd.icon ?? CommandIcons[cmd.id]) && (
                                     <span className={styles.commandIcon}>
-                                        {CommandIcons[cmd.id]}
+                                        {cmd.icon ?? CommandIcons[cmd.id]}
                                     </span>
                                 )}
                                 <span className={styles.commandLabel}>

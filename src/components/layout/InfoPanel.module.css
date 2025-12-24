@@ -25,7 +25,7 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 2.5rem; /* 阴影高度：只覆盖顶部一小段，避免遮挡主体内容 */
+    height: var(--space-10); /* 阴影高度：只覆盖顶部一小段，避免遮挡主体内容 */
     background: linear-gradient(
         180deg,
         rgba(0, 0, 0, 0.15) 0%,
@@ -39,7 +39,7 @@
 /* 各视图内容的滚动发生在此容器内（而不是 body/html） */
 .viewContainer {
     flex: 1;
-    padding: var(--sp-md-rem, var(--sp-md));
+    padding: var(--sp-md);
     min-height: 0; /* 关键：避免 flex 子项默认 min-height:auto 导致无法滚动 */
     overflow: auto;
     position: relative;
@@ -59,7 +59,7 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    gap: var(--sp-md-rem, var(--sp-md));
+    gap: var(--sp-md);
     color: var(--text-secondary);
     font-family: var(--font-family);
     font-size: var(--font-size-large);
@@ -67,9 +67,9 @@
 
 .placeholder::before {
     content: "";
-    width: 4rem;
-    height: 4rem;
+    width: var(--space-16);
+    height: var(--space-16);
     background: var(--overlay-weak);
     border-radius: 50%;
-    border: 0.125rem dashed var(--border-color);
+    border: var(--border-width-2) dashed var(--border-color);
 }

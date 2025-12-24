@@ -16,7 +16,7 @@
         var(--bg-tertiary) 0%,
         var(--bg-panel) 100%
     );
-    border-left: 1px solid var(--border-color);
+    border-left: var(--border-width-1) solid var(--border-color);
     height: 100%;
     box-sizing: border-box;
     position: relative;
@@ -30,7 +30,7 @@
     top: 0;
     left: 0;
     bottom: 0;
-    width: 2px;
+    width: var(--border-width-2);
     background: linear-gradient(
         180deg,
         transparent 0%,
@@ -45,7 +45,7 @@
 /* 左侧布局：渐变方向与边框镜像 */
 [data-command-position="left"] .commandPanel {
     border-left: none;
-    border-right: 1px solid var(--border-color);
+    border-right: var(--border-width-1) solid var(--border-color);
     background: linear-gradient(
         -90deg,
         var(--bg-tertiary) 0%,
@@ -63,15 +63,15 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 .panelHeader {
-    padding: 0.875rem 0.75rem;
-    border-bottom: 1px solid var(--border-color);
+    padding: var(--space-3);
+    border-bottom: var(--border-width-1) solid var(--border-color);
     background: var(--overlay-weak);
     position: relative;
 }
 
 .panelTitle {
     font-family: var(--font-display);
-    font-size: var(--font-size-xs-rem, var(--font-size-xs));
+    font-size: var(--font-size-xs);
     font-weight: var(--font-weight-bold);
     text-transform: uppercase;
     letter-spacing: 2px;
@@ -82,8 +82,8 @@
 .commandList {
     display: flex;
     flex-direction: column;
-    gap: 0.625rem;
-    padding: 0.875rem 0.75rem;
+    gap: var(--space-2);
+    padding: var(--space-3);
     flex: 1;
     overflow-y: auto;
 }
@@ -97,20 +97,20 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--sp-xs-rem, var(--sp-xs)); /* 减小间隙：从 sm (8px) 改为 xs (4px) */
-    min-height: var(--button-min-size-rem, var(--button-min-size));
-    padding: var(--sp-sm-rem, var(--sp-sm)) var(--sp-xs-rem, var(--sp-xs)); /* 优化 padding */
+    gap: var(--sp-xs); /* 减小间隙：从 sm (8px) 改为 xs (4px) */
+    min-height: var(--button-min-size);
+    padding: var(--sp-sm) var(--sp-xs); /* 优化 padding */
     background: linear-gradient(
         180deg,
         var(--button-bg-hover) 0%,
         var(--button-bg) 50%,
         var(--button-bg-active) 100%
     );
-    border: 1px solid var(--border-color);
-    border-radius: var(--button-radius-rem, var(--button-radius));
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--button-radius);
     color: var(--text-primary);
     font-family: var(--font-family);
-    font-size: var(--font-size-small-rem, var(--font-size-small));
+    font-size: var(--font-size-small);
     font-weight: var(--font-weight-medium);
     text-align: center;
     cursor: pointer;
@@ -127,11 +127,7 @@
     left: 0;
     right: 0;
     height: 50%;
-    background: linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.1) 0%,
-        transparent 100%
-    );
+    background: var(--shine-top-medium);
     pointer-events: none;
     transition: opacity var(--transition-fast);
 }
@@ -163,46 +159,46 @@
         var(--accent-primary) 0%,
         var(--accent-secondary) 100%
     );
-    color: white;
+    color: var(--text-on-accent);
     border-color: var(--accent-primary);
     box-shadow:
-        0 0 15px var(--color-processing-glow),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        0 0 var(--space-4) var(--color-processing-glow),
+        inset 0 var(--border-width-1) 0 rgba(255, 255, 255, 0.2);
 }
 
 /* 高亮状态（SEMI E95） */
 .commandButton[data-highlight="alarm"] {
     border-color: var(--color-alarm);
     box-shadow:
-        0 0 0 2px rgba(255, 59, 59, 0.3),
-        0 0 15px var(--color-alarm-glow),
-        inset 0 0 12px rgba(255, 59, 59, 0.08);
+        0 0 0 var(--border-width-2) rgba(255, 59, 59, 0.3),
+        0 0 var(--space-4) var(--color-alarm-glow),
+        inset 0 0 var(--space-3) rgba(255, 59, 59, 0.08);
 }
 
 .commandButton[data-highlight="warning"] {
     border-color: var(--color-warning);
     box-shadow:
-        0 0 0 2px rgba(255, 193, 7, 0.25),
-        0 0 12px var(--color-warning-glow);
+        0 0 0 var(--border-width-2) rgba(255, 193, 7, 0.25),
+        0 0 var(--space-3) var(--color-warning-glow);
 }
 
 .commandButton[data-highlight="processing"] {
     border-color: var(--color-processing);
     box-shadow:
-        0 0 0 2px rgba(14, 165, 233, 0.3),
-        0 0 12px var(--color-processing-glow);
+        0 0 0 var(--border-width-2) rgba(14, 165, 233, 0.3),
+        0 0 var(--space-3) var(--color-processing-glow);
 }
 
 .commandButton[data-highlight="attention"] {
     border-color: var(--color-attention);
     box-shadow:
-        0 0 0 2px rgba(34, 197, 94, 0.3),
-        0 0 12px var(--color-attention-glow);
+        0 0 0 var(--border-width-2) rgba(34, 197, 94, 0.3),
+        0 0 var(--space-3) var(--color-attention-glow);
 }
 
 .commandIcon {
-    width: 1.375rem; /* 减小图标：从 1.625rem (26px) 改为 1.375rem (22px) */
-    height: 1.375rem;
+    width: calc(var(--space-5) + calc(var(--space-1) / 2)); /* 22px @ 16px */
+    height: calc(var(--space-5) + calc(var(--space-1) / 2));
     color: var(--accent-primary);
     transition: all var(--transition-fast);
     flex-shrink: 0; /* 防止图标被压缩 */
@@ -219,12 +215,12 @@
 }
 
 .commandButton[data-pressed="true"] .commandIcon {
-    color: white;
+    color: var(--text-on-accent);
     filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
 }
 
 .commandLabel {
-    font-size: var(--font-size-xs-rem, var(--font-size-xs));
+    font-size: var(--font-size-xs);
     line-height: 1.2; /* 减小行高，让多行文本更紧凑 */
     max-width: 100%;
     text-align: center;
@@ -242,9 +238,9 @@
 .commandCount {
     display: block;
     font-family: var(--font-mono);
-    font-size: var(--font-size-xs-rem, var(--font-size-xs));
+    font-size: var(--font-size-xs);
     color: var(--text-disabled);
-    margin-top: 0.125rem;
+    margin-top: calc(var(--space-1) / 2);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -257,13 +253,13 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    padding: 1.25rem;
-    gap: 0.75rem;
+    padding: var(--space-5);
+    gap: var(--space-3);
 }
 
 .emptyIcon {
-    width: 3rem;
-    height: 3rem;
+    width: var(--space-12);
+    height: var(--space-12);
     color: var(--text-disabled);
     opacity: 0.25;
 }
@@ -285,7 +281,7 @@
     right: 0;
     bottom: 0;
     background: var(--overlay-modal);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(var(--blur-sm));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -299,14 +295,14 @@
         var(--bg-secondary) 0%,
         var(--bg-tertiary) 100%
     );
-    border: 1px solid var(--border-color);
-    border-radius: var(--button-radius-lg-rem, var(--button-radius-lg));
-    padding: 1.75rem;
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--button-radius-lg);
+    padding: var(--space-7);
     min-width: 21.25rem;
     max-width: 26.25rem;
     box-shadow:
         var(--shadow-xl),
-        0 0 40px rgba(14, 165, 233, 0.15);
+        0 0 var(--space-10) rgba(14, 165, 233, 0.15);
     animation: scale-in var(--transition-fast);
     position: relative;
     overflow: hidden;
@@ -318,7 +314,7 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
+    height: calc(var(--border-width-1) + var(--border-width-2));
     background: linear-gradient(
         90deg,
         var(--color-warning),
@@ -329,30 +325,30 @@
 .modalHeader {
     display: flex;
     align-items: center;
-    gap: 0.875rem;
-    margin-bottom: 1.125rem;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
 }
 
 .modalIcon {
-    width: 2.75rem;
-    height: 2.75rem;
+    width: calc(var(--space-10) + var(--space-1));
+    height: calc(var(--space-10) + var(--space-1));
     border-radius: 50%;
     background: rgba(255, 193, 7, 0.15);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--color-warning);
-    box-shadow: 0 0 15px var(--color-warning-glow);
+    box-shadow: 0 0 var(--space-4) var(--color-warning-glow);
 }
 
 .modalIcon svg {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: var(--space-6);
+    height: var(--space-6);
 }
 
 .modalTitle {
     font-family: var(--font-display);
-    font-size: var(--font-size-title-rem, var(--font-size-title));
+    font-size: var(--font-size-title);
     font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     margin: 0;
@@ -361,24 +357,24 @@
 
 .modalMessage {
     font-family: var(--font-family);
-    font-size: var(--font-size-normal-rem, var(--font-size-normal));
+    font-size: var(--font-size-normal);
     color: var(--text-secondary);
-    margin: 0 0 1.5rem 0;
+    margin: 0 0 var(--space-6) 0;
     line-height: 1.6;
 }
 
 .modalActions {
     display: flex;
-    gap: 0.75rem;
+    gap: var(--space-3);
     justify-content: flex-end;
 }
 
 .cancelBtn,
 .confirmBtn {
-    padding: 0.75rem 1.5rem;
-    border-radius: var(--button-radius-rem, var(--button-radius));
+    padding: var(--space-3) var(--space-6);
+    border-radius: var(--button-radius);
     font-family: var(--font-family);
-    font-size: var(--font-size-normal-rem, var(--font-size-normal));
+    font-size: var(--font-size-normal);
     font-weight: var(--font-weight-medium);
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -388,7 +384,7 @@
 
 .cancelBtn {
     background: transparent;
-    border: 1px solid var(--border-color);
+    border: var(--border-width-1) solid var(--border-color);
     color: var(--text-secondary);
 }
 
@@ -415,11 +411,7 @@
     left: 0;
     right: 0;
     height: 50%;
-    background: linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.2) 0%,
-        transparent 100%
-    );
+    background: var(--shine-top-strong);
     pointer-events: none;
 }
 

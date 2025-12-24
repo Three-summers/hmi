@@ -7,6 +7,7 @@
  * @module NotificationToast
  */
 
+import { useShallow } from "zustand/shallow";
 import { useNotificationStore } from "@/stores";
 import styles from "./NotificationToast.module.css";
 
@@ -40,7 +41,12 @@ const icons: Record<string, JSX.Element> = {
  * @returns Toast 容器 JSX（无消息时返回 null）
  */
 export function NotificationToast() {
-    const { notifications, removeNotification } = useNotificationStore();
+    const { notifications, removeNotification } = useNotificationStore(
+        useShallow((state) => ({
+            notifications: state.notifications,
+            removeNotification: state.removeNotification,
+        })),
+    );
 
     // 无消息时不渲染
     if (notifications.length === 0) return null;

@@ -44,6 +44,46 @@ const iconMap: Record<MessageIconType, string> = {
     error: "❌",
 };
 
+export type DialogEscapeAction = "cancel" | "close" | "no" | null;
+export type DialogCloseAction = "cancel" | "close";
+
+/**
+ * 根据对话框类型补齐默认按钮策略，避免调用方遗漏导致不符合规范
+ */
+export function resolveDialogButtons(
+    type: DialogType,
+    buttons: DialogButtons = {},
+): DialogButtons {
+    return {
+        ...buttons,
+        // info 必须是 Close
+        ...(type === "info" && { close: true, ok: false }),
+        // input 必须是 OK/Cancel
+        ...(type === "input" && { ok: true, cancel: true }),
+    };
+}
+
+/**
+ * Escape：优先走 Cancel/Close/No（按 SEMI E95 语义尽量“安全退出”）
+ */
+export function getDialogEscapeAction(
+    resolvedButtons: DialogButtons,
+): DialogEscapeAction {
+    if (resolvedButtons.cancel) return "cancel";
+    if (resolvedButtons.close) return "close";
+    if (resolvedButtons.no) return "no";
+    return null;
+}
+
+/**
+ * 右上角 X：语义等同 Cancel（若无 Cancel 则视为 Close）
+ */
+export function getDialogCloseAction(
+    resolvedButtons: DialogButtons,
+): DialogCloseAction {
+    return resolvedButtons.cancel ? "cancel" : "close";
+}
+
 /**
  * SEMI E95 对话框组件
  *
@@ -74,29 +114,19 @@ export function Dialog({
 }: DialogProps) {
     const { t } = useTranslation();
 
-    // 根据对话框类型补齐默认按钮策略，避免调用方遗漏导致不符合规范
-    const resolvedButtons: DialogButtons = {
-        ...buttons,
-        // info 必须是 Close
-        ...(type === "info" && { close: true, ok: false }),
-        // input 必须是 OK/Cancel
-        ...(type === "input" && { ok: true, cancel: true }),
-    };
+    const resolvedButtons = resolveDialogButtons(type, buttons);
 
     // Escape：优先走 Cancel/Close/No（按 SEMI E95 语义尽量“安全退出”）
     useEffect(() => {
         if (!open) return;
 
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
-                if (resolvedButtons.cancel) {
-                    onCancel?.();
-                } else if (resolvedButtons.close) {
-                    onClose?.();
-                } else if (resolvedButtons.no) {
-                    onNo?.();
-                }
-            }
+            if (e.key !== "Escape") return;
+
+            const action = getDialogEscapeAction(resolvedButtons);
+            if (action === "cancel") onCancel?.();
+            if (action === "close") onClose?.();
+            if (action === "no") onNo?.();
         };
 
         window.addEventListener("keydown", handleKeyDown);
@@ -105,11 +135,9 @@ export function Dialog({
 
     // X：等同 Cancel（若无 Cancel 则走 Close）
     const handleCloseButton = useCallback(() => {
-        if (resolvedButtons.cancel) {
-            onCancel?.();
-        } else {
-            onClose?.();
-        }
+        const action = getDialogCloseAction(resolvedButtons);
+        if (action === "cancel") onCancel?.();
+        if (action === "close") onClose?.();
     }, [resolvedButtons, onCancel, onClose]);
 
     if (!open) return null;

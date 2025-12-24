@@ -4,11 +4,11 @@
 /* 顶部统计栏：按作业状态汇总数量 */
 .statsBar {
     display: flex;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 8px;
-    margin-bottom: 1rem;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--overlay-weak);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-4);
 }
 
 /* 单个统计项：数字 + 标签 */
@@ -17,30 +17,30 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 0.75rem;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
+    padding: var(--space-3);
+    background: var(--overlay-weak);
+    border-radius: var(--radius-sm);
+    border: var(--border-width-1) solid var(--border-color);
 }
 
 .statItem[data-status="processing"] {
     border-color: var(--color-processing);
-    background: rgba(65, 105, 225, 0.1);
+    background: var(--status-bg-processing);
 }
 
 .statItem[data-status="attention"] {
     border-color: var(--color-attention);
-    background: rgba(50, 205, 50, 0.1);
+    background: var(--status-bg-attention);
 }
 
 .statItem[data-status="alarm"] {
     border-color: var(--color-alarm);
-    background: rgba(255, 0, 0, 0.1);
+    background: var(--status-bg-alarm);
 }
 
 .statValue {
-    font-size: 1.75rem;
-    font-weight: 700;
+    font-size: calc(var(--font-size-display) + var(--space-1));
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     line-height: 1;
 }
@@ -56,11 +56,11 @@
 }
 
 .statLabel {
-    font-size: 0.6875rem;
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-top: 0.25rem;
+    margin-top: var(--space-1);
 }
 
 /* ═══ 作业列表（滚动区） ═══ */
@@ -74,7 +74,7 @@
 .jobsList {
     display: flex;
     flex-direction: column;
-    gap: 0.625rem;
+    gap: var(--space-2);
 }
 
 /* ═══ 作业卡片（含状态条） ═══ */
@@ -85,96 +85,96 @@
         var(--bg-secondary) 0%,
         var(--bg-tertiary) 100%
     );
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 0.875rem;
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: var(--card-padding);
     cursor: pointer;
     transition: all var(--transition-fast);
 }
 
 .jobCard:hover {
     border-color: var(--color-processing);
-    box-shadow: 0 2px 8px rgba(14, 165, 233, 0.2);
+    box-shadow: 0 calc(var(--space-1) / 2) var(--space-2) var(--border-glow);
 }
 
 .jobCard[data-selected="true"] {
     border-color: var(--color-processing);
-    box-shadow: 0 0 0 2px rgba(65, 105, 225, 0.3);
+    box-shadow: 0 0 0 var(--border-width-2) var(--border-glow);
 }
 
 .jobCard[data-status="processing"] {
-    border-left: 0.25rem solid var(--color-processing);
+    border-left: var(--space-1) solid var(--color-processing);
 }
 
 .jobCard[data-status="alarm"] {
-    border-left: 0.25rem solid var(--color-alarm);
+    border-left: var(--space-1) solid var(--color-alarm);
 }
 
 .jobCard[data-status="attention"] {
-    border-left: 0.25rem solid var(--color-attention);
+    border-left: var(--space-1) solid var(--color-attention);
 }
 
 .jobCard[data-status="warning"] {
-    border-left: 0.25rem solid var(--color-warning);
+    border-left: var(--space-1) solid var(--color-warning);
 }
 
 /* ═══ 卡片头部：状态、标题与进度 ═══ */
 .jobHeader {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.625rem;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
 }
 
 /* 状态圆点：颜色随 status 变化 */
 .jobStatus {
-    width: 2rem;
-    height: 2rem;
+    width: var(--space-8);
+    height: var(--space-8);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--overlay-mid);
     color: var(--text-secondary);
 }
 
 .jobStatus svg {
-    width: 1.125rem;
-    height: 1.125rem;
+    width: calc(var(--space-4) + calc(var(--space-1) / 2));
+    height: calc(var(--space-4) + calc(var(--space-1) / 2));
 }
 
 .jobStatus[data-status="processing"] {
     color: var(--color-processing);
-    background: rgba(65, 105, 225, 0.2);
+    background: var(--status-bg-processing);
 }
 .jobStatus[data-status="alarm"] {
     color: var(--color-alarm);
-    background: rgba(255, 0, 0, 0.2);
+    background: var(--status-bg-alarm);
 }
 .jobStatus[data-status="attention"] {
     color: var(--color-attention);
-    background: rgba(50, 205, 50, 0.2);
+    background: var(--status-bg-attention);
 }
 .jobStatus[data-status="warning"] {
     color: var(--color-warning);
-    background: rgba(255, 255, 0, 0.2);
+    background: var(--status-bg-warning);
 }
 
 .jobTitle {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 0.125rem;
+    gap: calc(var(--space-1) / 2);
 }
 
 .jobName {
-    font-size: 0.9375rem;
-    font-weight: 600;
+    font-size: var(--font-size-normal);
+    font-weight: var(--font-weight-medium);
     color: var(--text-primary);
 }
 
 .jobRecipe {
-    font-size: 0.6875rem;
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
 }
 
@@ -184,25 +184,25 @@
 
 /* ═══ 进度条 ═══ */
 .progressValue {
-    font-size: var(--font-size-title-rem, var(--font-size-title));
-    font-weight: 700;
+    font-size: var(--font-size-title);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
 }
 
 .progressBar {
-    height: 0.375rem;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 0.1875rem;
+    height: calc(var(--space-1) + calc(var(--space-1) / 2));
+    background: var(--overlay-mid);
+    border-radius: calc(var(--border-width-1) + var(--border-width-2));
     overflow: hidden;
-    margin-bottom: 0.625rem;
+    margin-bottom: var(--space-2);
 }
 
 .progressFill {
     height: 100%;
     background: var(--color-processing);
-    border-radius: 0.1875rem;
-    transition: width 0.3s ease; /* 模拟实时进度变化的平滑过渡 */
+    border-radius: calc(var(--border-width-1) + var(--border-width-2));
+    transition: width var(--transition-normal); /* 模拟实时进度变化的平滑过渡 */
 }
 
 .progressFill[data-status="processing"] {
@@ -220,25 +220,25 @@
 
 .jobDetails {
     display: flex;
-    gap: 1.25rem;
+    gap: var(--space-5);
 }
 
 .detailItem {
     display: flex;
     flex-direction: column;
-    gap: 0.125rem;
+    gap: calc(var(--space-1) / 2);
 }
 
 .detailLabel {
-    font-size: var(--font-size-xs-rem, var(--font-size-xs));
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
 
 .detailValue {
-    font-size: 0.8125rem;
-    font-weight: 500;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
 }
@@ -248,10 +248,10 @@
     flex: 1;
     min-height: 0; /* 允许面板内部滚动 */
     overflow: auto;
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 1rem;
+    background: var(--overlay-weak);
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: var(--space-4);
 }
 
 /* 空态：未选择作业时 */
@@ -262,7 +262,7 @@
     align-items: center;
     justify-content: center;
     color: var(--text-secondary);
-    font-size: 0.8125rem;
+    font-size: var(--font-size-small);
 }
 
 /* 详情头：标题 + 状态徽标 */
@@ -270,24 +270,24 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.875rem;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
 }
 
 .detailsTitle {
-    font-size: var(--font-size-large-rem, var(--font-size-large));
-    font-weight: 800;
+    font-size: var(--font-size-large);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     letter-spacing: 0.5px;
 }
 
 .detailsBadge {
-    padding: 0.375rem 0.625rem;
-    border-radius: 999px; /* 胶囊形徽标 */
-    border: 1px solid var(--border-color);
-    background: rgba(0, 0, 0, 0.25);
-    font-size: 0.6875rem;
-    font-weight: 800;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-pill);
+    border: var(--border-width-1) solid var(--border-color);
+    background: var(--overlay-weak);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
     color: var(--text-secondary);
     letter-spacing: 0.8px;
 }
@@ -315,7 +315,7 @@
 .detailsGrid {
     display: flex;
     flex-direction: column;
-    gap: 0.625rem;
+    gap: var(--space-2);
 }
 
 /* 详情行：左右对齐的键值对 */
@@ -323,23 +323,23 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.625rem 0.75rem;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    background: rgba(0, 0, 0, 0.18);
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-sm);
+    border: var(--border-width-1) solid var(--border-color);
+    background: var(--overlay-weak);
 }
 
 .detailsLabel {
-    font-size: 0.6875rem;
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.6px;
 }
 
 .detailsValue {
-    font-size: 0.8125rem;
-    font-weight: 700;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
 }

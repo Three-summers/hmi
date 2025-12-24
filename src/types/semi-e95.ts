@@ -64,11 +64,26 @@ export interface NavButtonConfig {
 export interface CommandButtonConfig {
     id: string;
     labelKey: string;
-    icon?: string;
+    /**
+     * 可选图标节点
+     *
+     * @description
+     * - 对于 CommandPanel：未提供时可按 `id` 映射到内置图标表（例如 CommandIcons）
+     * - 对于 TitlePanel/CommandSection：通常直接传入 ReactNode
+     */
+    icon?: ReactNode;
+    /** tooltip 文案 key（未提供则默认使用 labelKey） */
+    titleKey?: string;
+    /** tooltip 文案（用于动态内容，例如“缩放: 125%”） */
+    title?: string;
+    /** aria-label 文案 key（未提供则默认使用 labelKey） */
+    ariaLabelKey?: string;
+    /** aria-label 文案（用于动态内容） */
+    ariaLabel?: string;
     disabled?: boolean;
     highlight?: HighlightStatus;
     behavior?: ButtonBehavior;
-    onClick?: () => void;
+    onClick?: () => void | Promise<void>;
 }
 
 /** 对话框配置 */

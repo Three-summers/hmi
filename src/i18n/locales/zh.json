@@ -466,9 +466,12 @@
         "empty": "文件夹为空",
         "selectFile": "请选择一个文件进行预览",
         "readError": "读取文件失败",
-        "chart": {
-            "zoomHint": "滚轮缩放，拖拽平移，双击复位"
-        },
+  "chart": {
+    "zoomHint": "滚轮缩放，拖拽平移，双击复位",
+    "initError": "图表初始化失败",
+    "emptyData": "CSV 无有效数据（至少需要 2 行）",
+    "emptySelection": "未选择数据列"
+  },
         "info": {
             "zoomTip": "图表支持滚轮缩放与拖拽平移",
             "refreshTip": "点击“刷新”重新加载日志目录与文件列表"

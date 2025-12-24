@@ -22,7 +22,8 @@
 14. [国际化架构](#14-国际化架构)
 15. [主题系统](#15-主题系统)
 16. [响应式缩放系统](#16-响应式缩放系统)
-17. [部署架构](#17-部署架构)
+17. [测试架构](#17-测试架构)
+18. [部署架构](#18-部署架构)
 
 ---
 
@@ -64,6 +65,9 @@ HMI（Human-Machine Interface）是一个基于 **SEMI E95** 规范设计的工�
 | uPlot | 1.6.x | 高性能图表 |
 | Vite | 6.0.x | 构建工具 |
 | CSS Modules | - | 样式隔离 |
+| **Vitest** | **3.x** | **单元测试框架** |
+| **@testing-library/react** | **16.x** | **React 组件测试** |
+| **jsdom** | **26.x** | **DOM 环境模拟** |
 
 ### 2.2 后端 (Tauri)
 
@@ -162,6 +166,15 @@ HMI（Human-Machine Interface）是一个基于 **SEMI E95** 规范设计的工�
 │  │  • useAsync - 异步操作封装                                │  │
 │  │  • useNotify - 通知触发                                   │  │
 │  │  • useConfirm - 确认对话框                                │  │
+│  │  **• useStoreWhenActive - Keep-Alive 订阅门控**          │  │
+│  │  **• useIntervalWhenActive - Keep-Alive 定时器门控**     │  │
+│  │  **• useSpectrumData - 频谱数据订阅（统一 hook）**        │  │
+│  │  **• useFileTree - 文件树状态管理**                       │  │
+│  │  **• useFilePreview - 文件预览逻辑**                      │  │
+│  │  **• useChartData - 图表数据处理**                        │  │
+│  │  **• useCommandHandler - 命令交互逻辑**                   │  │
+│  │  **• useRetry - 重试策略**                                │  │
+│  │  **• useErrorBoundary - 错误边界**                        │  │
 │  └──────────────────────────────────────────────────────────┘  │
 ├────────────────────────────────────────────────────────────────┤
 │                    Layer 3: State Management                    │
@@ -237,6 +250,7 @@ hmi/
 │   │   ├── common/                 # 通用组件
 │   │   │   ├── Button.tsx          # 按钮
 │   │   │   ├── Dialog.tsx          # 对话框
+│   │   │   ├── ErrorBoundary.tsx   # **错误边界组件**
 │   │   │   ├── Icons.tsx           # 图标库
 │   │   │   ├── StatusIndicator.tsx # 状态指示器
 │   │   │   ├── Tabs.tsx            # 标签页
@@ -244,8 +258,10 @@ hmi/
 │   │   │
 │   │   ├── layout/                 # 布局组件
 │   │   │   ├── MainLayout.tsx      # 主布局
-│   │   │   ├── TitlePanel.tsx      # 标题面板
-│   │   │   ├── TitlePanelItems.tsx # 标题面板子组件
+│   │   │   ├── TitlePanel.tsx      # 标题面板（重构：三段式结构）
+│   │   │   ├── TitleSection.tsx    # **标题段组件**
+│   │   │   ├── InfoSection.tsx     # **信息段组件**
+│   │   │   ├── CommandSection.tsx  # **命令段组件**
 │   │   │   ├── InfoPanel.tsx       # 信息面板（视图容器）
 │   │   │   ├── NavPanel.tsx        # 导航面板
 │   │   │   ├── CommandPanel.tsx    # 命令面板
@@ -257,9 +273,19 @@ hmi/
 │   │   └── views/                  # 业务视图
 │   │       ├── Jobs/               # 作业视图
 │   │       ├── System/             # 系统视图
-│   │       ├── Monitor/            # 监控视图
+│   │       ├── Monitor/            # 监控视图（重构：拆分为子组件）
+│   │       │   ├── index.tsx       # 视图主入口（366 行，原 1032 行）
+│   │       │   ├── SpectrumAnalyzer.tsx  # **频谱分析仪子组件**
+│   │       │   ├── SpectrumChart.tsx     # **频谱图表**
+│   │       │   ├── WaterfallChart.tsx    # **瀑布图子组件**
+│   │       │   ├── WaterfallCanvas.tsx   # **瀑布图 Canvas**
+│   │       │   └── AlarmList.tsx         # **告警列表子组件**
 │   │       ├── Recipes/            # 配方视图
-│   │       ├── Files/              # 文件视图
+│   │       ├── Files/              # 文件视图（重构：拆分为子组件）
+│   │       │   ├── index.tsx       # 视图主入口（重构后）
+│   │       │   ├── FileTreePanel.tsx     # **文件树面板**
+│   │       │   ├── FilePreviewPanel.tsx  # **文件预览面板**
+│   │       │   └── ChartPanel.tsx        # **图表面板**
 │   │       ├── Setup/              # 设置视图
 │   │       ├── Alarms/             # 告警视图
 │   │       └── Help/               # 帮助视图
@@ -275,7 +301,16 @@ hmi/
 │   │   ├── useKeyboardShortcuts.ts # 键盘快捷键
 │   │   ├── useNotify.ts            # 通知触发
 │   │   ├── useHMIScale.ts          # HMI 缩放系统（rem + 动态根字号）
-│   │   └── useCanvasScale.ts       # Canvas 缩放适配
+│   │   ├── useCanvasScale.ts       # Canvas 缩放适配
+│   │   ├── **useStoreWhenActive.ts**  # **Keep-Alive 订阅门控**
+│   │   ├── **useIntervalWhenActive.ts** # **Keep-Alive 定时器门控**
+│   │   ├── **useSpectrumData.ts**    # **频谱数据订阅 hook**
+│   │   ├── **useFileTree.ts**        # **文件树状态管理**
+│   │   ├── **useFilePreview.ts**     # **文件预览逻辑**
+│   │   ├── **useChartData.ts**       # **图表数据处理**
+│   │   ├── **useCommandHandler.ts**  # **命令交互逻辑**
+│   │   ├── **useRetry.ts**           # **重试策略 hook**
+│   │   └── **useErrorBoundary.ts**   # **错误边界 hook**
 │   │
 │   ├── i18n/                       # 国际化
 │   │   ├── index.ts                # i18next 配置
@@ -284,7 +319,7 @@ hmi/
 │   │       └── en.json             # 英文
 │   │
 │   ├── platform/                   # 平台抽象层
-│   │   ├── invoke.ts               # Tauri RPC 封装
+│   │   ├── invoke.ts               # Tauri RPC 封装（增强：InvokeError）
 │   │   ├── tauri.ts                # 环境检测
 │   │   └── window.ts               # 窗口操作
 │   │
@@ -293,24 +328,29 @@ hmi/
 │   │   ├── appStore.ts             # 应用状态
 │   │   ├── navigationStore.ts      # 导航状态
 │   │   ├── alarmStore.ts           # 告警状态
-│   │   ├── commStore.ts            # 通信状态
+│   │   ├── commStore.ts            # 通信状态（优化：timeout 中文）
 │   │   └── notificationStore.ts    # 通知状态
 │   │
 │   ├── styles/                     # 全局样式
-│   │   ├── global.css              # 全局样式
-│   │   ├── variables.css           # CSS 变量（含 rem 变量、响应式断点）
+│   │   ├── global.css              # 全局样式（优化：动效简化）
+│   │   ├── variables.css           # CSS 变量（统一：4px tokens、本地字体）
 │   │   └── components/             # 组件样式
 │   │
 │   ├── utils/                      # 工具函数
 │   │   ├── index.ts                # 导出入口
+│   │   ├── **async.ts**            # **统一异步工具（withTimeout, TimeoutError）**
+│   │   ├── **error.ts**            # **错误处理工具（toErrorMessage）**
 │   │   ├── readCssVar.ts           # 动态读取 CSS 变量
 │   │   ├── parseCssColorToRgb.ts   # 解析 CSS 颜色为 RGB
 │   │   └── withAlpha.ts            # 添加透明度到 RGB
 │   │
-│   └── types/                      # 类型定义
-│       ├── index.ts                # 导出入口
-│       ├── semi-e95.ts             # SEMI E95 UI 类型
-│       └── comm.ts                 # 通信类型
+│   ├── types/                      # 类型定义
+│   │   ├── index.ts                # 导出入口
+│   │   ├── semi-e95.ts             # SEMI E95 UI 类型（完善：CommandButtonConfig）
+│   │   └── comm.ts                 # 通信类型
+│   │
+│   └── **test/**                   # **测试配置**
+│       └── **setup.ts**            # **Vitest 全局测试配置**
 │
 ├── src-tauri/                      # Tauri 后端
 │   ├── Cargo.toml                  # Rust 依赖配置
@@ -333,7 +373,8 @@ hmi/
 ├── index.html                      # HTML 入口
 ├── package.json                    # NPM 配置
 ├── tsconfig.json                   # TypeScript 配置
-└── vite.config.ts                  # Vite 配置
+├── vite.config.ts                  # Vite 配置
+└── **vitest.config.ts**            # **Vitest 测试配置（90% 覆盖率阈值）**
 ```
 
 ---
@@ -344,16 +385,35 @@ hmi/
 
 ```
 App
-└── MainLayout                      # 主布局壳
-    ├── TitlePanel                  # 顶部：标题、状态、操作按钮
+└── MainLayout                      # 主布局壳（包含 ErrorBoundary）
+    ├── TitlePanel                  # 顶部：标题、状态、操作按钮（重构：三段式）
+    │   ├── InfoSection             # 左侧：设备信息区
+    │   ├── TitleSection            # 中央：标题 + 状态指示器
+    │   └── CommandSection          # 右侧：窗口命令（缩放/登录/全屏）
     ├── InfoPanel                   # 中央：视图容器（Keep-Alive）
-    │   └── ViewContextProvider     # 视图上下文
+    │   └── ViewContextProvider     # 视图上下文（isActive 判断）
     │       └── KeptAliveView       # 缓存的视图包装器
-    │           └── [View Component] # 具体视图（Jobs/Monitor/...）
+    │           └── [View Component] # 具体视图（示例见下）
+    │               ├── Monitor/    # 监控视图（重构：拆分为子组件）
+    │               │   ├── 概览 Tab: WaterfallChart + AlarmList
+    │               │   └── 频谱分析仪 Tab: SpectrumAnalyzer
+    │               │       ├── SpectrumChart（频谱图）
+    │               │       └── WaterfallCanvas（瀑布图）
+    │               ├── Files/      # 文件视图（重构：拆分为子组件）
+    │               │   ├── FileTreePanel（文件树）
+    │               │   ├── FilePreviewPanel（预览）
+    │               │   └── ChartPanel（图表）
+    │               └── ...         # 其他视图（Jobs/System/...）
     ├── CommandPanel                # 侧边：上下文命令按钮
     ├── NavPanel                    # 底部：主导航按钮
     └── NotificationToast           # 浮层：通知弹出
 ```
+
+**重构亮点**：
+- **TitlePanel**：由单体 637 行拆分为 InfoSection/TitleSection/CommandSection，职责清晰
+- **Monitor**：由 1032 行拆分为 366 行主入口 + 多个子组件（SpectrumAnalyzer/WaterfallChart/AlarmList）
+- **Files**：由 1375 行拆分为多个子组件（FileTreePanel/FilePreviewPanel/ChartPanel）
+- **共享数据源**：WaterfallChart 与 SpectrumAnalyzer 复用 `useSpectrumData` hook，确保数据一致性
 
 ### 6.2 视图生命周期
 
@@ -542,23 +602,34 @@ src-tauri/src/
 │                            │                                    │
 │                            ▼                                    │
 │                    ┌───────────────────┐                        │
-│                    │ listen(           │                        │
-│                    │  "spectrum-data", │                        │
-│                    │  callback         │                        │
-│                    │ )                 │                        │
+│                    │ useSpectrumData   │ **统一数据订阅 Hook**   │
+│                    │ (共享 hook)       │                        │
+│                    │                   │                        │
+│                    │ • listen()        │                        │
+│                    │ • start_sensor    │                        │
+│                    │ • stop_sensor     │                        │
+│                    │ • retry()         │                        │
 │                    └───────────────────┘                        │
 │                            │                                    │
-│                            ▼                                    │
-│                    ┌───────────────────┐                        │
-│                    │  State Update     │                        │
-│                    │  setSpectrumData()│                        │
-│                    └───────────────────┘                        │
-│                            │                                    │
-│                            ▼                                    │
-│                    ┌───────────────────┐                        │
-│                    │  uPlot Chart      │                        │
-│                    │  Re-render        │                        │
-│                    └───────────────────┘                        │
+│                   ┌────────┴────────┐                           │
+│                   ▼                 ▼                           │
+│          ┌────────────────┐  ┌────────────────┐                │
+│          │ WaterfallChart │  │SpectrumAnalyzer│                │
+│          │ (概览 Tab)     │  │ (频谱分析 Tab) │                │
+│          │                │  │                │                │
+│          │ onFrame: {     │  │ onFrame: {     │                │
+│          │   setAmplitudes│  │   setFreqs     │                │
+│          │ }              │  │   setAmps      │                │
+│          └────────────────┘  │   updateMaxHold│                │
+│                              │   updateAverage│                │
+│                              └────────────────┘                │
+│                                      │                          │
+│                                      ▼                          │
+│                              ┌────────────────┐                │
+│                              │ SpectrumChart  │                │
+│                              │ + WaterfallCanvas               │
+│                              │ (uPlot 渲染)   │                │
+│                              └────────────────┘                │
 │                                                                  │
 │  数据结构：                                                       │
 │  SpectrumData {                                                 │
@@ -569,6 +640,13 @@ src-tauri/src/
 │    peak_amplitude: f64,     // 峰值幅值                          │
 │    average_amplitude: f64   // 平均幅值                          │
 │  }                                                               │
+│                                                                  │
+│  **关键设计**：                                                   │
+│  • WaterfallChart 与 SpectrumAnalyzer 使用相同的               │
+│    useSpectrumData hook，确保数据源一致性                        │
+│  • hook 内部统一管理 listen/invoke/错误处理，避免重复实现        │
+│  • 支持 isActive 门控，inactive 视图自动停止订阅                 │
+│  • 提供 retry() 方法，用于错误后重试                             │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -1568,9 +1646,500 @@ setScaleOverride(1.5);  // 放大到 1.5x
 
 ---
 
-## 17. 部署架构
+## 17. 测试架构
 
-### 17.1 构建产物
+### 17.1 测试框架概览
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Testing Architecture                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  测试框架：Vitest + React Testing Library (RTL)                 │
+│  环境：jsdom（模拟浏览器 DOM）                                   │
+│  覆盖率工具：v8（Vitest 内置）                                   │
+│  覆盖率目标：≥90%（全局阈值）                                    │
+│                                                                  │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                   vitest.config.ts                         │  │
+│  │  ┌─────────────────────────────────────────────────────┐  │  │
+│  │  │ • environment: 'jsdom'                              │  │  │
+│  │  │ • globals: true（支持 describe/it 全局 API）        │  │  │
+│  │  │ • setupFiles: ['src/test/setup.ts']                │  │  │
+│  │  │ • coverage.provider: 'v8'                           │  │  │
+│  │  │ • coverage.thresholds: {                            │  │  │
+│  │  │     lines: 90, branches: 90,                        │  │  │
+│  │  │     functions: 90, statements: 90                   │  │  │
+│  │  │   }                                                 │  │  │
+│  │  │ • coverage.include: [                               │  │  │
+│  │  │     'src/components/**/*.{ts,tsx}',                 │  │  │
+│  │  │     'src/hooks/**/*.ts',                            │  │  │
+│  │  │     'src/stores/**/*.ts',                           │  │  │
+│  │  │     'src/utils/**/*.ts'                             │  │  │
+│  │  │   ]                                                 │  │  │
+│  │  └─────────────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 17.2 测试文件组织
+
+```
+src/
+├── components/
+│   ├── common/
+│   │   ├── Button.tsx
+│   │   └── __tests__/
+│   │       └── Button.test.tsx           # 组件单元测试
+│   ├── layout/
+│   │   ├── TitlePanel.tsx
+│   │   ├── InfoSection.tsx
+│   │   └── __tests__/
+│   │       ├── TitlePanel.test.tsx
+│   │       ├── InfoSection.test.tsx
+│   │       └── CommandSection.test.tsx
+│   └── views/
+│       ├── Monitor/
+│       │   ├── SpectrumAnalyzer.tsx
+│       │   └── __tests__/
+│       │       ├── SpectrumAnalyzer.test.tsx
+│       │       └── WaterfallChart.test.tsx
+│       └── Files/
+│           ├── FileTreePanel.tsx
+│           └── __tests__/
+│               ├── FileTreePanel.test.tsx
+│               ├── FilePreviewPanel.test.tsx
+│               └── ChartPanel.test.tsx
+│
+├── hooks/
+│   ├── useSpectrumData.ts
+│   ├── useSpectrumData.test.ts          # Hook 单元测试
+│   ├── useStoreWhenActive.ts
+│   ├── useStoreWhenActive.test.ts
+│   ├── useRetry.ts
+│   └── useRetry.test.ts
+│
+├── stores/
+│   ├── appStore.ts
+│   └── __tests__/
+│       ├── appStore.test.ts             # Store 单元测试
+│       └── commStore.test.ts
+│
+└── utils/
+    ├── async.ts
+    └── __tests__/
+        ├── async.test.ts                # 工具函数单元测试
+        └── error.test.ts
+```
+
+**组织原则**：
+- 组件测试：与组件同级的 `__tests__/` 目录
+- Hook/Store/Utils 测试：与源文件同级的 `.test.ts` 文件
+- 测试文件命名：`<源文件名>.test.ts(x)`
+
+### 17.3 测试分类与策略
+
+#### 组件测试
+
+**目标**：验证 UI 渲染、用户交互、状态变化
+
+**示例（TitlePanel.test.tsx）**：
+```typescript
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import TitlePanel from '../TitlePanel';
+
+describe('TitlePanel', () => {
+  it('renders InfoSection, TitleSection, CommandSection', () => {
+    render(<TitlePanel />);
+    expect(screen.getByTestId('info-section')).toBeInTheDocument();
+    expect(screen.getByTestId('title-section')).toBeInTheDocument();
+    expect(screen.getByTestId('command-section')).toBeInTheDocument();
+  });
+
+  it('handles login/logout command', async () => {
+    const user = userEvent.setup();
+    render(<TitlePanel />);
+
+    const loginBtn = screen.getByRole('button', { name: /login/i });
+    await user.click(loginBtn);
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+});
+```
+
+**覆盖要求**：
+- 所有渲染分支（ready/loading/error/empty）
+- 用户交互（点击、输入、键盘事件）
+- Props 变化触发的重渲染
+- 条件渲染逻辑
+
+#### Hook 测试
+
+**目标**：验证状态管理、副作用、边界条件
+
+**示例（useSpectrumData.test.ts）**：
+```typescript
+import { renderHook, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { useSpectrumData } from '../useSpectrumData';
+
+describe('useSpectrumData', () => {
+  beforeEach(() => {
+    vi.mock('@/platform/invoke');
+  });
+
+  it('returns loading status initially', () => {
+    const { result } = renderHook(() =>
+      useSpectrumData({ enabled: true })
+    );
+    expect(result.current.status).toBe('loading');
+  });
+
+  it('transitions to ready when data received', async () => {
+    const { result } = renderHook(() =>
+      useSpectrumData({ enabled: true })
+    );
+
+    // 模拟事件触发
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready');
+    });
+  });
+
+  it('provides retry function on error', async () => {
+    const { result } = renderHook(() =>
+      useSpectrumData({ enabled: true })
+    );
+
+    // 模拟错误
+    await waitFor(() => {
+      expect(result.current.status).toBe('error');
+    });
+
+    // 测试重试
+    result.current.retry();
+    expect(result.current.status).toBe('loading');
+  });
+});
+```
+
+**覆盖要求**：
+- 初始化状态
+- 副作用触发（useEffect/useLayoutEffect）
+- 依赖项变化
+- 清理函数（cleanup）
+- 错误处理
+
+#### Store 测试
+
+**目标**：验证状态变更、持久化、选择器
+
+**示例（appStore.test.ts）**：
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { useAppStore } from '../appStore';
+
+describe('appStore', () => {
+  beforeEach(() => {
+    useAppStore.setState({ language: 'zh', theme: 'dark' });
+  });
+
+  it('updates language and persists to localStorage', () => {
+    useAppStore.getState().setLanguage('en');
+    expect(useAppStore.getState().language).toBe('en');
+
+    const stored = JSON.parse(
+      localStorage.getItem('hmi-app-storage') || '{}'
+    );
+    expect(stored.state.language).toBe('en');
+  });
+
+  it('cycles through themes', () => {
+    const { cycleTheme } = useAppStore.getState();
+
+    cycleTheme(); // dark -> light
+    expect(useAppStore.getState().theme).toBe('light');
+
+    cycleTheme(); // light -> high-contrast
+    expect(useAppStore.getState().theme).toBe('high-contrast');
+  });
+});
+```
+
+**覆盖要求**：
+- 状态初始化
+- 同步/异步 action
+- 持久化逻辑
+- 选择器函数
+
+#### 工具函数测试
+
+**目标**：验证纯函数逻辑、边界值、异常处理
+
+**示例（async.test.ts）**：
+```typescript
+import { describe, it, expect, vi } from 'vitest';
+import { withTimeout, TimeoutError } from '../async';
+
+describe('withTimeout', () => {
+  it('resolves when promise completes within timeout', async () => {
+    const promise = Promise.resolve('success');
+    const result = await withTimeout(promise, 1000);
+    expect(result).toBe('success');
+  });
+
+  it('rejects with TimeoutError when promise exceeds timeout', async () => {
+    const promise = new Promise((resolve) =>
+      setTimeout(() => resolve('too late'), 2000)
+    );
+
+    await expect(
+      withTimeout(promise, 100, 'Operation timed out')
+    ).rejects.toThrow(TimeoutError);
+  });
+});
+```
+
+**覆盖要求**：
+- 正常路径（happy path）
+- 边界值（空输入、最大值、负数）
+- 异常路径（错误输入、超时）
+- 类型边界（TypeScript 泛型）
+
+### 17.4 测试命令
+
+```bash
+# 运行所有测试
+npm run test
+
+# 运行测试并生成覆盖率报告
+npm run test:coverage
+
+# 运行测试（UI 模式）
+npm run test:ui
+
+# 监听模式（开发时）
+npm run test -- --watch
+
+# 运行单个测试文件
+npm run test -- src/hooks/useSpectrumData.test.ts
+
+# 运行匹配模式的测试
+npm run test -- --grep "useSpectrumData"
+```
+
+### 17.5 覆盖率报告
+
+**生成路径**：`coverage/index.html`
+
+**示例输出**：
+```
+-----------------------------|---------|----------|---------|---------|
+File                         | % Stmts | % Branch | % Funcs | % Lines |
+-----------------------------|---------|----------|---------|---------|
+All files                    |   92.34 |    91.78 |   93.12 |   92.56 |
+ src/components/common       |   94.21 |    93.45 |   95.00 |   94.33 |
+  Button.tsx                 |   95.00 |    94.00 |   96.00 |   95.12 |
+  ErrorBoundary.tsx          |   92.50 |    91.20 |   93.00 |   92.67 |
+ src/hooks                   |   91.67 |    90.34 |   92.45 |   91.89 |
+  useSpectrumData.ts         |   93.00 |    92.00 |   94.00 |   93.22 |
+  useStoreWhenActive.ts      |   90.00 |    88.00 |   91.00 |   90.45 |
+ src/stores                  |   92.00 |    91.00 |   93.00 |   92.11 |
+  appStore.ts                |   94.00 |    93.00 |   95.00 |   94.22 |
+  commStore.ts               |   90.00 |    89.00 |   91.00 |   90.00 |
+-----------------------------|---------|----------|---------|---------|
+```
+
+**阈值检查**：
+- 任何模块低于 90% → CI 失败
+- 报告高亮未覆盖分支
+- 生成 HTML 详细报告（行级标注）
+
+### 17.6 Mock 策略
+
+#### Tauri API Mock
+
+**文件**：`src/test/setup.ts`
+
+```typescript
+import { vi } from 'vitest';
+
+// Mock Tauri invoke
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: vi.fn((cmd, args) => {
+    if (cmd === 'get_serial_ports') {
+      return Promise.resolve(['/dev/ttyUSB0', 'COM1']);
+    }
+    if (cmd === 'connect_serial') {
+      return Promise.resolve();
+    }
+    return Promise.reject(new Error(`Unknown command: ${cmd}`));
+  }),
+}));
+
+// Mock Tauri event listener
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: vi.fn((event, callback) => {
+    // 模拟事件触发
+    setTimeout(() => {
+      callback({
+        payload: {
+          timestamp: Date.now(),
+          frequencies: [100, 200, 300],
+          amplitudes: [-50, -45, -55],
+        },
+      });
+    }, 100);
+
+    return Promise.resolve(() => {}); // unlisten function
+  }),
+}));
+```
+
+#### Store Mock
+
+```typescript
+import { vi } from 'vitest';
+import { useAppStore } from '@/stores';
+
+// 重置 store 状态
+beforeEach(() => {
+  useAppStore.setState({
+    language: 'zh',
+    theme: 'dark',
+    user: null,
+  });
+});
+
+// Mock 特定 action
+vi.spyOn(useAppStore.getState(), 'setLanguage');
+```
+
+#### 组件 Props Mock
+
+```typescript
+const mockOnClick = vi.fn();
+const mockOnChange = vi.fn();
+
+render(
+  <Button onClick={mockOnClick}>Click me</Button>
+);
+
+fireEvent.click(screen.getByText('Click me'));
+expect(mockOnClick).toHaveBeenCalledTimes(1);
+```
+
+### 17.7 CI/CD 集成
+
+**GitHub Actions 示例**：
+```yaml
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+      - run: npm install
+      - run: npm run test:coverage
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage/coverage-final.json
+```
+
+**覆盖率徽章**：
+```markdown
+![Coverage](https://img.shields.io/codecov/c/github/your-org/hmi)
+```
+
+### 17.8 测试最佳实践
+
+#### 1. 测试文件命名
+
+✅ **推荐**：
+```
+Button.tsx          → Button.test.tsx
+useSpectrumData.ts  → useSpectrumData.test.ts
+appStore.ts         → appStore.test.ts
+```
+
+❌ **不推荐**：
+```
+Button.tsx          → button.spec.tsx
+useSpectrumData.ts  → SpectrumDataTest.ts
+```
+
+#### 2. 测试组织
+
+✅ **推荐**：
+```typescript
+describe('Button', () => {
+  describe('rendering', () => {
+    it('renders children text', () => { ... });
+    it('applies variant styles', () => { ... });
+  });
+
+  describe('interactions', () => {
+    it('handles click event', () => { ... });
+    it('disables when disabled prop is true', () => { ... });
+  });
+
+  describe('accessibility', () => {
+    it('has correct ARIA attributes', () => { ... });
+  });
+});
+```
+
+❌ **不推荐**：
+```typescript
+it('button works', () => {
+  // 测试所有功能在一个测试中
+});
+```
+
+#### 3. 断言清晰性
+
+✅ **推荐**：
+```typescript
+expect(screen.getByRole('button', { name: /submit/i }))
+  .toBeInTheDocument();
+```
+
+❌ **不推荐**：
+```typescript
+expect(!!document.querySelector('.btn')).toBe(true);
+```
+
+#### 4. 异步处理
+
+✅ **推荐**：
+```typescript
+await waitFor(() => {
+  expect(screen.getByText('Loaded')).toBeInTheDocument();
+});
+```
+
+❌ **不推荐**：
+```typescript
+setTimeout(() => {
+  expect(screen.getByText('Loaded')).toBeInTheDocument();
+}, 1000);
+```
+
+---
+
+## 18. 部署架构
+
+### 18.1 构建产物
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1606,7 +2175,7 @@ setScaleOverride(1.5);  // 放大到 1.5x
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 17.2 树莓派部署
+### 18.2 树莓派部署
 
 详见 `docs/raspberry-pi-deploy/README.md`
 
@@ -1687,5 +2256,6 @@ setScaleOverride(1.5);  // 放大到 1.5x
 
 ---
 
-*文档版本: 1.1.0*
+*文档版本: 1.2.0*
 *最后更新: 2025-12-24*
+*重大更新: 新增测试架构章节（Vitest + 90% 覆盖率）、反映 T00-T08 重构成果*

@@ -9,12 +9,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: var(--sp-md-rem, var(--sp-md));
+    margin-bottom: var(--sp-md);
 }
 
 .title {
-    font-size: var(--font-size-title-rem, var(--font-size-title));
-    font-weight: 600;
+    font-size: var(--font-size-title);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
 }
 
@@ -27,18 +27,17 @@
 .list {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-sm-rem, var(--sp-sm));
+    gap: var(--sp-sm);
 }
 
 .listItem {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: calc(var(--sp-md-rem, var(--sp-md)) - var(--sp-xs-rem, var(--sp-xs)))
-        var(--sp-md-rem, var(--sp-md));
+    padding: var(--space-3) var(--space-4);
     background-color: var(--bg-secondary);
-    border-radius: var(--sp-xs-rem, var(--sp-xs));
-    border: 0.0625rem solid var(--border-color);
+    border-radius: var(--button-radius);
+    border: var(--border-width-1) solid var(--border-color);
 }
 
 .listItem:hover {
@@ -47,13 +46,13 @@
 
 .listItem[data-selected="true"] {
     border-color: var(--color-processing);
-    background-color: rgba(65, 105, 225, 0.1);
+    background-color: var(--bg-tertiary);
 }
 
 .itemInfo {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-xs-rem, var(--sp-xs));
+    gap: var(--sp-xs);
 }
 
 .itemName {
@@ -62,13 +61,13 @@
 }
 
 .itemMeta {
-    font-size: var(--font-size-small-rem, var(--font-size-small));
+    font-size: var(--font-size-small);
     color: var(--text-secondary);
 }
 
 .itemActions {
     display: flex;
-    gap: var(--sp-sm-rem, var(--sp-sm));
+    gap: var(--sp-sm);
 }
 
 .emptyState {
@@ -81,7 +80,7 @@
 }
 
 .emptyIcon {
-    font-size: 3rem;
-    margin-bottom: var(--sp-md-rem, var(--sp-md));
+    font-size: var(--space-12);
+    margin-bottom: var(--sp-md);
     opacity: 0.5;
 }

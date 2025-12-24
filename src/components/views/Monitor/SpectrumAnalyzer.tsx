@@ -14,7 +14,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { listen } from "@tauri-apps/api/event";
 import { useIsViewActive } from "@/components/layout/ViewContext";
 import {
     ChartIcon,
@@ -24,19 +23,13 @@ import {
     SaveIcon,
     SettingsIcon,
 } from "@/components/common/Icons";
+import { useSpectrumData } from "@/hooks";
 import { useSpectrumAnalyzerStore } from "@/stores";
-import { invoke } from "@/platform/invoke";
-import { isTauri } from "@/platform/tauri";
 import { captureSpectrumAnalyzer } from "@/utils/screenshot";
+import type { SpectrumData, SpectrumStatus } from "@/types";
 import SpectrumChart from "./SpectrumChart";
 import WaterfallCanvas from "./WaterfallCanvas";
 import styles from "./SpectrumAnalyzer.module.css";
-
-interface SpectrumData {
-    timestamp: number;
-    frequencies: number[];
-    amplitudes: number[];
-}
 
 export interface SpectrumAnalyzerProps {
     /** Tabs 默认 keepMounted，为避免后台占用资源，需要由父组件告知当前是否处于激活状态 */
@@ -66,57 +59,84 @@ function formatSweep(refreshRateHz: number): string {
     return `${ms.toFixed(0)} ms`;
 }
 
-export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
+export interface SpectrumAnalyzerViewProps {
+    frequencies: number[];
+    amplitudes: number[];
+    status: SpectrumStatus;
+    errorText: string | null;
+
+    threshold: number;
+    historyDepth: number;
+    refreshRate: number;
+    colorScheme: string;
+    isPaused: boolean;
+    showMaxHold: boolean;
+    showAverage: boolean;
+    maxHoldData: number[];
+    averageData: number[];
+
+    chartHostRef: React.RefObject<HTMLDivElement>;
+    waterfallHostRef: React.RefObject<HTMLDivElement>;
+
+    onTogglePaused: () => void;
+    onToggleMaxHold: () => void;
+    onToggleAverage: () => void;
+    onResetTraces: () => void;
+    onScreenshot: () => void;
+
+    onSetThreshold: (value: number) => void;
+    onSetHistoryDepth: (value: number) => void;
+    onSetRefreshRate: (value: number) => void;
+    onSetColorScheme: (value: string) => void;
+
+    /** 仅用于 SSR/单测：控制抽屉初始打开状态 */
+    initialConfigOpen?: boolean;
+    /** 仅用于 SSR/单测：提供初始 marker */
+    initialMarker?: { freq: number; amp: number } | null;
+}
+
+/**
+ * SpectrumAnalyzerView：纯渲染组件（与数据订阅解耦）
+ *
+ * 说明：
+ * - 仅负责将“频谱分析仪 UI”渲染出来，数据/副作用由外层容器组件负责
+ * - 便于 Node SSR 单测覆盖渲染分支（ready/loading/error/unavailable）
+ */
+export function SpectrumAnalyzerView({
+    frequencies,
+    amplitudes,
+    status,
+    errorText,
+    threshold,
+    historyDepth,
+    refreshRate,
+    colorScheme,
+    isPaused,
+    showMaxHold,
+    showAverage,
+    maxHoldData,
+    averageData,
+    chartHostRef,
+    waterfallHostRef,
+    onTogglePaused,
+    onToggleMaxHold,
+    onToggleAverage,
+    onResetTraces,
+    onScreenshot,
+    onSetThreshold,
+    onSetHistoryDepth,
+    onSetRefreshRate,
+    onSetColorScheme,
+    initialConfigOpen,
+    initialMarker,
+}: SpectrumAnalyzerViewProps) {
     const { t } = useTranslation();
-    const isViewActive = useIsViewActive();
-    const shouldSubscribe = isActive && isViewActive;
-
-    const threshold = useSpectrumAnalyzerStore((s) => s.threshold);
-    const historyDepth = useSpectrumAnalyzerStore((s) => s.historyDepth);
-    const refreshRate = useSpectrumAnalyzerStore((s) => s.refreshRate);
-    const colorScheme = useSpectrumAnalyzerStore((s) => s.colorScheme);
-    const isPaused = useSpectrumAnalyzerStore((s) => s.isPaused);
-    const maxHoldData = useSpectrumAnalyzerStore((s) => s.maxHoldData);
-    const averageData = useSpectrumAnalyzerStore((s) => s.averageData);
-    const showMaxHold = useSpectrumAnalyzerStore((s) => s.showMaxHold);
-    const showAverage = useSpectrumAnalyzerStore((s) => s.showAverage);
-
-    const setThreshold = useSpectrumAnalyzerStore((s) => s.setThreshold);
-    const setHistoryDepth = useSpectrumAnalyzerStore((s) => s.setHistoryDepth);
-    const setRefreshRate = useSpectrumAnalyzerStore((s) => s.setRefreshRate);
-    const setColorScheme = useSpectrumAnalyzerStore((s) => s.setColorScheme);
-    const setIsPaused = useSpectrumAnalyzerStore((s) => s.setIsPaused);
-    const setShowMaxHold = useSpectrumAnalyzerStore((s) => s.setShowMaxHold);
-    const setShowAverage = useSpectrumAnalyzerStore((s) => s.setShowAverage);
-    const resetMaxHold = useSpectrumAnalyzerStore((s) => s.resetMaxHold);
-    const resetAverage = useSpectrumAnalyzerStore((s) => s.resetAverage);
-
-    const [frequencies, setFrequencies] = useState<number[]>([]);
-    const [amplitudes, setAmplitudes] = useState<number[]>([]);
-    const [status, setStatus] = useState<
-        "unavailable" | "loading" | "ready" | "error"
-    >("loading");
-    const [errorText, setErrorText] = useState<string | null>(null);
-
-    const [configOpen, setConfigOpen] = useState(false);
-    const [marker, setMarker] = useState<{ freq: number; amp: number } | null>(
-        null,
+    const [configOpen, setConfigOpen] = useState(
+        initialConfigOpen ?? false,
     );
-
-    const chartHostRef = useRef<HTMLDivElement | null>(null);
-    const waterfallHostRef = useRef<HTMLDivElement | null>(null);
-
-    const isPausedRef = useRef(isPaused);
-    const refreshRateRef = useRef(refreshRate);
-    const lastAcceptedAtRef = useRef<number>(0);
-
-    useEffect(() => {
-        isPausedRef.current = isPaused;
-    }, [isPaused]);
-
-    useEffect(() => {
-        refreshRateRef.current = refreshRate;
-    }, [refreshRate]);
+    const [marker, setMarker] = useState<{ freq: number; amp: number } | null>(
+        initialMarker ?? null,
+    );
 
     const derivedStatus = useMemo(() => {
         let minHz = Number.POSITIVE_INFINITY;
@@ -148,144 +168,6 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
 
         return { centerHz, spanHz, rbwHz, vbwHz };
     }, [frequencies]);
-
-    useEffect(() => {
-        if (!shouldSubscribe) return;
-
-        if (!isTauri()) {
-            setStatus("unavailable");
-            setErrorText(null);
-            return;
-        }
-
-        setStatus("loading");
-        setErrorText(null);
-        lastAcceptedAtRef.current = 0;
-
-        let unlisten: (() => void) | null = null;
-        let cancelled = false;
-
-        const setup = async () => {
-            try {
-                const unlistenFn = await listen<SpectrumData>(
-                    "spectrum-data",
-                    (event) => {
-                        if (cancelled) return;
-                        if (isPausedRef.current) return;
-
-                        const now = performance.now();
-                        const desiredRate = Math.max(1, refreshRateRef.current);
-                        const minInterval = 1000 / desiredRate;
-                        const lastAcceptedAt = lastAcceptedAtRef.current;
-                        if (
-                            lastAcceptedAt &&
-                            now - lastAcceptedAt < minInterval
-                        )
-                            return;
-                        lastAcceptedAtRef.current = now;
-
-                        const payload = event.payload;
-                        setFrequencies(payload.frequencies);
-                        setAmplitudes(payload.amplitudes);
-                        setStatus("ready");
-
-                        const store = useSpectrumAnalyzerStore.getState();
-                        store.updateMaxHold(payload.amplitudes);
-                        store.updateAverage(payload.amplitudes);
-                    },
-                );
-
-                if (cancelled) {
-                    unlistenFn();
-                    return;
-                }
-
-                unlisten = unlistenFn;
-                await invoke("start_sensor_simulation");
-            } catch (err) {
-                console.error("Failed to setup spectrum analyzer:", err);
-                if (cancelled) return;
-                setStatus("error");
-                setErrorText(err instanceof Error ? err.message : String(err));
-                setFrequencies([]);
-                setAmplitudes([]);
-            }
-        };
-
-        setup();
-
-        return () => {
-            cancelled = true;
-            if (isTauri()) {
-                invoke("stop_sensor_simulation").catch(console.error);
-            }
-            unlisten?.();
-        };
-    }, [shouldSubscribe]);
-
-    const handleScreenshot = useCallback(async () => {
-        const chartHost = chartHostRef.current;
-        const waterfallHost = waterfallHostRef.current;
-        if (!chartHost || !waterfallHost) return;
-
-        const chartCanvasCandidate =
-            chartHost.querySelector("canvas.u-canvas") ??
-            chartHost.querySelector("canvas");
-        const waterfallCanvasCandidate = waterfallHost.querySelector("canvas");
-
-        if (
-            !(chartCanvasCandidate instanceof HTMLCanvasElement) ||
-            !(waterfallCanvasCandidate instanceof HTMLCanvasElement)
-        ) {
-            return;
-        }
-
-        await captureSpectrumAnalyzer(
-            chartCanvasCandidate,
-            waterfallCanvasCandidate,
-        );
-    }, []);
-
-    const handleResetTraces = () => {
-        resetMaxHold();
-        resetAverage();
-    };
-
-    useEffect(() => {
-        // 键盘快捷键：仅在当前视图激活时生效，避免全局误触
-        if (!isActive || !isViewActive) return;
-
-        const shouldIgnoreTarget = (target: EventTarget | null) => {
-            if (!(target instanceof HTMLElement)) return false;
-            if (target.isContentEditable) return true;
-            const tag = target.tagName;
-            return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
-        };
-
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.defaultPrevented) return;
-            if (event.repeat) return;
-            if (event.ctrlKey || event.metaKey || event.altKey) return;
-            if (shouldIgnoreTarget(event.target)) return;
-
-            const key = event.key;
-            if (key === "p" || key === "P") {
-                event.preventDefault();
-                setIsPaused(!isPausedRef.current);
-                return;
-            }
-
-            if (key === "s" || key === "S") {
-                event.preventDefault();
-                void handleScreenshot();
-            }
-        };
-
-        window.addEventListener("keydown", onKeyDown);
-        return () => {
-            window.removeEventListener("keydown", onKeyDown);
-        };
-    }, [handleScreenshot, isActive, isViewActive, setIsPaused]);
 
     const markerText = useMemo(() => {
         if (!marker) return "--";
@@ -392,7 +274,7 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                     type="button"
                     className={styles.controlBtn}
                     data-active={isPaused}
-                    onClick={() => setIsPaused(!isPaused)}
+                    onClick={onTogglePaused}
                 >
                     {isPaused ? (
                         <PlayIcon className={styles.controlIcon} />
@@ -409,7 +291,7 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                     type="button"
                     className={styles.controlBtn}
                     data-active={showMaxHold}
-                    onClick={() => setShowMaxHold(!showMaxHold)}
+                    onClick={onToggleMaxHold}
                 >
                     <ChartIcon className={styles.controlIcon} />
                     <span className={styles.controlText}>
@@ -420,7 +302,7 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                     type="button"
                     className={styles.controlBtn}
                     data-active={showAverage}
-                    onClick={() => setShowAverage(!showAverage)}
+                    onClick={onToggleAverage}
                 >
                     <ChartIcon className={styles.controlIcon} />
                     <span className={styles.controlText}>
@@ -430,7 +312,7 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                 <button
                     type="button"
                     className={styles.controlBtn}
-                    onClick={handleResetTraces}
+                    onClick={onResetTraces}
                 >
                     <ResetIcon className={styles.controlIcon} />
                     <span className={styles.controlText}>
@@ -440,7 +322,7 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                 <button
                     type="button"
                     className={styles.controlBtn}
-                    onClick={handleScreenshot}
+                    onClick={onScreenshot}
                     aria-label={t(
                         "monitor.spectrumAnalyzer.controls.screenshot",
                     )}
@@ -512,7 +394,7 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                             value={threshold}
                             className={styles.slider}
                             onChange={(e) =>
-                                setThreshold(Number(e.target.value))
+                                onSetThreshold(Number(e.target.value))
                             }
                         />
                     </label>
@@ -529,7 +411,7 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                             className={styles.select}
                             value={historyDepth}
                             onChange={(e) =>
-                                setHistoryDepth(Number(e.target.value))
+                                onSetHistoryDepth(Number(e.target.value))
                             }
                         >
                             {[50, 100, 200, 500].map((v) => (
@@ -552,7 +434,7 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                             className={styles.select}
                             value={refreshRate}
                             onChange={(e) =>
-                                setRefreshRate(Number(e.target.value))
+                                onSetRefreshRate(Number(e.target.value))
                             }
                         >
                             {[10, 30, 60].map((v) => (
@@ -574,7 +456,7 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                         <select
                             className={styles.select}
                             value={colorScheme}
-                            onChange={(e) => setColorScheme(e.target.value)}
+                            onChange={(e) => onSetColorScheme(e.target.value)}
                         >
                             {(
                                 [
@@ -595,5 +477,155 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
                 </div>
             </aside>
         </div>
+    );
+}
+
+export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
+    const isViewActive = useIsViewActive();
+    const shouldSubscribe = isActive && isViewActive;
+
+    const threshold = useSpectrumAnalyzerStore((s) => s.threshold);
+    const historyDepth = useSpectrumAnalyzerStore((s) => s.historyDepth);
+    const refreshRate = useSpectrumAnalyzerStore((s) => s.refreshRate);
+    const colorScheme = useSpectrumAnalyzerStore((s) => s.colorScheme);
+    const isPaused = useSpectrumAnalyzerStore((s) => s.isPaused);
+    const maxHoldData = useSpectrumAnalyzerStore((s) => s.maxHoldData);
+    const averageData = useSpectrumAnalyzerStore((s) => s.averageData);
+    const showMaxHold = useSpectrumAnalyzerStore((s) => s.showMaxHold);
+    const showAverage = useSpectrumAnalyzerStore((s) => s.showAverage);
+
+    const setThreshold = useSpectrumAnalyzerStore((s) => s.setThreshold);
+    const setHistoryDepth = useSpectrumAnalyzerStore((s) => s.setHistoryDepth);
+    const setRefreshRate = useSpectrumAnalyzerStore((s) => s.setRefreshRate);
+    const setColorScheme = useSpectrumAnalyzerStore((s) => s.setColorScheme);
+    const setIsPaused = useSpectrumAnalyzerStore((s) => s.setIsPaused);
+    const setShowMaxHold = useSpectrumAnalyzerStore((s) => s.setShowMaxHold);
+    const setShowAverage = useSpectrumAnalyzerStore((s) => s.setShowAverage);
+    const resetMaxHold = useSpectrumAnalyzerStore((s) => s.resetMaxHold);
+    const resetAverage = useSpectrumAnalyzerStore((s) => s.resetAverage);
+
+    const [frequencies, setFrequencies] = useState<number[]>([]);
+    const [amplitudes, setAmplitudes] = useState<number[]>([]);
+
+    const isPausedRef = useRef(isPaused);
+    useEffect(() => {
+        isPausedRef.current = isPaused;
+    }, [isPaused]);
+
+    const chartHostRef = useRef<HTMLDivElement>(null);
+    const waterfallHostRef = useRef<HTMLDivElement>(null);
+
+    const { status, error: errorText } = useSpectrumData({
+        enabled: shouldSubscribe,
+        isPaused,
+        maxHz: refreshRate,
+        onFrame: (payload: SpectrumData) => {
+            setFrequencies(payload.frequencies);
+            setAmplitudes(payload.amplitudes);
+
+            const store = useSpectrumAnalyzerStore.getState();
+            store.updateMaxHold(payload.amplitudes);
+            store.updateAverage(payload.amplitudes);
+        },
+    });
+
+    useEffect(() => {
+        if (status === "ready") return;
+        // 进入 loading/error/unavailable 时清空当前曲线，避免误以为仍在实时更新
+        setFrequencies([]);
+        setAmplitudes([]);
+    }, [status]);
+
+    const handleScreenshot = useCallback(async () => {
+        const chartHost = chartHostRef.current;
+        const waterfallHost = waterfallHostRef.current;
+        if (!chartHost || !waterfallHost) return;
+
+        const chartCanvasCandidate =
+            chartHost.querySelector("canvas.u-canvas") ??
+            chartHost.querySelector("canvas");
+        const waterfallCanvasCandidate = waterfallHost.querySelector("canvas");
+
+        if (
+            !(chartCanvasCandidate instanceof HTMLCanvasElement) ||
+            !(waterfallCanvasCandidate instanceof HTMLCanvasElement)
+        ) {
+            return;
+        }
+
+        await captureSpectrumAnalyzer(
+            chartCanvasCandidate,
+            waterfallCanvasCandidate,
+        );
+    }, []);
+
+    useEffect(() => {
+        // 键盘快捷键：仅在当前视图激活时生效，避免全局误触
+        if (!isActive || !isViewActive) return;
+
+        const shouldIgnoreTarget = (target: EventTarget | null) => {
+            if (!(target instanceof HTMLElement)) return false;
+            if (target.isContentEditable) return true;
+            const tag = target.tagName;
+            return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+        };
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.defaultPrevented) return;
+            if (event.repeat) return;
+            if (event.ctrlKey || event.metaKey || event.altKey) return;
+            if (shouldIgnoreTarget(event.target)) return;
+
+            const key = event.key;
+            if (key === "p" || key === "P") {
+                event.preventDefault();
+                setIsPaused(!isPausedRef.current);
+                return;
+            }
+
+            if (key === "s" || key === "S") {
+                event.preventDefault();
+                void handleScreenshot();
+            }
+        };
+
+        window.addEventListener("keydown", onKeyDown);
+        return () => {
+            window.removeEventListener("keydown", onKeyDown);
+        };
+    }, [handleScreenshot, isActive, isViewActive, setIsPaused]);
+
+    return (
+        <SpectrumAnalyzerView
+            frequencies={frequencies}
+            amplitudes={amplitudes}
+            status={status}
+            errorText={errorText}
+            threshold={threshold}
+            historyDepth={historyDepth}
+            refreshRate={refreshRate}
+            colorScheme={colorScheme}
+            isPaused={isPaused}
+            showMaxHold={showMaxHold}
+            showAverage={showAverage}
+            maxHoldData={maxHoldData}
+            averageData={averageData}
+            chartHostRef={chartHostRef}
+            waterfallHostRef={waterfallHostRef}
+            onTogglePaused={() => setIsPaused(!isPaused)}
+            onToggleMaxHold={() => setShowMaxHold(!showMaxHold)}
+            onToggleAverage={() => setShowAverage(!showAverage)}
+            onResetTraces={() => {
+                resetMaxHold();
+                resetAverage();
+            }}
+            onScreenshot={() => {
+                void handleScreenshot();
+            }}
+            onSetThreshold={setThreshold}
+            onSetHistoryDepth={setHistoryDepth}
+            onSetRefreshRate={setRefreshRate}
+            onSetColorScheme={setColorScheme}
+        />
     );
 }

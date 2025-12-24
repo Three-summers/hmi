@@ -21,6 +21,45 @@ type InvokeMockHandler<TArgs extends InvokeArgs, TResult> = (
 
 const invokeMocks = new Map<string, InvokeMockHandler<InvokeArgs, unknown>>();
 
+export type InvokeErrorCode =
+    | "MOCK_NOT_REGISTERED"
+    | "TAURI_API_UNAVAILABLE"
+    | "INVOKE_FAILED";
+
+/**
+ * invoke 统一错误类型
+ *
+ * 目标：
+ * - 让上层可以稳定拿到：command / args / code / 原始错误（cause）
+ * - 同时避免在不同运行环境（Tauri/Web）下出现完全不同的报错格式，导致 UI/日志分支膨胀
+ */
+export class InvokeError extends Error {
+    readonly code: InvokeErrorCode;
+    readonly command: string;
+    readonly args?: InvokeArgs;
+    readonly cause?: unknown;
+
+    constructor(params: {
+        code: InvokeErrorCode;
+        command: string;
+        message: string;
+        args?: InvokeArgs;
+        cause?: unknown;
+    }) {
+        super(params.message);
+        this.name = "InvokeError";
+        this.code = params.code;
+        this.command = params.command;
+        this.args = params.args;
+        this.cause = params.cause;
+    }
+}
+
+function normalizeToError(error: unknown): Error {
+    if (error instanceof Error) return error;
+    return new Error(typeof error === "string" ? error : String(error));
+}
+
 /**
  * 注册浏览器模式下的 invoke mock
  *
@@ -53,17 +92,42 @@ export async function invoke<TResult>(
 ): Promise<TResult> {
     if (isTauri()) {
         // 动态 import：避免在浏览器开发模式下加载 Tauri 包导致运行时报错
-        const { invoke: tauriInvoke } = await import("@tauri-apps/api/core");
-        return tauriInvoke<TResult>(command, args);
+        try {
+            const { invoke: tauriInvoke } = await import("@tauri-apps/api/core");
+            return await tauriInvoke<TResult>(command, args);
+        } catch (error) {
+            const base = normalizeToError(error);
+            throw new InvokeError({
+                code: "INVOKE_FAILED",
+                command,
+                args,
+                cause: error,
+                message: `Tauri invoke 调用失败（command=${command}）：${base.message}`,
+            });
+        }
     }
 
     const handler = invokeMocks.get(command);
     if (handler) {
-        return (await handler(args)) as TResult;
+        try {
+            return (await handler(args)) as TResult;
+        } catch (error) {
+            const base = normalizeToError(error);
+            throw new InvokeError({
+                code: "INVOKE_FAILED",
+                command,
+                args,
+                cause: error,
+                message: `invoke mock 执行失败（command=${command}）：${base.message}`,
+            });
+        }
     }
 
     // 浏览器模式兜底：提示调用方需要注册 mock，避免 silent failure
-    throw new Error(
-        `Tauri invoke not available in browser environment (command=${command})`,
-    );
+    throw new InvokeError({
+        code: "MOCK_NOT_REGISTERED",
+        command,
+        args,
+        message: `浏览器环境无法调用 Tauri invoke（command=${command}），请在开发模式注册对应 mock`,
+    });
 }

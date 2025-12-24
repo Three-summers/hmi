@@ -466,9 +466,12 @@
         "empty": "Folder is empty",
         "selectFile": "Select a file to preview",
         "readError": "Failed to read file",
-        "chart": {
-            "zoomHint": "Scroll to zoom, drag to pan, double-click to reset"
-        },
+  "chart": {
+    "zoomHint": "Scroll to zoom, drag to pan, double-click to reset",
+    "initError": "Chart initialization failed",
+    "emptyData": "No valid CSV data (need at least 2 rows)",
+    "emptySelection": "No data column selected"
+  },
         "info": {
             "zoomTip": "Charts support scroll-to-zoom and drag-to-pan",
             "refreshTip": "Click Refresh to reload the log folder and file list"

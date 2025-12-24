@@ -5,12 +5,12 @@
 .tabLabel {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--sp-sm);
 }
 
 .tabIcon {
-    width: 1rem;
-    height: 1rem;
+    width: var(--space-4);
+    height: var(--space-4);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -18,8 +18,8 @@
 }
 
 .tabIcon svg {
-    width: 1rem;
-    height: 1rem;
+    width: var(--space-4);
+    height: var(--space-4);
 }
 
 /* ═══ 主内容容器 ═══ */
@@ -29,27 +29,27 @@
     height: 100%;
     min-height: 0; /* 允许内容区在 flex 布局中正确滚动 */
     background: var(--overlay-mid);
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    padding: 1.25rem;
+    border-radius: var(--radius-sm);
+    border: var(--border-width-1) solid var(--border-color);
+    padding: var(--space-5);
     overflow: auto;
 }
 
 .sectionTitle {
-    font-size: var(--font-size-title-rem, var(--font-size-title));
-    font-weight: 600;
+    font-size: var(--font-size-title);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
-    margin: 0 0 1rem 0;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--border-color);
+    margin: 0 0 var(--space-4) 0;
+    padding-bottom: var(--space-3);
+    border-bottom: var(--border-width-1) solid var(--border-color);
     display: flex;
     align-items: center;
-    gap: 0.625rem;
+    gap: var(--space-2);
 }
 
 .sectionTitle svg {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: var(--space-6);
+    height: var(--space-6);
     color: var(--color-processing);
 }
 
@@ -59,22 +59,22 @@
 
 /* ═══ 信息卡片（系统信息） ═══ */
 .infoCard {
-    padding: 1rem;
+    padding: var(--space-4);
     background: linear-gradient(
         180deg,
         var(--bg-secondary) 0%,
         var(--bg-tertiary) 100%
     );
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    margin-bottom: 1rem;
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-4);
 }
 
 .infoRow {
     display: flex;
     justify-content: space-between;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--border-color);
+    padding: var(--space-2) 0;
+    border-bottom: var(--border-width-1) solid var(--border-color);
 }
 
 .infoRow:last-child {
@@ -82,73 +82,73 @@
 }
 
 .infoLabel {
-    font-size: 0.8125rem;
+    font-size: var(--font-size-small);
     color: var(--text-secondary);
 }
 
 .infoValue {
-    font-size: 0.8125rem;
+    font-size: var(--font-size-small);
     color: var(--text-primary);
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
 }
 
 /* ═══ 颜色图例（SEMI E95） ═══ */
 .colorLegend {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
+    gap: var(--space-3);
 }
 
 .colorItem {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem;
+    gap: var(--space-3);
+    padding: var(--space-3);
     background: var(--overlay-mid);
-    border-radius: 6px;
+    border-radius: var(--radius-2xs);
 }
 
 .colorDot {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: var(--space-6);
+    height: var(--space-6);
     border-radius: 50%;
     flex-shrink: 0;
 }
 
 .colorDot[data-color="alarm"] {
     background: var(--color-alarm);
-    box-shadow: 0 0 8px var(--color-alarm);
+    box-shadow: 0 0 var(--space-2) var(--color-alarm-glow);
 }
 
 .colorDot[data-color="warning"] {
     background: var(--color-warning);
-    box-shadow: 0 0 8px var(--color-warning);
+    box-shadow: 0 0 var(--space-2) var(--color-warning-glow);
 }
 
 .colorDot[data-color="processing"] {
     background: var(--color-processing);
-    box-shadow: 0 0 8px var(--color-processing);
+    box-shadow: 0 0 var(--space-2) var(--color-processing-glow);
 }
 
 .colorDot[data-color="attention"] {
     background: var(--color-attention);
-    box-shadow: 0 0 8px var(--color-attention);
+    box-shadow: 0 0 var(--space-2) var(--color-attention-glow);
 }
 
 .colorInfo {
     display: flex;
     flex-direction: column;
-    gap: 0.125rem;
+    gap: calc(var(--space-1) / 2);
 }
 
 .colorName {
-    font-size: 0.8125rem;
-    font-weight: 600;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
 }
 
 .colorDesc {
-    font-size: 0.6875rem;
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
 }
 
@@ -156,69 +156,69 @@
 .shortcutList {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--sp-sm);
 }
 
 .shortcutItem {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.625rem 0.875rem;
+    padding: var(--space-2) var(--space-4);
     background: var(--overlay-mid);
-    border-radius: 6px;
+    border-radius: var(--radius-2xs);
 }
 
 .shortcutAction {
-    font-size: 0.8125rem;
+    font-size: var(--font-size-small);
     color: var(--text-primary);
 }
 
 .shortcutKey {
     display: flex;
-    gap: 0.375rem;
+    gap: var(--space-1);
 }
 
 .key {
-    padding: 0.25rem 0.625rem;
+    padding: var(--space-1) var(--space-2);
     background: linear-gradient(
         180deg,
         var(--button-bg) 0%,
         var(--button-bg-active) 100%
     );
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-size: var(--font-size-small-rem, var(--font-size-small));
-    font-weight: 600;
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-xs);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
-    font-family: monospace;
+    font-family: var(--font-mono);
 }
 
 /* ═══ FAQ 常见问题 ═══ */
 .faqList {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: var(--space-3);
 }
 
 .faqItem {
-    padding: 0.875rem;
+    padding: var(--space-4);
     background: linear-gradient(
         180deg,
         var(--bg-secondary) 0%,
         var(--bg-tertiary) 100%
     );
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-sm);
 }
 
 .faqQuestion {
-    font-size: var(--font-size-normal-rem, var(--font-size-normal));
-    font-weight: 600;
+    font-size: var(--font-size-normal);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 var(--space-2) 0;
     display: flex;
     align-items: flex-start;
-    gap: 0.5rem;
+    gap: var(--sp-sm);
 }
 
 .faqQuestion::before {
@@ -226,68 +226,68 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.25rem;
-    height: 1.25rem;
+    width: var(--space-5);
+    height: var(--space-5);
     background: var(--color-processing);
-    color: white;
-    border-radius: 4px;
-    font-size: 0.6875rem;
-    font-weight: 700;
+    color: var(--text-on-accent);
+    border-radius: var(--radius-xs);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
     flex-shrink: 0;
 }
 
 .faqAnswer {
-    font-size: 0.8125rem;
+    font-size: var(--font-size-small);
     color: var(--text-secondary);
     line-height: 1.5;
-    padding-left: 1.75rem;
+    padding-left: var(--space-7);
 }
 
 /* ═══ 技术规格卡片 ═══ */
 .specList {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
+    gap: var(--space-3);
 }
 
 .specCard {
-    padding: 0.875rem;
+    padding: var(--space-4);
     background: var(--overlay-mid);
-    border-radius: 6px;
-    border: 1px solid var(--border-color);
+    border-radius: var(--radius-2xs);
+    border: var(--border-width-1) solid var(--border-color);
 }
 
 .specTitle {
-    font-size: var(--font-size-small-rem, var(--font-size-small));
-    font-weight: 600;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
     color: var(--color-processing);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin: 0 0 0.375rem 0;
+    margin: 0 0 calc(var(--space-3) / 2) 0;
 }
 
 .specValue {
-    font-size: var(--font-size-normal-rem, var(--font-size-normal));
+    font-size: var(--font-size-normal);
     color: var(--text-primary);
 }
 
 /* ═══ 联系方式 / 支持入口 ═══ */
 .contactCard {
-    padding: 1.25rem;
+    padding: var(--space-5);
     background: linear-gradient(
         135deg,
-        rgba(65, 105, 225, 0.1) 0%,
-        rgba(65, 105, 225, 0.05) 100%
+        var(--status-bg-processing) 0%,
+        transparent 100%
     );
-    border: 1px solid var(--color-processing);
-    border-radius: 8px;
+    border: var(--border-width-1) solid var(--color-processing);
+    border-radius: var(--radius-sm);
     text-align: center;
 }
 
 .contactIcon {
-    width: 3rem;
-    height: 3rem;
-    margin: 0 auto 0.75rem;
+    width: var(--space-12);
+    height: var(--space-12);
+    margin: 0 auto var(--space-3);
     color: var(--color-processing);
 }
 
@@ -297,14 +297,14 @@
 }
 
 .contactTitle {
-    font-size: var(--font-size-large-rem, var(--font-size-large));
-    font-weight: 600;
+    font-size: var(--font-size-large);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 var(--space-2) 0;
 }
 
 .contactText {
-    font-size: 0.8125rem;
+    font-size: var(--font-size-small);
     color: var(--text-secondary);
     margin: 0;
 }

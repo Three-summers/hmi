@@ -16,13 +16,16 @@
 import { create } from "zustand";
 import { COMM_CONFIG } from "@/constants";
 import { invoke } from "@/platform/invoke";
+import { withTimeout } from "@/utils/async";
+import { toErrorMessage } from "@/utils/error";
+import type { ErrorHandler } from "@/types/common";
 import type { SerialConfig, TcpConfig, CommState } from "@/types";
 
 interface CommOperationOptions {
     /** 超时时间 (ms)，未设置则使用默认值 */
     timeoutMs?: number;
     /** 出错回调（用于 UI 层做额外处理） */
-    onError?: (message: string, error: unknown) => void;
+    onError?: ErrorHandler;
 }
 
 interface CommStoreState extends CommState {
@@ -59,51 +62,6 @@ interface CommStoreState extends CommState {
 const DEFAULT_COMM_TIMEOUT_MS = COMM_CONFIG.TCP_TIMEOUT_MS;
 
 /**
- * 将未知错误统一转换为可展示的字符串
- *
- * @param error - 捕获到的异常
- * @returns 可读错误信息
- */
-function toErrorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
-}
-
-/**
- * Promise 超时包装
- *
- * @template T - 业务返回值类型
- * @param promise - 原始 Promise
- * @param timeoutMs - 超时时间（ms）
- * @param timeoutMessage - 超时错误信息
- * @returns 带超时控制的 Promise
- * @description 超时后以 Error reject；无论成功/失败都会清理定时器，避免泄漏。
- */
-function withTimeout<T>(
-    promise: Promise<T>,
-    timeoutMs: number,
-    timeoutMessage: string,
-): Promise<T> {
-    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return promise;
-
-    return new Promise<T>((resolve, reject) => {
-        const timer = window.setTimeout(() => {
-            reject(new Error(timeoutMessage));
-        }, timeoutMs);
-
-        promise.then(
-            (value) => {
-                window.clearTimeout(timer);
-                resolve(value);
-            },
-            (error) => {
-                window.clearTimeout(timer);
-                reject(error);
-            },
-        );
-    });
-}
-
-/**
  * 带超时的 Tauri invoke 调用
  *
  * @template TResult - 后端返回值类型
@@ -120,7 +78,9 @@ async function invokeWithTimeout<TResult>(
     return withTimeout(
         invoke<TResult>(command, args),
         timeoutMs,
-        `Comm operation timed out (command=${command}, timeoutMs=${timeoutMs})`,
+        {
+            timeoutMessage: `通信操作超时（command=${command}, timeoutMs=${timeoutMs}ms）`,
+        },
     );
 }
 

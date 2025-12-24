@@ -17,12 +17,9 @@
  */
 
 import {
-    Component,
     memo,
     useCallback,
     useEffect,
-    type ErrorInfo,
-    type ReactNode,
 } from "react";
 import { useShallow } from "zustand/shallow";
 import { TitlePanel } from "./TitlePanel";
@@ -33,123 +30,14 @@ import { NotificationToast } from "./NotificationToast";
 import { ViewCommandProvider } from "./ViewCommandContext";
 import { SubViewCommandProvider } from "./SubViewCommandContext";
 import { useAlarmStore, useNavigationStore, useAppStore } from "@/stores";
-import { useKeyboardShortcuts, useFrontendLogBridge, useHMIScale } from "@/hooks";
+import {
+    useKeyboardShortcuts,
+    useFrontendLogBridge,
+    useHMIScale,
+    useNotify,
+} from "@/hooks";
+import { ErrorBoundary } from "@/components/common";
 import styles from "./MainLayout.module.css";
-
-/**
- * ErrorBoundary：隔离“局部渲染失败”，避免单个视图/组件异常导致整个应用白屏
- *
- * 说明：
- * - React Error Boundary 只能捕获“渲染阶段/生命周期”抛出的错误（render/constructor/componentDidMount 等）
- * - 事件回调/Promise/定时器中的异常不会被捕获（应在业务内部 try/catch 或统一错误上报）
- * - 本实现支持 resetKeys：当关键输入变化（如 currentView 切换）时自动重置错误状态，便于降级恢复
- */
-type ErrorBoundaryFallbackRender = (args: {
-    /** 捕获到的错误对象 */
-    error: Error;
-    /** 重试：重置错误状态并重新渲染 children */
-    reset: () => void;
-}) => ReactNode;
-
-interface ErrorBoundaryProps {
-    children: ReactNode;
-    /**
-     * 用于触发自动 reset 的关键输入
-     *
-     * 常见用法：`resetKeys={[currentView]}`，当用户切换视图时自动重试渲染。
-     */
-    resetKeys?: readonly unknown[];
-    /** 手动重试/自动重置时的回调（可用于切换到安全视图等） */
-    onReset?: () => void;
-    /** 自定义降级 UI 渲染 */
-    fallback?: ErrorBoundaryFallbackRender;
-}
-
-interface ErrorBoundaryState {
-    hasError: boolean;
-    error: Error | null;
-}
-
-function areResetKeysEqual(
-    prevKeys?: readonly unknown[],
-    nextKeys?: readonly unknown[],
-): boolean {
-    const prev = prevKeys ?? [];
-    const next = nextKeys ?? [];
-    if (prev.length !== next.length) return false;
-    for (let i = 0; i < prev.length; i += 1) {
-        if (!Object.is(prev[i], next[i])) return false;
-    }
-    return true;
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-    state: ErrorBoundaryState = {
-        hasError: false,
-        error: null,
-    };
-
-    static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-        return { hasError: true, error };
-    }
-
-    componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-        // 关键原则：记录问题，但不阻塞其他 UI 正常工作
-        console.error("[HMI] 组件渲染异常，已进入降级模式：", error);
-        console.error(errorInfo.componentStack);
-    }
-
-    componentDidUpdate(prevProps: Readonly<ErrorBoundaryProps>) {
-        // 当关键输入变化时（例如 currentView 切换），自动重置错误状态，尝试恢复渲染
-        if (
-            this.state.hasError &&
-            !areResetKeysEqual(prevProps.resetKeys, this.props.resetKeys)
-        ) {
-            this.reset();
-        }
-    }
-
-    private reset = () => {
-        this.setState({ hasError: false, error: null });
-        this.props.onReset?.();
-    };
-
-    render() {
-        if (!this.state.hasError) return this.props.children;
-
-        const error = this.state.error ?? new Error("Unknown error");
-        const fallback = this.props.fallback?.({
-            error,
-            reset: this.reset,
-        });
-        if (fallback) return fallback;
-
-        return (
-            <div style={{ padding: "var(--sp-md-rem, 1rem)" }}>
-                <h2 style={{ margin: 0 }}>页面渲染失败</h2>
-                <p style={{ margin: "var(--sp-sm-rem, 0.75rem) 0 0" }}>
-                    已进入降级模式。你可以点击“重试”或切换到其他视图。
-                </p>
-                <div style={{ marginTop: "var(--sp-sm-rem, 0.75rem)" }}>
-                    <button type="button" onClick={this.reset}>
-                        重试
-                    </button>
-                </div>
-                <details style={{ marginTop: "var(--sp-sm-rem, 0.75rem)" }}>
-                    <summary>查看错误详情</summary>
-                    <pre
-                        style={{
-                            marginTop: "var(--sp-xs-rem, 0.5rem)",
-                            whiteSpace: "pre-wrap",
-                        }}
-                    >
-                        {error.stack ?? error.message}
-                    </pre>
-                </details>
-            </div>
-        );
-    }
-}
 
 // React.memo：避免 MainLayout 因“主题/布局”等无关变化时，子面板在 props 未变化的情况下重复渲染
 const MemoTitlePanel = memo(TitlePanel);
@@ -182,6 +70,8 @@ export function MainLayout() {
 
     // 安装全局键盘快捷键（如 Ctrl+K 打开命令面板）
     useKeyboardShortcuts();
+
+    const { error: notifyError } = useNotify();
 
     // 安装前端日志桥接（可选，通过设置开关控制）
     useFrontendLogBridge();
@@ -245,6 +135,13 @@ export function MainLayout() {
         setCurrentView("jobs");
     }, [setCurrentView]);
 
+    const handleViewRenderError = useCallback(
+        (error: Error) => {
+            notifyError("视图渲染失败", `当前视图：${currentView}\n${error.message}`);
+        },
+        [currentView, notifyError],
+    );
+
     return (
         // 命令 Context 提供者：管理主视图和子视图的命令按钮状态
         <ViewCommandProvider>
@@ -264,6 +161,7 @@ export function MainLayout() {
                         <div className={styles.infoPanel}>
                             <ErrorBoundary
                                 resetKeys={[currentView]}
+                                onError={(error) => handleViewRenderError(error)}
                                 fallback={({ error, reset }) => (
                                     <div
                                         style={{

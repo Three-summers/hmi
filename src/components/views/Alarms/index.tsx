@@ -14,6 +14,7 @@
 
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useShallow } from "zustand/shallow";
 import { Tabs } from "@/components/common";
 import type { CommandButtonConfig } from "@/types";
 import { useIsViewActive } from "@/components/layout/ViewContext";
@@ -22,7 +23,7 @@ import {
     useViewCommandActions,
 } from "@/components/layout/ViewCommandContext";
 import { useAlarmStore } from "@/stores";
-import { useNotify } from "@/hooks";
+import { useNotify, useStoreWhenActive } from "@/hooks";
 import styles from "./Alarms.module.css";
 import sharedStyles from "../shared.module.css";
 
@@ -38,7 +39,18 @@ export default function AlarmsView() {
         clearAcknowledged,
         unacknowledgedAlarmCount,
         unacknowledgedWarningCount,
-    } = useAlarmStore();
+    } = useStoreWhenActive(
+        useAlarmStore,
+        useShallow((state) => ({
+            alarms: state.alarms,
+            acknowledgeAlarm: state.acknowledgeAlarm,
+            acknowledgeAll: state.acknowledgeAll,
+            clearAcknowledged: state.clearAcknowledged,
+            unacknowledgedAlarmCount: state.unacknowledgedAlarmCount,
+            unacknowledgedWarningCount: state.unacknowledgedWarningCount,
+        })),
+        { enabled: isViewActive },
+    );
 
     const activeAlarms = alarms.filter((a) => !a.acknowledged);
     const acknowledgedAlarms = alarms.filter((a) => a.acknowledged);

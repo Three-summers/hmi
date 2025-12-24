@@ -6,7 +6,12 @@
  * @module Button
  */
 
-import { useState, useCallback, type ButtonHTMLAttributes } from "react";
+import {
+    useState,
+    useCallback,
+    type ButtonHTMLAttributes,
+    type MouseEvent,
+} from "react";
 import type { ButtonBehavior, HighlightStatus } from "@/types";
 import styles from "./Button.module.css";
 
@@ -28,6 +33,46 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: ButtonVariant;
     /** 图标 */
     icon?: React.ReactNode;
+}
+
+export type ButtonClickHandlerContext = {
+    behavior: ButtonBehavior;
+    isPressed: boolean;
+    disabled?: boolean;
+    setInternalPressed: (pressed: boolean) => void;
+    onPressedChange?: (pressed: boolean) => void;
+    onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
+};
+
+/**
+ * 统一 Button 点击逻辑（便于在无 DOM 的环境做单测覆盖）
+ *
+ * @param e - React 点击事件
+ * @param context - 点击上下文
+ */
+export function handleButtonClick(
+    e: MouseEvent<HTMLButtonElement>,
+    context: ButtonClickHandlerContext,
+) {
+    const {
+        behavior,
+        isPressed,
+        disabled,
+        setInternalPressed,
+        onPressedChange,
+        onClick,
+    } = context;
+
+    if (disabled) return;
+
+    // toggle 模式：切换按下状态
+    if (behavior === "toggle") {
+        const newPressed = !isPressed;
+        setInternalPressed(newPressed);
+        onPressedChange?.(newPressed);
+    }
+
+    onClick?.(e);
 }
 
 /**
@@ -58,21 +103,15 @@ export function Button({
     const isPressed = controlledPressed ?? internalPressed;
 
     const handleClick = useCallback(
-        (e: React.MouseEvent<HTMLButtonElement>) => {
-            if (disabled) return;
-
-            // toggle 模式：切换按下状态
-            if (behavior === "toggle") {
-                const newPressed = !isPressed;
-                // 更新内部状态（未受控时）
-                setInternalPressed(newPressed);
-                // 通知外部受控状态变化
-                onPressedChange?.(newPressed);
-            }
-
-            // 触发用户定义的 onClick 回调
-            onClick?.(e);
-        },
+        (e: MouseEvent<HTMLButtonElement>) =>
+            handleButtonClick(e, {
+                behavior,
+                isPressed,
+                disabled,
+                setInternalPressed,
+                onPressedChange,
+                onClick,
+            }),
         [behavior, isPressed, disabled, onClick, onPressedChange],
     );
 

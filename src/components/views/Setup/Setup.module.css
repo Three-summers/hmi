@@ -12,45 +12,45 @@
     padding: var(--card-padding);
     background: var(--card-bg);
     border-radius: var(--card-radius);
-    border: 1px solid var(--card-border);
+    border: var(--border-width-1) solid var(--card-border);
 }
 
 /* 卡片头：图标 + 标题 + 描述 */
 .sectionHeader {
     display: flex;
     align-items: center;
-    gap: calc(var(--sp-sm) + var(--sp-xs));
+    gap: var(--space-3);
     margin-bottom: var(--sp-md);
-    padding-bottom: calc(var(--sp-sm) + var(--sp-xs));
-    border-bottom: 1px solid var(--border-color);
+    padding-bottom: var(--space-3);
+    border-bottom: var(--border-width-1) solid var(--border-color);
 }
 
 .sectionIcon {
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 0.5rem;
+    width: var(--space-9);
+    height: var(--space-9);
+    border-radius: var(--radius-sm);
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--overlay-weak);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-1) solid var(--border-color);
     color: var(--color-processing);
 }
 
 .sectionIcon svg {
-    width: 1.25rem;
-    height: 1.25rem;
+    width: var(--space-5);
+    height: var(--space-5);
 }
 
 .sectionTitle {
-    font-size: var(--font-size-large-rem, var(--font-size-large));
-    font-weight: 600;
+    font-size: var(--font-size-large);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
     margin: 0;
 }
 
 .sectionDesc {
-    font-size: var(--font-size-small-rem, var(--font-size-small));
+    font-size: var(--font-size-small);
     color: var(--text-secondary);
     margin: var(--sp-xs) 0 0 0;
 }
@@ -66,16 +66,16 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: calc(var(--sp-sm) + var(--sp-xs)) var(--sp-md);
+    padding: var(--space-3) var(--space-4);
     background: linear-gradient(
         180deg,
         var(--button-bg) 0%,
         var(--button-bg-active) 100%
     );
-    border: 1px solid var(--border-color);
+    border: var(--border-width-1) solid var(--border-color);
     border-radius: var(--button-radius);
     color: var(--text-primary);
-    font-size: var(--font-size-normal-rem, var(--font-size-normal));
+    font-size: var(--font-size-normal);
     cursor: pointer;
     transition: all var(--transition-fast);
     min-width: 7.5rem;
@@ -97,8 +97,8 @@
 }
 
 .optionIcon {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: var(--space-6);
+    height: var(--space-6);
 }
 
 .optionIcon svg {
@@ -108,13 +108,13 @@
 
 /* ═══ 表单字段 ═══ */
 .formGroup {
-    margin-bottom: calc(var(--sp-sm) + var(--sp-xs));
+    margin-bottom: var(--space-3);
 }
 
 .formLabel {
     display: block;
-    font-size: var(--font-size-small-rem, var(--font-size-small));
-    font-weight: 500;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
     color: var(--text-secondary);
     margin-bottom: var(--sp-xs);
     text-transform: uppercase;
@@ -123,7 +123,7 @@
 
 .formRow {
     display: flex;
-    gap: calc(var(--sp-sm) + var(--sp-xs));
+    gap: var(--space-3);
     align-items: center;
 }
 
@@ -180,17 +180,17 @@
     align-items: center;
     justify-content: center;
     gap: var(--sp-sm);
-    padding: calc(var(--sp-sm) + var(--sp-xs)) calc(var(--sp-md) + var(--sp-xs));
+    padding: var(--space-3) var(--space-5);
     background: linear-gradient(
         180deg,
         var(--button-bg) 0%,
         var(--button-bg-active) 100%
     );
-    border: 1px solid var(--border-color);
+    border: var(--border-width-1) solid var(--border-color);
     border-radius: calc(var(--button-radius) - var(--sp-xs));
     color: var(--text-primary);
-    font-size: var(--font-size-normal-rem, var(--font-size-normal));
-    font-weight: 500;
+    font-size: var(--font-size-normal);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
     transition: all var(--transition-fast);
     margin-top: var(--sp-md);
@@ -212,8 +212,8 @@
 }
 
 .connectButton svg {
-    width: 1.125rem;
-    height: 1.125rem;
+    width: calc(var(--space-4) + calc(var(--space-1) / 2));
+    height: calc(var(--space-4) + calc(var(--space-1) / 2));
 }
 
 /* ═══ 连接状态指示 ═══ */
@@ -221,26 +221,26 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: var(--sp-sm) calc(var(--sp-sm) + var(--sp-xs));
+    padding: var(--sp-sm) var(--space-3);
     background: var(--overlay-weak);
     border-radius: calc(var(--button-radius) - var(--sp-xs));
     margin-bottom: var(--sp-md);
 }
 
 .statusDot {
-    width: 0.625rem;
-    height: 0.625rem;
+    width: calc(var(--space-2) + calc(var(--space-1) / 2));
+    height: calc(var(--space-2) + calc(var(--space-1) / 2));
     border-radius: 50%;
     background: var(--color-alarm);
 }
 
 .statusDot[data-connected="true"] {
     background: var(--color-attention);
-    box-shadow: 0 0 8px var(--color-attention);
+    box-shadow: 0 0 var(--space-2) var(--color-attention);
 }
 
 .statusText {
-    font-size: 0.8125rem;
+    font-size: var(--font-size-small);
     color: var(--text-secondary);
 }
 

@@ -14,6 +14,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useShallow } from "zustand/shallow";
 import { Tabs } from "@/components/common";
 import {
     LanguageIcon,
@@ -34,7 +35,7 @@ import {
     useViewCommandActions,
 } from "@/components/layout/ViewCommandContext";
 import { useAppStore, useCommStore, useNavigationStore } from "@/stores";
-import { useNotify } from "@/hooks";
+import { useNotify, useStoreWhenActive } from "@/hooks";
 import { COMM_CONFIG, THEME_ORDER } from "@/constants";
 import styles from "./Setup.module.css";
 import sharedStyles from "../shared.module.css";
@@ -106,7 +107,21 @@ export default function SetupView() {
         setCommandPanelPosition,
         debugLogBridgeEnabled,
         setDebugLogBridgeEnabled,
-    } = useAppStore();
+    } = useStoreWhenActive(
+        useAppStore,
+        useShallow((state) => ({
+            language: state.language,
+            setLanguage: state.setLanguage,
+            theme: state.theme,
+            setTheme: state.setTheme,
+            commandPanelPosition: state.commandPanelPosition,
+            setCommandPanelPosition: state.setCommandPanelPosition,
+            debugLogBridgeEnabled: state.debugLogBridgeEnabled,
+            setDebugLogBridgeEnabled: state.setDebugLogBridgeEnabled,
+        })),
+        { enabled: isViewActive },
+    );
+
     const {
         serialConnected,
         tcpConnected,
@@ -115,7 +130,19 @@ export default function SetupView() {
         disconnectSerial,
         connectTcp,
         disconnectTcp,
-    } = useCommStore();
+    } = useStoreWhenActive(
+        useCommStore,
+        useShallow((state) => ({
+            serialConnected: state.serialConnected,
+            tcpConnected: state.tcpConnected,
+            getSerialPorts: state.getSerialPorts,
+            connectSerial: state.connectSerial,
+            disconnectSerial: state.disconnectSerial,
+            connectTcp: state.connectTcp,
+            disconnectTcp: state.disconnectTcp,
+        })),
+        { enabled: isViewActive },
+    );
 
     const [availablePorts, setAvailablePorts] = useState<string[]>([]);
     const [selectedPort, setSelectedPort] = useState("");
@@ -125,9 +152,16 @@ export default function SetupView() {
     const [tcpHost, setTcpHost] = useState("127.0.0.1");
     const [tcpPort, setTcpPort] = useState("502");
     const activeTab =
-        useNavigationStore((s) => s.viewDialogStates.setup?.activeTab) ??
-        "settings";
-    const setViewDialogState = useNavigationStore((s) => s.setViewDialogState);
+        useStoreWhenActive(
+            useNavigationStore,
+            (state) => state.viewDialogStates.setup?.activeTab,
+            { enabled: isViewActive },
+        ) ?? "settings";
+    const setViewDialogState = useStoreWhenActive(
+        useNavigationStore,
+        (state) => state.setViewDialogState,
+        { enabled: isViewActive },
+    );
 
     useEffect(() => {
         let cancelled = false;

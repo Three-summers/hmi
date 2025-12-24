@@ -15,7 +15,7 @@
     gap: var(--sp-sm);
     padding: var(--sp-sm);
     border-radius: var(--card-radius);
-    border: 1px solid var(--card-border);
+    border: var(--border-width-1) solid var(--card-border);
     background: var(--card-bg);
 }
 
@@ -23,18 +23,18 @@
     display: flex;
     align-items: baseline;
     gap: var(--sp-xs);
-    padding: 0.25rem 0.625rem;
-    border-radius: 0.625rem;
-    border: 1px solid var(--border-color);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--button-radius);
+    border: var(--border-width-1) solid var(--border-color);
     background: var(--overlay-weak);
     font-family: var(--font-mono);
-    font-size: var(--font-size-small-rem, var(--font-size-small));
+    font-size: var(--font-size-small);
     line-height: 1;
 }
 
 .statusLabel {
     color: var(--text-secondary);
-    font-weight: 600;
+    font-weight: var(--font-weight-bold);
     letter-spacing: 0.04em;
     text-transform: uppercase;
 }
@@ -57,7 +57,7 @@
     flex: 3;
     min-height: 0;
     border-radius: var(--card-radius);
-    border: 1px solid var(--card-border);
+    border: var(--border-width-1) solid var(--card-border);
     overflow: hidden;
     background: var(--bg-secondary);
 }
@@ -66,7 +66,7 @@
     flex: 2;
     min-height: 0;
     border-radius: var(--card-radius);
-    border: 1px solid var(--card-border);
+    border: var(--border-width-1) solid var(--card-border);
     overflow: hidden;
     background: var(--bg-secondary);
 }
@@ -81,12 +81,12 @@
 }
 
 .overlayCard {
-    padding: 0.75rem 1rem;
+    padding: var(--space-3) var(--space-4);
     border-radius: var(--card-radius);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-1) solid var(--border-color);
     background: var(--overlay-modal);
     color: var(--text-primary);
-    font-size: var(--font-size-small-rem, var(--font-size-small));
+    font-size: var(--font-size-small);
     max-width: 32.5rem;
     text-align: center;
 }
@@ -98,7 +98,7 @@
     gap: var(--sp-sm);
     padding: var(--sp-sm);
     border-radius: var(--card-radius);
-    border: 1px solid var(--card-border);
+    border: var(--border-width-1) solid var(--card-border);
     background: var(--card-bg);
 }
 
@@ -108,21 +108,23 @@
     justify-content: center;
     gap: var(--sp-xs);
     padding: var(--sp-xs) calc(var(--sp-sm) + var(--sp-xs));
-    background: linear-gradient(180deg,
-            var(--button-bg) 0%,
-            var(--button-bg-active) 100%);
-    border: 1px solid var(--button-border);
+    background: linear-gradient(
+        180deg,
+        var(--button-bg) 0%,
+        var(--button-bg-active) 100%
+    );
+    border: var(--border-width-1) solid var(--button-border);
     border-radius: calc(var(--card-radius) - var(--sp-xs));
     color: var(--text-primary);
-    font-size: var(--font-size-small-rem, var(--font-size-small));
-    font-weight: 500;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-medium);
     cursor: pointer;
     transition: all var(--transition-fast);
 }
 
 .controlIcon {
-    width: 1rem;
-    height: 1rem;
+    width: var(--space-4);
+    height: var(--space-4);
     flex: 0 0 auto;
 }
 
@@ -133,9 +135,11 @@
 }
 
 .controlBtn:hover {
-    background: linear-gradient(180deg,
-            var(--button-bg-hover) 0%,
-            var(--button-bg) 100%);
+    background: linear-gradient(
+        180deg,
+        var(--button-bg-hover) 0%,
+        var(--button-bg) 100%
+    );
     border-color: var(--color-processing);
 }
 
@@ -161,7 +165,7 @@
     bottom: 0;
     right: 0;
     width: min(22.5rem, 90vw);
-    border-left: 1px solid var(--border-color);
+    border-left: var(--border-width-1) solid var(--border-color);
     background: var(--card-bg);
     z-index: 11;
     display: flex;
@@ -179,22 +183,22 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--sp-md);
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: var(--border-width-1) solid var(--border-color);
 }
 
 .drawerTitle {
-    font-size: 0.8125rem;
-    font-weight: 600;
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
     color: var(--text-primary);
 }
 
 .drawerClose {
     padding: var(--sp-xs) var(--sp-sm);
     border-radius: var(--button-radius);
-    border: 1px solid var(--button-border);
+    border: var(--border-width-1) solid var(--button-border);
     background: var(--overlay-weak);
     color: var(--text-secondary);
-    font-size: var(--font-size-small-rem, var(--font-size-small));
+    font-size: var(--font-size-small);
     cursor: pointer;
     transition: all var(--transition-fast);
 }
@@ -219,7 +223,7 @@
     gap: var(--sp-sm);
     padding: var(--sp-md);
     border-radius: var(--card-radius);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-1) solid var(--border-color);
     background: var(--overlay-weak);
 }
 
@@ -231,8 +235,8 @@
 }
 
 .fieldLabel {
-    font-size: 0.6875rem;
-    font-weight: 700;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
     color: var(--text-secondary);
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -240,7 +244,7 @@
 
 .fieldValue {
     font-family: var(--font-mono);
-    font-size: var(--font-size-small-rem, var(--font-size-small));
+    font-size: var(--font-size-small);
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
 }
@@ -298,8 +302,8 @@
     }
 
     .statusItem {
-        padding: 0.1875rem 0.5rem;
-        font-size: 0.6875rem;
+        padding: var(--space-1) var(--space-2);
+        font-size: var(--font-size-xs);
     }
 
     .statusItem[data-priority="secondary"] {
@@ -346,7 +350,7 @@
         width: 100%;
         height: min(60%, 26.25rem);
         border-left: none;
-        border-top: 1px solid var(--border-color);
+        border-top: var(--border-width-1) solid var(--border-color);
         transform: translateY(100%);
     }
 
@@ -354,4 +358,3 @@
         transform: translateY(0);
     }
 }
-

@@ -21,7 +21,7 @@ import {
     useRegisterViewCommands,
     useViewCommandActions,
 } from "@/components/layout/ViewCommandContext";
-import { useNotify } from "@/hooks";
+import { useIntervalWhenActive, useNotify } from "@/hooks";
 import styles from "./System.module.css";
 import sharedStyles from "../shared.module.css";
 
@@ -226,17 +226,14 @@ export default function SystemView() {
         void refreshSystemInfo(true);
     }, [refreshSystemInfo]);
 
-    useEffect(() => {
-        // 视图缓存（Keep Alive）模式下，页面不会被卸载；这里在页面不可见时暂停定时刷新，避免后台占用资源。
-        if (!isViewActive) return;
-        // 出错/加载中时暂停自动刷新，避免后台反复失败；由用户点击重试恢复
-        if (systemStatus !== "ready") return;
-
-        const interval = setInterval(() => {
+    // 视图缓存（Keep Alive）模式下，页面不会被卸载；这里在页面不可见时暂停定时刷新，避免后台占用资源。
+    // 出错/加载中时暂停自动刷新，避免后台反复失败；由用户点击重试恢复
+    useIntervalWhenActive(
+        () => {
             void refreshSystemInfo();
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [isViewActive, refreshSystemInfo, systemStatus]);
+        },
+        isViewActive && systemStatus === "ready" ? 1000 : null,
+    );
 
     const formatUptime = (seconds: number) => {
         const days = Math.floor(seconds / 86400);

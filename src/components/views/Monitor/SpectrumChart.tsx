@@ -14,11 +14,11 @@
  * @module SpectrumChart
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
-import { useCanvasScale } from "@/hooks";
+import { useCanvasScale, useChartInit } from "@/hooks";
 import { useAppStore } from "@/stores";
 import { readCssVar, withAlpha } from "@/utils";
 import styles from "./SpectrumChart.module.css";
@@ -133,9 +133,12 @@ export default function SpectrumChart(props: SpectrumChartProps) {
     const { t } = useTranslation();
     const theme = useAppStore((s) => s.theme);
     const scaleFactor = useCanvasScale(16);
+    const { status: initStatus, error: initError, retryToken, run, retry } =
+        useChartInit();
     const containerRef = useRef<HTMLDivElement | null>(null);
     const uplotRef = useRef<uPlot | null>(null);
     const renderedRef = useRef<RenderedSpectrumData | null>(null);
+    const initStatusRef = useRef(initStatus);
     const onMarkerChangeRef = useRef<SpectrumChartProps["onMarkerChange"]>(
         props.onMarkerChange,
     );
@@ -151,6 +154,10 @@ export default function SpectrumChart(props: SpectrumChartProps) {
     const lastEmittedMarkerRef = useRef<{ freq: number; amp: number } | null>(
         null,
     );
+
+    useEffect(() => {
+        initStatusRef.current = initStatus;
+    }, [initStatus]);
 
     onMarkerChangeRef.current = props.onMarkerChange;
     latestDataRef.current.frequencies = props.frequencies;
@@ -189,6 +196,9 @@ export default function SpectrumChart(props: SpectrumChartProps) {
                 existing.setSize({ width: nextWidth, height: nextHeight });
                 return;
             }
+
+            // 若初始化已失败，等待用户点击“重试”，避免在 ResizeObserver 回调中无限重试
+            if (initStatusRef.current === "error") return;
 
             const computed = getComputedStyle(container);
             const axisStroke = readCssVar(
@@ -400,12 +410,11 @@ export default function SpectrumChart(props: SpectrumChartProps) {
             );
 
             renderedRef.current = initialRendered;
-            const chart = new uPlot(
-                opts,
-                initialRendered.alignedData,
-                container,
+            const result = run(
+                () => new uPlot(opts, initialRendered.alignedData, container),
             );
-            uplotRef.current = chart;
+            if (!result.ok || !result.value) return;
+            uplotRef.current = result.value;
         });
 
         observer.observe(container);
@@ -417,8 +426,10 @@ export default function SpectrumChart(props: SpectrumChartProps) {
                 uplotRef.current.destroy();
                 uplotRef.current = null;
             }
+            // uPlot 初始化中途失败时可能留下残余 DOM，这里统一清理
+            container.replaceChildren();
         };
-    }, [scaleFactor, theme]);
+    }, [retryToken, run, scaleFactor, theme]);
 
     useEffect(() => {
         const chart = uplotRef.current;
@@ -455,8 +466,66 @@ export default function SpectrumChart(props: SpectrumChartProps) {
         setMarkerText(null);
     };
 
+    const handleRetryInit = useCallback(() => {
+        if (uplotRef.current) {
+            uplotRef.current.destroy();
+            uplotRef.current = null;
+        }
+        const container = containerRef.current;
+        container?.replaceChildren();
+        retry();
+    }, [retry]);
+
     return (
         <div className={styles.root} onMouseLeave={handleMouseLeave}>
+            {initStatus === "error" && (
+                <div
+                    role="alert"
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 16,
+                        background: "var(--overlay-weak)",
+                        zIndex: 1,
+                    }}
+                >
+                    <div
+                        style={{
+                            maxWidth: 520,
+                            padding: 16,
+                            borderRadius: 12,
+                            border: "1px solid var(--border-color)",
+                            background: "var(--bg-panel)",
+                            color: "var(--text-primary)",
+                        }}
+                    >
+                        <div style={{ fontWeight: 700 }}>
+                            {t("dialog.error")}
+                        </div>
+                        <div
+                            style={{
+                                marginTop: 8,
+                                fontSize: 12,
+                                color: "var(--text-secondary)",
+                                whiteSpace: "pre-wrap",
+                            }}
+                        >
+                            {initError ?? "--"}
+                        </div>
+                        <div style={{ marginTop: 12 }}>
+                            <button
+                                type="button"
+                                onClick={handleRetryInit}
+                            >
+                                {t("common.retry")}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <div className={styles.chart} ref={containerRef} />
             <div className={styles.markerInfo}>
                 {markerText ?? "Mkr1 -- kHz -- dBm"}
