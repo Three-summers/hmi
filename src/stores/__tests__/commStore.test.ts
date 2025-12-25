@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TimeoutError } from "@/utils/async";
 
 describe("stores/commStore", () => {
     beforeEach(() => {
@@ -171,18 +170,22 @@ describe("stores/commStore", () => {
         const pendingPromise = new Promise(() => {
             /* 永不 resolve */
         });
-        const invokeMock = vi
-            .fn()
-            .mockReturnValue(pendingPromise);
+        const invokeMock = vi.fn().mockReturnValue(pendingPromise);
         vi.doMock("@/platform/invoke", () => ({
             invoke: invokeMock,
         }));
 
         const { useCommStore } = await import("../commStore");
+        const { TimeoutError } = await import("@/utils/async");
 
         const promise = useCommStore
             .getState()
             .getSerialPorts({ timeoutMs: 20 });
+
+        // 添加 rejection handler 避免 unhandled rejection 警告
+        promise.catch(() => {
+            /* 在 try-catch 中处理 */
+        });
 
         // 推进时间触发超时
         await vi.advanceTimersByTimeAsync(20);

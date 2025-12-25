@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { render } from "@/test/utils";
 import { useCommStore } from "@/stores";
@@ -9,6 +9,10 @@ vi.mock("react-i18next", () => ({
         t: (key: string) => key,
         i18n: { language: "zh" },
     }),
+    initReactI18next: {
+        type: "3rdParty",
+        init: vi.fn(),
+    },
 }));
 
 describe("InfoSection", () => {
@@ -53,33 +57,43 @@ describe("InfoSection", () => {
 
         render(<InfoSection />);
 
-        expect(screen.getByText(expectedStatus)).toBeInTheDocument();
-        expect(screen.getByText(expectedType)).toBeInTheDocument();
+        // 由于未连接场景下 commLabel 与 commType 文案相同，这里统一使用 getAllByText 避免重复元素报错
+        expect(screen.getAllByText(expectedStatus).length).toBeGreaterThan(0);
+        // 当 type 和 status 相同时（未连接状态），使用 getAllByText 避免 Found multiple elements 错误
+        if (expectedType === expectedStatus) {
+            expect(screen.getAllByText(expectedType).length).toBeGreaterThan(0);
+        } else {
+            expect(screen.getByText(expectedType)).toBeInTheDocument();
+        }
         expect(screen.getByText(/^DATE:/)).toBeInTheDocument();
         expect(screen.getByText(/^TIME:/)).toBeInTheDocument();
     });
 
     it("会每秒刷新时间显示", () => {
         vi.useFakeTimers();
-        vi.setSystemTime(new Date("2025-01-01T00:00:00Z"));
+        try {
+            vi.setSystemTime(new Date("2025-01-01T00:00:00Z"));
 
-        vi.spyOn(Date.prototype, "toLocaleDateString").mockImplementation(function () {
-            return `DATE:${this.getTime()}`;
-        });
-        vi.spyOn(Date.prototype, "toLocaleTimeString").mockImplementation(function () {
-            return `TIME:${this.getSeconds()}`;
-        });
+            vi.spyOn(Date.prototype, "toLocaleDateString").mockImplementation(function () {
+                return `DATE:${this.getTime()}`;
+            });
+            vi.spyOn(Date.prototype, "toLocaleTimeString").mockImplementation(function () {
+                return `TIME:${this.getSeconds()}`;
+            });
 
-        useCommStore.setState({ serialConnected: false, tcpConnected: false });
+            useCommStore.setState({ serialConnected: false, tcpConnected: false });
 
-        render(<InfoSection />);
-        expect(screen.getByText("TIME:0")).toBeInTheDocument();
+            render(<InfoSection />);
+            expect(screen.getByText("TIME:0")).toBeInTheDocument();
 
-        vi.setSystemTime(new Date("2025-01-01T00:00:01Z"));
-        vi.advanceTimersByTime(1000);
+            act(() => {
+                vi.advanceTimersByTime(1000);
+            });
 
-        expect(screen.getByText("TIME:1")).toBeInTheDocument();
-        vi.useRealTimers();
+            expect(screen.getByText("TIME:1")).toBeInTheDocument();
+        } finally {
+            vi.restoreAllMocks();
+            vi.useRealTimers();
+        }
     });
 });
-

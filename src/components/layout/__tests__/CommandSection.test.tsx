@@ -11,6 +11,10 @@ vi.mock("react-i18next", () => ({
         t: (key: string) => key,
         i18n: { language: "zh" },
     }),
+    initReactI18next: {
+        type: "3rdParty",
+        init: vi.fn(),
+    },
 }));
 
 vi.mock("@/hooks/useNotify", () => ({
@@ -82,7 +86,8 @@ describe("CommandSection", () => {
         );
 
         fireEvent.click(screen.getByLabelText("title.loginHere"));
-        expect(screen.getByText("title.loginHere")).toBeInTheDocument();
+        // title.loginHere 同时出现在按钮和弹窗标题，使用 getByRole 更精确
+        expect(screen.getByRole("heading", { name: "title.loginHere" })).toBeInTheDocument();
 
         fireEvent.click(
             screen.getByRole("button", { name: "title.roles.operator" }),

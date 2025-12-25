@@ -72,6 +72,31 @@ class ResizeObserverMock {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (globalThis as any).ResizeObserver = ResizeObserverMock;
 
+// JSDOM 的 matchMedia 可能缺失或不是函数：uPlot 会依赖该 API 监听 dppx 变化
+if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).matchMedia = (query: string) => {
+        return {
+            matches: false,
+            media: query,
+            onchange: null,
+            addListener: () => {
+                // noop（旧版 API）
+            },
+            removeListener: () => {
+                // noop（旧版 API）
+            },
+            addEventListener: () => {
+                // noop
+            },
+            removeEventListener: () => {
+                // noop
+            },
+            dispatchEvent: () => false,
+        } as MediaQueryList;
+    };
+}
+
 afterEach(() => {
     cleanup();
 

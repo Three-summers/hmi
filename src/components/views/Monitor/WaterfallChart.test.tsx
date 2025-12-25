@@ -6,6 +6,10 @@ import { WaterfallChart } from "./WaterfallChart";
 
 vi.mock("@/hooks", () => ({
     useSpectrumData: vi.fn(),
+    useCanvasScale: vi.fn(() => ({
+        scale: 1,
+        scaledCanvas: { width: 800, height: 600 },
+    })),
 }));
 
 function mockResult(overrides: Partial<ReturnType<typeof useSpectrumData>>) {

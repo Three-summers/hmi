@@ -8,6 +8,10 @@ vi.mock("react-i18next", () => ({
         t: (key: string) => key,
         i18n: { language: "zh" },
     }),
+    initReactI18next: {
+        type: "3rdParty",
+        init: vi.fn(),
+    },
 }));
 
 // TitlePanel 的职责：拼装布局与消息条；子组件在各自文件内单测覆盖，这里做隔离以减少噪音。

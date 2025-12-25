@@ -45,10 +45,10 @@ export function InfoSection() {
 
     useEffect(() => {
         // 每秒刷新一次时间显示
-        const timer = window.setInterval(() => {
+        const timer = setInterval(() => {
             setDateTime(new Date());
         }, 1000);
-        return () => window.clearInterval(timer);
+        return () => clearInterval(timer);
     }, []);
 
     /**
@@ -149,4 +149,3 @@ export function InfoSection() {
         </div>
     );
 }
-

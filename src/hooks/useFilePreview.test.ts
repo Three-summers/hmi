@@ -86,8 +86,12 @@ describe("hooks/useFilePreview", () => {
                 path: "/a.csv",
                 isDirectory: false,
             });
-            vi.advanceTimersByTime(20);
-            await p;
+            // 添加 catch handler 避免 unhandled rejection
+            p.catch(() => {
+                /* 错误会被 hook 内部处理并写入 state */
+            });
+            // 需要推进足够时间：第一次超时(20ms) + 重试延迟(200ms) + 第二次超时(20ms)
+            await vi.advanceTimersByTimeAsync(20 + 200 + 20);
         });
 
         expect(result.current.preview.error).toBe("files.loadTimeout");

@@ -84,6 +84,8 @@ describe("hooks/useRetry", () => {
             runPromise = result.current.run(async () => {
                 throw new TimeoutError(10, "timeout");
             });
+            // 防止 unhandled rejection 警告
+            runPromise.catch(() => { /* 由测试 expect 处理 */ });
         });
 
         // 第一次失败后会进入 sleep，期间调用 cancel 可阻止后续尝试

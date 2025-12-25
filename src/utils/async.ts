@@ -52,17 +52,17 @@ export function withTimeout<T>(
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) return promise;
 
     return new Promise<T>((resolve, reject) => {
-        const timer = window.setTimeout(() => {
+        const timer = setTimeout(() => {
             reject(new TimeoutError(timeoutMs, options.timeoutMessage));
         }, timeoutMs);
 
         promise.then(
             (value) => {
-                window.clearTimeout(timer);
+                clearTimeout(timer);
                 resolve(value);
             },
             (error) => {
-                window.clearTimeout(timer);
+                clearTimeout(timer);
                 reject(error);
             },
         );
@@ -86,7 +86,7 @@ export function isTimeoutError(error: unknown): error is TimeoutError {
 export function sleep(ms: number): Promise<void> {
     const safeMs = Number.isFinite(ms) ? Math.max(0, ms) : 0;
     return new Promise<void>((resolve) => {
-        window.setTimeout(resolve, safeMs);
+        setTimeout(resolve, safeMs);
     });
 }
 

@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { performance } from "node:perf_hooks";
+import { describe, it } from "vitest";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FileTreePanel } from "../src/components/views/Files/FileTreePanel.tsx";
@@ -12,6 +15,74 @@ import {
     getSeriesFill,
     getXRange,
 } from "../src/hooks/useChartData.ts";
+
+const projectRoot = process.cwd();
+
+async function readFileSafe(filePath) {
+    try {
+        return await fs.readFile(filePath);
+    } catch {
+        return null;
+    }
+}
+
+async function readText(filePath) {
+    const buf = await fs.readFile(filePath);
+    return buf.toString("utf8");
+}
+
+async function getDistIndexHtml() {
+    return readText(path.join(projectRoot, "dist", "index.html"));
+}
+
+function getEntryAssetFromIndexHtml(indexHtml) {
+    const scriptIndex = indexHtml.indexOf('<script type="module"');
+    assert.ok(scriptIndex >= 0, 'dist/index.html missing <script type="module"...>');
+
+    const srcMarker = 'src="/assets/';
+    const srcIndex = indexHtml.indexOf(srcMarker, scriptIndex);
+    assert.ok(srcIndex >= 0, 'dist/index.html missing entry src="/assets/..."');
+
+    const after = indexHtml.slice(srcIndex + srcMarker.length);
+    const end = after.indexOf('.js"');
+    assert.ok(end >= 0, 'dist/index.html entry src does not end with .js"');
+
+    return after.slice(0, end + 3);
+}
+
+function getModulepreloadAssetsFromIndexHtml(indexHtml) {
+    const assets = [];
+    const hrefMarker = 'href="/assets/';
+    let cursor = 0;
+    while (true) {
+        const preloadIndex = indexHtml.indexOf('rel="modulepreload"', cursor);
+        if (preloadIndex < 0) break;
+
+        const hrefIndex = indexHtml.indexOf(hrefMarker, preloadIndex);
+        assert.ok(hrefIndex >= 0, 'modulepreload link missing href="/assets/..."');
+        const after = indexHtml.slice(hrefIndex + hrefMarker.length);
+        const end = after.indexOf('"');
+        assert.ok(end >= 0, "modulepreload href missing closing quote");
+        assets.push(after.slice(0, end));
+
+        cursor = hrefIndex + hrefMarker.length;
+    }
+    return assets;
+}
+
+async function findFirstAssetContaining(assetsDir, marker) {
+    const entries = await fs.readdir(assetsDir);
+    const jsFiles = entries.filter((name) => name.endsWith(".js"));
+    for (const name of jsFiles) {
+        const content = await readText(path.join(assetsDir, name));
+        if (content.includes(marker)) return name;
+    }
+    return null;
+}
+
+function getFirstAssetByPrefix(assetNames, prefix) {
+    return assetNames.find((name) => name.startsWith(prefix)) ?? null;
+}
 
 describe("T02 Files 视图拆分（Node SSR）", () => {
     it("FileTreePanel：loading / empty / error 状态可渲染", () => {
@@ -326,5 +397,119 @@ describe("T02 Files 视图拆分（Node SSR）", () => {
         assert.notEqual(values[2], ""); // index=2 -> shown
         assert.equal(values[3], "");
         assert.notEqual(values[4], "");
+    });
+});
+
+describe("T02 Files 视图拆分（构建产物代码分割）", () => {
+    it("代码分割：Files 视图不应打包到主 bundle（dist/assets entry）", async () => {
+        const indexHtml = await getDistIndexHtml();
+        const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
+        const assetsDir = path.join(projectRoot, "dist", "assets");
+
+        const filesChunk = await findFirstAssetContaining(
+            assetsDir,
+            "files.selectFile",
+        );
+        assert.ok(filesChunk, "cannot locate Files view chunk by marker");
+        assert.notEqual(filesChunk, entryAsset);
+
+        const entryCode = await readText(path.join(assetsDir, entryAsset));
+        assert.ok(!entryCode.includes("files.selectFile"));
+        assert.ok(!entryCode.includes("files.title"));
+
+        const filesCode = await readText(path.join(assetsDir, filesChunk));
+        assert.ok(filesCode.includes("files.selectFile"));
+        assert.ok(filesCode.includes("files.title"));
+    });
+
+    it("懒加载：主 bundle 应引用 Files chunk，但 index.html 不应 modulepreload Files chunk", async () => {
+        const indexHtml = await getDistIndexHtml();
+        const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
+        const assetsDir = path.join(projectRoot, "dist", "assets");
+
+        const filesChunk = await findFirstAssetContaining(
+            assetsDir,
+            "files.selectFile",
+        );
+        assert.ok(filesChunk, "cannot locate Files view chunk by marker");
+
+        const entryCode = await readText(path.join(assetsDir, entryAsset));
+        assert.ok(
+            entryCode.includes(filesChunk),
+            `entry bundle should reference ${filesChunk}`,
+        );
+
+        const preloads = getModulepreloadAssetsFromIndexHtml(indexHtml);
+        assert.ok(!preloads.includes(filesChunk));
+    });
+
+    it("依赖：Files chunk 应通过独立 uPlot vendor chunk 引入（避免进入主 bundle）", async () => {
+        const assetsDir = path.join(projectRoot, "dist", "assets");
+        const indexHtml = await getDistIndexHtml();
+        const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
+
+        const entries = await fs.readdir(assetsDir);
+        const uplotVendor = getFirstAssetByPrefix(entries, "uPlot.min-");
+        assert.ok(uplotVendor, "missing uPlot vendor chunk in dist/assets");
+
+        const filesChunk = await findFirstAssetContaining(
+            assetsDir,
+            "files.selectFile",
+        );
+        assert.ok(filesChunk, "cannot locate Files view chunk by marker");
+
+        const filesCode = await readText(path.join(assetsDir, filesChunk));
+        assert.match(filesCode, /uPlot\.min-[A-Za-z0-9_-]+\.js/);
+        assert.ok(filesCode.includes(uplotVendor));
+
+        // uPlot 不应被 index.html 首屏 preload（否则会破坏按需加载收益）
+        const preloads = getModulepreloadAssetsFromIndexHtml(indexHtml);
+        assert.ok(!preloads.includes(uplotVendor));
+
+        // entry 允许“引用”懒加载依赖（例如预加载映射），但不应等同于首屏强制加载
+        assert.notEqual(entryAsset, uplotVendor);
+    });
+
+    it("大小：entry 与 Files chunk 体积应符合预期（避免回退到整包）", async () => {
+        const indexHtml = await getDistIndexHtml();
+        const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
+        const assetsDir = path.join(projectRoot, "dist", "assets");
+
+        const filesChunk = await findFirstAssetContaining(
+            assetsDir,
+            "files.selectFile",
+        );
+        assert.ok(filesChunk, "cannot locate Files view chunk by marker");
+
+        const entrySize = (await fs.stat(path.join(assetsDir, entryAsset))).size;
+        const filesSize = (await fs.stat(path.join(assetsDir, filesChunk))).size;
+
+        assert.ok(entrySize < 120_000, `entry too large: ${entrySize} bytes`);
+        assert.ok(filesSize < 50_000, `Files chunk too large: ${filesSize} bytes`);
+    });
+
+    it("性能：首次加载（index.html + entry + modulepreload）应 <200ms", async () => {
+        const distDir = path.join(projectRoot, "dist");
+        const assetsDir = path.join(distDir, "assets");
+        const indexHtmlPath = path.join(distDir, "index.html");
+        const indexHtmlBuf = await readFileSafe(indexHtmlPath);
+        assert.ok(indexHtmlBuf, "dist/index.html missing");
+
+        const indexHtml = indexHtmlBuf.toString("utf8");
+        const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
+        const preloads = getModulepreloadAssetsFromIndexHtml(indexHtml);
+
+        const toRead = Array.from(new Set([entryAsset, ...preloads])).map(
+            (name) => path.join(assetsDir, name),
+        );
+
+        const start = performance.now();
+        await Promise.all(toRead.map((p) => fs.readFile(p)));
+        const elapsed = performance.now() - start;
+
+        assert.ok(
+            elapsed < 200,
+            `initial bundle read took ${elapsed.toFixed(1)}ms`,
+        );
     });
 });
