@@ -48,7 +48,7 @@
 .button:hover:not(:disabled) {
     background-color: var(--button-bg-hover);
     border-color: var(--accent-primary);
-    box-shadow: 0 0 8px var(--glow-cyan); /* Static glow on hover */
+    box-shadow: 0 0 8px var(--glow-processing); /* Static glow on hover */
     transform: translateY(-1px);
 }
 

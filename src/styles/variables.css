@@ -127,12 +127,18 @@
 
     /* 背景纹理 */
     --bg-grid-size: var(--space-10); /* 40px @ 16px */
+    --bg-overlay-opacity: 0.2; /* 默认噪点透明度 */
+    --vignette-color: rgba(5, 8, 15, 0.4); /* 默认暗角颜色 */
+    --vignette-opacity: 0.8;
 
     /* 徽标（Badge） */
     --badge-height: 1.25rem; /* 20px @ 16px */
     --badge-min-width: 1.25rem;
     --badge-padding-x: var(--space-2);
     --badge-radius: calc(var(--badge-height) / 2);
+
+    /* 显示屏/指示器背景（内凹槽颜色） */
+    --bg-display: rgba(0, 0, 0, 0.2);
 
     /* ─────────────────────────────────────────────────────────────────────────
        SEMI E95 状态颜色 - 增强光晕效果
@@ -146,11 +152,17 @@
     --color-attention: #22c55e; /* 就绪/注意（绿色）*/
     --color-attention-glow: rgba(34, 197, 94, 0.5);
 
-    /* 新增：霓虹光晕色阶（静态光效） */
-    --glow-cyan: 0 0 10px rgba(14, 165, 233, 0.6), 0 0 20px rgba(14, 165, 233, 0.3);
-    --glow-red: 0 0 10px rgba(255, 59, 59, 0.6), 0 0 20px rgba(255, 59, 59, 0.3);
-    --glow-amber: 0 0 10px rgba(255, 193, 7, 0.6), 0 0 20px rgba(255, 193, 7, 0.3);
-    --glow-green: 0 0 10px rgba(34, 197, 94, 0.6), 0 0 20px rgba(34, 197, 94, 0.3);
+    /* 基础光晕原子 (Private) */
+    --_glow-cyan: 0 0 10px rgba(14, 165, 233, 0.6), 0 0 20px rgba(14, 165, 233, 0.3);
+    --_glow-red: 0 0 10px rgba(255, 59, 59, 0.6), 0 0 20px rgba(255, 59, 59, 0.3);
+    --_glow-amber: 0 0 10px rgba(255, 193, 7, 0.6), 0 0 20px rgba(255, 193, 7, 0.3);
+    --_glow-green: 0 0 10px rgba(34, 197, 94, 0.6), 0 0 20px rgba(34, 197, 94, 0.3);
+
+    /* 语义化光晕变量 (Public API) */
+    --glow-processing: var(--_glow-cyan);
+    --glow-alarm: var(--_glow-red);
+    --glow-warning: var(--_glow-amber);
+    --glow-attention: var(--_glow-green);
 
     /* 新增：内嵌面板阴影（机台凹槽感） */
     --shadow-inset-panel: inset 0 2px 10px rgba(0, 0, 0, 0.5), inset 0 0 2px rgba(0, 0, 0, 0.8);
@@ -406,203 +418,138 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   浅色主题 - 简洁工业白
+   浅色主题 - 航天银 (Aerospace Silver) - 提亮修正版
    ═══════════════════════════════════════════════════════════════════════════ */
 [data-theme="light"] {
-    /* 背景 - 柔和蓝灰渐变 */
-    --bg-primary: #f1f5f9;
-    --bg-secondary: #e2e8f0;
-    --bg-tertiary: #cbd5e1;
-    --bg-panel: #ffffff;
-    --bg-panel-header: #f8fafc;
+    /* 背景 - 极亮灰白，提升对比度 */
+    --bg-primary: #f3f4f6; /* 极浅灰，接近白 */
+    --bg-secondary: #ffffff; /* 纯白 */
+    --bg-tertiary: #f9fafb;
+    --bg-panel: #ffffff; /* 面板纯白 */
+    --bg-panel-header: #f3f4f6; /* 标题栏微灰 */
     --bg-elevated: #ffffff;
 
-    /* 强调色 - 加深以提升对比度 */
-    --accent-primary: #0284c7;
+    /* 强调色 - 航空蓝 */
+    --accent-primary: #0284c7; /* 明亮的蓝色 */
     --accent-secondary: #4f46e5;
     --accent-tertiary: #7c3aed;
 
-    /* 文字颜色 - 高对比度 */
-    --text-primary: #0f172a;
-    --text-secondary: #475569;
-    --text-disabled: #94a3b8;
+    /* 文字颜色 - 极致高对比 */
+    --text-primary: #000000; /* 纯黑 */
+    --text-secondary: #1f2937; /* 加深灰，确保可见 */
+    --text-disabled: #6b7280; /* 加深不可用文字 */
     --text-accent: #0369a1;
+    --text-on-accent: #ffffff;
 
     /* 边框颜色 */
-    --border-color: rgba(71, 85, 105, 0.2);
-    --border-subtle: rgba(148, 163, 184, 0.15);
+    --border-color: #d1d5db; /* 加深边框 */
+    --border-subtle: #e5e7eb;
     --border-active: var(--accent-primary);
-    --border-glow: rgba(2, 132, 199, 0.3);
+    --border-glow: rgba(2, 132, 199, 0.1);
+    --border-inset: 1px solid #e5e7eb;
 
-    /* 按钮颜色 - 微妙玻璃效果 */
-    --button-bg: rgba(255, 255, 255, 0.9);
-    --button-bg-hover: rgba(248, 250, 252, 1);
-    --button-bg-active: rgba(226, 232, 240, 1);
-    --button-bg-disabled: rgba(241, 245, 249, 0.7);
-    --button-border: rgba(71, 85, 105, 0.2);
-    --button-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    --button-shadow-hover: 0 4px 16px rgba(2, 132, 199, 0.15);
+    /* 按钮颜色 */
+    --button-bg: #ffffff;
+    --button-bg-hover: #f3f4f6;
+    --button-bg-active: #e5e7eb;
+    --button-bg-disabled: #f3f4f6;
+    --button-border: #9ca3af; /* 加深按钮边框 */
+    
+    /* 图表配色 */
+    --chart-color-1: #0284c7;
+    --chart-color-2: #dc2626;
 
-    /* 玻璃效果 */
-    --glass-bg: rgba(255, 255, 255, 0.8);
-    --glass-border: rgba(255, 255, 255, 0.5);
-    --glass-shine: linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.8) 0%,
-        transparent 50%
-    );
-
-    /* 遮罩层 */
-    --overlay-weak: rgba(0, 0, 0, 0.03);
-    --overlay-mid: rgba(0, 0, 0, 0.06);
-    --overlay-strong: rgba(0, 0, 0, 0.1);
-    --overlay-modal: rgba(15, 23, 42, 0.6);
-
-    /* 渐变 */
-    --gradient-panel: linear-gradient(
-        180deg,
-        var(--bg-panel) 0%,
-        var(--bg-secondary) 100%
-    );
-    --gradient-button: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    --gradient-accent: linear-gradient(
-        135deg,
-        var(--accent-primary) 0%,
-        var(--accent-secondary) 100%
-    );
-
-    /* 阴影 - 更柔和 */
-    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
-    --shadow-xl: 0 16px 40px rgba(0, 0, 0, 0.15);
-    --shadow-inner: inset 0 1px 2px rgba(0, 0, 0, 0.06);
-
-    /* 状态颜色 - 针对浅色背景微调 */
+    /* ... 其他保持不变 ... */
+    --button-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --button-shadow-hover: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-inset-panel: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+    
+    /* 状态颜色 */
     --color-alarm: #dc2626;
-    --color-alarm-glow: rgba(220, 38, 38, 0.4);
     --color-warning: #d97706;
-    --color-warning-glow: rgba(217, 119, 6, 0.35);
     --color-processing: #0284c7;
-    --color-processing-glow: rgba(2, 132, 199, 0.35);
-    --color-attention: #16a34a;
-    --color-attention-glow: rgba(22, 163, 74, 0.35);
+    --color-attention: #059669;
 
-    /* 高亮 - 针对浅色背景调整 */
-    --highlight-alarm:
-        0 0 0 2px var(--color-alarm), 0 0 20px var(--color-alarm-glow),
-        inset 0 0 15px rgba(220, 38, 38, 0.08);
-    --highlight-warning:
-        0 0 0 2px var(--color-warning), 0 0 20px var(--color-warning-glow),
-        inset 0 0 15px rgba(217, 119, 6, 0.08);
-    --highlight-processing:
-        0 0 0 2px var(--color-processing),
-        0 0 20px var(--color-processing-glow),
-        inset 0 0 15px rgba(2, 132, 199, 0.08);
-    --highlight-attention:
-        0 0 0 2px var(--color-attention), 0 0 20px var(--color-attention-glow),
-        inset 0 0 15px rgba(22, 163, 74, 0.08);
+    /* 光晕 - 极弱 (Private) */
+    --_glow-cyan: 0 2px 4px rgba(2, 132, 199, 0.2);
+    --_glow-red: 0 2px 4px rgba(220, 38, 38, 0.2);
+    --_glow-amber: 0 2px 4px rgba(217, 119, 6, 0.2);
+    --_glow-green: 0 2px 4px rgba(5, 150, 105, 0.2);
+
+    /* 映射 */
+    --glow-processing: var(--_glow-cyan);
+    --glow-alarm: var(--_glow-red);
+    --glow-warning: var(--_glow-amber);
+    --glow-attention: var(--_glow-green);
+
+    --bg-overlay-opacity: 0; /* 浅色模式下去除噪点 */
+    --vignette-color: rgba(0, 0, 0, 0.05);
+    --vignette-opacity: 0.2;
+
+    /* 浅色模式显示屏背景：稍深的浅灰，与白色面板区分 */
+    --bg-display: #e5e7eb;
+    /* 浅色模式玻璃背景：同样使用浅灰 */
+    --glass-bg: #e5e7eb;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   高对比度主题 - 最大可见性
-   适用于明亮环境和远距离查看
+   高对比度主题 - 极致黑 (True Black)
    ═══════════════════════════════════════════════════════════════════════════ */
 [data-theme="high-contrast"] {
-    /* 纯黑背景 */
+    /* 纯黑背景 - OLED 友好 */
     --bg-primary: #000000;
-    --bg-secondary: #080808;
-    --bg-tertiary: #101010;
+    --bg-secondary: #000000;
+    --bg-tertiary: #000000;
     --bg-panel: #000000;
-    --bg-panel-header: #0a0a0a;
-    --bg-elevated: #141414;
+    --bg-panel-header: #000000;
+    --bg-elevated: #000000;
 
-    /* 强调色 - 最大亮度 */
-    --accent-primary: #00e5ff;
-    --accent-secondary: #7c4dff;
-    --accent-tertiary: #e040fb;
+    /* 强调色 - 高亮蓝/青 (保留科技感但提高对比度) */
+    --accent-primary: #00ffff; /* 青色，在黑色上对比度极高 */
+    --accent-secondary: #ffffff;
+    --accent-tertiary: #ffff00;
 
-    /* 文字颜色 - 纯白 */
+    /* 文字颜色 - 纯白为主 */
     --text-primary: #ffffff;
-    --text-secondary: #e0e0e0;
+    --text-secondary: #d4d4d4; /* 浅灰，保证可读性 */
     --text-disabled: #808080;
-    --text-accent: #00e5ff;
-
-    /* 边框颜色 - 高可见性 */
-    --border-color: rgba(255, 255, 255, 0.25);
-    --border-subtle: rgba(255, 255, 255, 0.1);
-    --border-active: #00e5ff;
-    --border-glow: rgba(0, 229, 255, 0.6);
-
-    /* 按钮颜色 */
-    --button-bg: rgba(20, 20, 20, 0.95);
-    --button-bg-hover: rgba(35, 35, 35, 1);
-    --button-bg-active: rgba(10, 10, 10, 1);
-    --button-bg-disabled: rgba(15, 15, 15, 0.6);
-    --button-border: rgba(255, 255, 255, 0.3);
-    --button-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
-    --button-shadow-hover: 0 0 25px rgba(0, 229, 255, 0.4);
-
-    /* 玻璃效果 - 纯黑上的微妙效果 */
-    --glass-bg: rgba(10, 10, 10, 0.9);
-    --glass-border: rgba(255, 255, 255, 0.15);
-    --glass-shine: linear-gradient(
-        135deg,
-        rgba(255, 255, 255, 0.08) 0%,
-        transparent 50%
-    );
-
-    /* 遮罩层 */
-    --overlay-weak: rgba(255, 255, 255, 0.05);
-    --overlay-mid: rgba(255, 255, 255, 0.08);
-    --overlay-strong: rgba(255, 255, 255, 0.12);
-    --overlay-modal: rgba(0, 0, 0, 0.9);
-
-    /* 渐变 */
-    --gradient-panel: linear-gradient(180deg, #0a0a0a 0%, #000000 100%);
-    --gradient-button: linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%);
-    --gradient-accent: linear-gradient(135deg, #00e5ff 0%, #7c4dff 100%);
-
-    /* 阴影 - 强调光晕 */
-    --shadow-sm: 0 0 8px rgba(0, 229, 255, 0.2);
-    --shadow-md: 0 0 16px rgba(0, 229, 255, 0.25);
-    --shadow-lg: 0 0 32px rgba(0, 229, 255, 0.3);
-    --shadow-xl: 0 0 48px rgba(0, 229, 255, 0.35);
-    --shadow-inner: inset 0 0 10px rgba(0, 0, 0, 0.5);
-
-    /* 状态颜色 - 最大饱和度 */
-    --color-alarm: #ff1744;
-    --color-alarm-glow: rgba(255, 23, 68, 0.7);
-    --color-warning: #ffea00;
-    --color-warning-glow: rgba(255, 234, 0, 0.6);
-    --color-processing: #00e5ff;
-    --color-processing-glow: rgba(0, 229, 255, 0.6);
-    --color-attention: #00e676;
-    --color-attention-glow: rgba(0, 230, 118, 0.6);
-
-    /* 强调色背景上的文字（最大化对比度）*/
+    --text-accent: #00ffff;
     --text-on-accent: #000000;
-    --text-on-warning: #000000;
-    --text-on-attention: #000000;
-    --text-on-alarm: #ffffff;
 
-    /* 按钮层级背景（高对比度偏好纯色填充）*/
-    --button-primary-bg: var(--accent-primary);
-    --button-primary-bg-hover: var(--accent-primary);
-    --button-primary-bg-active: var(--accent-primary);
+    /* 边框颜色 - 高亮线框 */
+    --border-color: #404040; /* 深灰线框，清晰可见 */
+    --border-subtle: #262626;
+    --border-active: #00ffff;
+    --border-glow: transparent;
+    --border-inset: 1px solid #404040;
 
-    /* 高对比度增强高亮 */
-    --highlight-alarm:
-        0 0 0 3px var(--color-alarm), 0 0 30px var(--color-alarm-glow),
-        inset 0 0 20px rgba(255, 23, 68, 0.15);
-    --highlight-warning:
-        0 0 0 3px var(--color-warning), 0 0 30px var(--color-warning-glow),
-        inset 0 0 20px rgba(255, 234, 0, 0.1);
-    --highlight-processing:
-        0 0 0 3px var(--color-processing),
-        0 0 30px var(--color-processing-glow),
-        inset 0 0 20px rgba(0, 229, 255, 0.15);
-    --highlight-attention:
-        0 0 0 3px var(--color-attention), 0 0 30px var(--color-attention-glow),
-        inset 0 0 20px rgba(0, 230, 118, 0.15);
+    /* 按钮颜色 - 黑底白框 */
+    --button-bg: #000000;
+    --button-bg-hover: #171717;
+    --button-bg-active: #262626;
+    --button-bg-disabled: #000000;
+    --button-border: #808080;
+    
+    --button-shadow: none;
+    --button-shadow-hover: none;
+    --shadow-inset-panel: none;
+
+    /* 状态颜色 - 纯色高亮 */
+    --color-alarm: #ff3333;
+    --color-warning: #ffdd00;
+    --color-processing: #00ffff;
+    --color-attention: #00ff00;
+
+    /* 光晕 - 无 */
+    --glow-processing: none;
+    --glow-alarm: none;
+    --glow-warning: none;
+    --glow-attention: none;
+    
+    --bg-grid-size: 0;
+    --bg-overlay-opacity: 0;
+    --vignette-opacity: 0;
+
+    /* 高对比模式显示屏背景：纯黑 */
+    --bg-display: #000000;
 }

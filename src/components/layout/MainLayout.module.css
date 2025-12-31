@@ -37,7 +37,7 @@
     /* Deep Space Theme: Recessed Screen Effect */
     margin: var(--space-2);
     border-radius: var(--radius-sm);
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--bg-display);
     box-shadow: var(--shadow-inset-panel);
     border: var(--border-inset);
     position: relative;
@@ -55,7 +55,7 @@
     /* Deep Space Theme: Recessed Panel Effect */
     margin: var(--space-2) var(--space-2) var(--space-2) 0;
     border-radius: var(--radius-sm);
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--bg-display);
     box-shadow: var(--shadow-inset-panel);
     border: var(--border-inset);
     overflow: hidden; /* Ensure rounded corners clip content */

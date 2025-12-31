@@ -62,7 +62,7 @@ body::before {
     mask-image: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,0.8));
     pointer-events: none;
     z-index: 0; /* 背景层：保持在 #root 之下 */
-    opacity: 0.2;
+    opacity: var(--bg-overlay-opacity);
 }
 
 /* ═══ 背景：暗角（Vignette）增强 ═══ */
@@ -76,12 +76,12 @@ body::after {
     background: radial-gradient(
         circle at center,
         transparent 30%,
-        rgba(5, 8, 15, 0.4) 80%,
+        var(--vignette-color) 80%,
         var(--bg-primary) 120%
     );
     pointer-events: none;
     z-index: 0; /* 背景层：保持在 #root 之下 */
-    opacity: 0.8;
+    opacity: var(--vignette-opacity);
 }
 
 /* ═══ 应用根节点 ═══ */
