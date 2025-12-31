@@ -33,6 +33,14 @@
     grid-row: 2;
     overflow: hidden;
     min-height: 0; /* 允许 grid 子项在内部滚动时正确收缩 */
+    
+    /* Deep Space Theme: Recessed Screen Effect */
+    margin: var(--space-2);
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-inset-panel);
+    border: var(--border-inset);
+    position: relative;
 }
 
 .mainLayout[data-command-position="left"] .infoPanel {
@@ -43,10 +51,19 @@
 .commandPanel {
     grid-column: 2;
     grid-row: 2;
+    
+    /* Deep Space Theme: Recessed Panel Effect */
+    margin: var(--space-2) var(--space-2) var(--space-2) 0;
+    border-radius: var(--radius-sm);
+    background: rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-inset-panel);
+    border: var(--border-inset);
+    overflow: hidden; /* Ensure rounded corners clip content */
 }
 
 .mainLayout[data-command-position="left"] .commandPanel {
     grid-column: 1;
+    margin: var(--space-2) 0 var(--space-2) var(--space-2);
 }
 
 /* 底部导航栏：跨两列 */

@@ -7,123 +7,75 @@
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-1) var(--space-3);
-    border-radius: var(--button-radius);
+    border-radius: var(--radius-pill); /* 胶囊型，更硬朗 */
+    background: rgba(0, 0, 0, 0.2); /* 统一使用暗底，模拟物理凹槽 */
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
     font-family: var(--font-family);
     font-size: var(--font-size-small);
     font-weight: var(--font-weight-medium);
-    backdrop-filter: blur(var(--blur-xs));
     transition: all var(--transition-fast);
 }
 
 .dot {
     position: relative;
-    width: var(--space-3);
-    height: var(--space-3);
+    width: var(--space-2);
+    height: var(--space-2);
     border-radius: 50%;
     flex-shrink: 0;
-    box-shadow: inset 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.2);
-}
-
-/* 内部高光（3D 效果） */
-.dot::before {
-    content: "";
-    position: absolute;
-    top: calc(var(--space-1) / 2);
-    left: calc(var(--space-1) / 2);
-    width: var(--space-1);
-    height: var(--space-1);
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.5);
-}
-
-/* 外部光晕环 */
-.dot::after {
-    content: "";
-    position: absolute;
-    top: calc((var(--border-width-1) + var(--border-width-2)) * -1);
-    left: calc((var(--border-width-1) + var(--border-width-2)) * -1);
-    right: calc((var(--border-width-1) + var(--border-width-2)) * -1);
-    bottom: calc((var(--border-width-1) + var(--border-width-2)) * -1);
-    border-radius: 50%;
     transition: all var(--transition-fast);
 }
 
+/* 物理质感：LED 灯的“灯芯”感 */
+.dot::before {
+    content: "";
+    position: absolute;
+    top: 20%;
+    left: 20%;
+    width: 40%;
+    height: 40%;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.8);
+    filter: blur(1px);
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
-   状态：告警（红色 - 最高优先级）
+   状态：告警（红色）
    ───────────────────────────────────────────────────────────────────────── */
 
 .indicator[data-status="alarm"] {
-    background: rgba(255, 59, 59, 0.12);
-    border: var(--border-width-1) solid var(--color-alarm);
     color: var(--color-alarm);
-    box-shadow: 0 0 calc(var(--space-2) + calc(var(--space-1) / 2))
-        var(--color-alarm-glow);
 }
 
 .indicator[data-status="alarm"] .dot {
-    background: radial-gradient(
-        circle at 30% 30%,
-        var(--color-alarm-light) 0%,
-        var(--color-alarm) 70%
-    );
-    box-shadow:
-        0 0 calc(var(--space-2) + calc(var(--space-1) / 2))
-            var(--color-alarm-glow),
-        inset 0 0.0625rem 0.125rem rgba(255, 255, 255, 0.3);
-}
-
-.indicator[data-status="alarm"] .dot::after {
-    box-shadow: 0 0 0 var(--border-width-2) var(--color-alarm-glow);
+    background-color: var(--color-alarm);
+    box-shadow: var(--glow-red);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   状态：警告（琥珀色/黄色）
+   状态：警告（琥珀色）
    ───────────────────────────────────────────────────────────────────────── */
 
 .indicator[data-status="warning"] {
-    background: rgba(255, 193, 7, 0.1);
-    border: var(--border-width-1) solid var(--color-warning);
     color: var(--color-warning);
 }
 
 .indicator[data-status="warning"] .dot {
-    background: radial-gradient(
-        circle at 30% 30%,
-        var(--color-warning-light) 0%,
-        var(--color-warning) 70%
-    );
-    box-shadow:
-        0 0 var(--space-2) var(--color-warning-glow),
-        inset 0 0.0625rem 0.125rem rgba(255, 255, 255, 0.4);
-}
-
-.indicator[data-status="warning"] .dot::after {
-    box-shadow: 0 0 0 var(--border-width-2) var(--color-warning-glow);
+    background-color: var(--color-warning);
+    box-shadow: var(--glow-amber);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   状态：处理中（蓝色 - 进行中）
+   状态：处理中（蓝色）
    ───────────────────────────────────────────────────────────────────────── */
 
 .indicator[data-status="processing"] {
-    background: rgba(14, 165, 233, 0.1);
-    border: var(--border-width-1) solid var(--color-processing);
     color: var(--color-processing);
 }
 
 .indicator[data-status="processing"] .dot {
-    background: radial-gradient(
-        circle at 30% 30%,
-        var(--color-processing-light) 0%,
-        var(--color-processing) 70%
-    );
-    box-shadow:
-        0 0 var(--space-2) var(--color-processing-glow),
-        inset 0 0.0625rem 0.125rem rgba(255, 255, 255, 0.3);
-}
-
-.indicator[data-status="processing"] .dot::after {
-    box-shadow: 0 0 0 var(--border-width-2) var(--color-processing-glow);
+    background-color: var(--color-processing);
+    box-shadow: var(--glow-cyan);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -133,28 +85,14 @@
 .indicator[data-status="attention"],
 .indicator[data-status="ready"],
 .indicator[data-status="ok"] {
-    background: rgba(34, 197, 94, 0.1);
-    border: var(--border-width-1) solid var(--color-attention);
     color: var(--color-attention);
 }
 
 .indicator[data-status="attention"] .dot,
 .indicator[data-status="ready"] .dot,
 .indicator[data-status="ok"] .dot {
-    background: radial-gradient(
-        circle at 30% 30%,
-        var(--color-attention-light) 0%,
-        var(--color-attention) 70%
-    );
-    box-shadow:
-        0 0 var(--space-2) var(--color-attention-glow),
-        inset 0 0.0625rem 0.125rem rgba(255, 255, 255, 0.3);
-}
-
-.indicator[data-status="attention"] .dot::after,
-.indicator[data-status="ready"] .dot::after,
-.indicator[data-status="ok"] .dot::after {
-    box-shadow: 0 0 0 var(--border-width-2) var(--color-attention-glow);
+    background-color: var(--color-attention);
+    box-shadow: var(--glow-green);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

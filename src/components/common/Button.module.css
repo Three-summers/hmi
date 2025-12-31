@@ -10,50 +10,54 @@
     padding: var(--space-3) var(--space-5);
     background: linear-gradient(
         180deg,
-        var(--button-bg-hover) 0%,
-        var(--button-bg) 50%,
-        var(--button-bg-active) 100%
-    );
-    border-radius: var(--button-radius);
-    border: var(--border-width-1) solid var(--border-color);
+        rgba(255, 255, 255, 0.05) 0%,
+        rgba(255, 255, 255, 0) 100%
+    ), var(--button-bg);
+    border-radius: var(--radius-sm); /* Sharper corners for industrial feel */
+    border: 1px solid var(--border-color);
+    border-bottom-color: rgba(255, 255, 255, 0.1); /* Highlight top/bottom for depth */
+    border-top-color: rgba(255, 255, 255, 0.2);
     color: var(--text-primary);
     font-family: var(--font-family);
     font-size: var(--font-size-normal);
     font-weight: var(--font-weight-medium);
     text-transform: capitalize;
     letter-spacing: 0.5px;
-    transition: all var(--transition-fast);
+    transition: all 0.1s cubic-bezier(0.4, 0, 1, 1); /* Snappy mechanical transition */
     min-height: var(--button-min-size);
     min-width: var(--button-min-size);
     position: relative;
     overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     cursor: pointer;
 }
 
-/* 玻璃高光效果 */
+/* 玻璃高光效果 - Refined */
 .button::before {
     content: "";
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 50%;
-    background: var(--shine-top-weak);
-    pointer-events: none;
-    transition: opacity var(--transition-fast);
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    opacity: 0.5;
 }
 
-/* 悬停状态 - 触屏设备上保持克制 */
+/* 悬停状态 */
 .button:hover:not(:disabled) {
-    background: var(--button-bg-hover);
+    background-color: var(--button-bg-hover);
     border-color: var(--accent-primary);
+    box-shadow: 0 0 8px var(--glow-cyan); /* Static glow on hover */
+    transform: translateY(-1px);
 }
 
 /* 激活/按下状态 */
 .button:active:not(:disabled) {
-    transform: translateY(0);
-    box-shadow: var(--shadow-inner);
-    background: var(--button-bg-active);
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+    background-color: var(--button-bg-active);
+    border-top-color: rgba(0, 0, 0, 0.3);
 }
 
 /* 禁用状态 */

@@ -26,7 +26,7 @@ import {
 import { useSpectrumData } from "@/hooks";
 import { useSpectrumAnalyzerStore } from "@/stores";
 import { captureSpectrumAnalyzer } from "@/utils/screenshot";
-import type { SpectrumData, SpectrumStatus } from "@/types";
+import type { SpectrumData, SpectrumStatus, ColorScheme } from "@/types";
 import SpectrumChart from "./SpectrumChart";
 import WaterfallCanvas from "./WaterfallCanvas";
 import styles from "./SpectrumAnalyzer.module.css";
@@ -68,7 +68,7 @@ export interface SpectrumAnalyzerViewProps {
     threshold: number;
     historyDepth: number;
     refreshRate: number;
-    colorScheme: string;
+    colorScheme: ColorScheme;
     isPaused: boolean;
     showMaxHold: boolean;
     showAverage: boolean;
@@ -87,7 +87,7 @@ export interface SpectrumAnalyzerViewProps {
     onSetThreshold: (value: number) => void;
     onSetHistoryDepth: (value: number) => void;
     onSetRefreshRate: (value: number) => void;
-    onSetColorScheme: (value: string) => void;
+    onSetColorScheme: (value: ColorScheme) => void;
 
     /** 仅用于 SSR/单测：控制抽屉初始打开状态 */
     initialConfigOpen?: boolean;
@@ -456,7 +456,9 @@ export function SpectrumAnalyzerView({
                         <select
                             className={styles.select}
                             value={colorScheme}
-                            onChange={(e) => onSetColorScheme(e.target.value)}
+                            onChange={(e) =>
+                                onSetColorScheme(e.target.value as ColorScheme)
+                            }
                         >
                             {(
                                 [

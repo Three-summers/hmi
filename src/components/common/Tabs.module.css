@@ -11,36 +11,16 @@
 
 .tabList {
     display: flex;
-    gap: var(--sp-sm);
-    padding: var(--sp-sm) 0;
+    gap: var(--sp-xs);
+    padding: var(--sp-sm);
     flex-wrap: wrap;
-    /* Sticky：在 InfoPanel 的滚动容器内固定在顶部，避免滚动时被顶层遮罩覆盖 */
+    background: rgba(0, 0, 0, 0.2); /* 凹槽背景 */
+    box-shadow: var(--shadow-inset-panel);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--sp-md);
     position: sticky;
     top: 0;
-    /*
-     * 层级说明：
-     * - InfoPanel::before 的 z-index=1（src/components/layout/InfoPanel.module.css）
-     * - Tabs 需高于该遮罩，避免被遮挡；同时保持低于全局弹窗/Toast（通常为 1000+）
-     */
     z-index: 10;
-    background: var(--bg-panel);
-}
-
-/* 标签列表底部细微边框 */
-.tabList::after {
-    content: "";
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: var(--border-width-1);
-    background: linear-gradient(
-        90deg,
-        transparent,
-        var(--border-color) 20%,
-        var(--border-color) 80%,
-        transparent
-    );
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -49,84 +29,47 @@
 
 .tab {
     position: relative;
-    min-height: var(--space-10);
-    padding: var(--space-2) var(--space-5);
-    border-radius: var(--button-radius);
-    border: var(--border-width-1) solid var(--border-color);
-    background: linear-gradient(
-        180deg,
-        var(--button-bg-hover) 0%,
-        var(--button-bg) 50%,
-        var(--button-bg-active) 100%
-    );
+    min-height: var(--space-8);
+    padding: var(--space-2) var(--space-6);
+    border-radius: var(--radius-xs);
+    border: 1px solid var(--border-color);
+    background: var(--button-bg);
     color: var(--text-secondary);
     font-family: var(--font-family);
     font-size: var(--font-size-small);
     font-weight: var(--font-weight-bold);
-    letter-spacing: 0.03em;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all 0.1s ease;
     user-select: none;
-    overflow: hidden;
 }
 
-/* 玻璃高光效果 */
-.tab::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 50%;
-    background: var(--shine-top-weak);
-    pointer-events: none;
-    transition: opacity var(--transition-fast);
-}
-
-/* 悬停状态 - 触屏设备上保持克制 */
+/* 悬停状态 */
 .tab:hover:not(:disabled) {
     border-color: var(--accent-primary);
-    background: var(--button-bg-hover);
     color: var(--text-primary);
 }
 
-/* 禁用状态 */
-.tab:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: var(--button-bg-disabled);
-}
-
-/* 激活/选中状态 */
+/* 激活/选中状态 - 模拟 LED 激活感 */
 .tab[data-active="true"] {
-    background: linear-gradient(
-        180deg,
-        var(--accent-primary) 0%,
-        var(--accent-secondary) 100%
-    );
+    background: var(--button-bg-hover);
     border-color: var(--accent-primary);
-    color: var(--text-on-accent);
-    box-shadow:
-        0 0 var(--space-4) var(--color-processing-glow),
-        inset 0 var(--border-width-1) 0 rgba(255, 255, 255, 0.2);
+    color: var(--accent-primary);
+    box-shadow: 
+        0 0 8px var(--glow-cyan),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-.tab[data-active="true"]::before {
-    background: var(--shine-top-strong);
-}
-
-/* 激活指示器 */
 .tab[data-active="true"]::after {
     content: "";
     position: absolute;
-    bottom: calc(var(--border-width-1) * -1);
+    bottom: 2px;
     left: 20%;
     right: 20%;
-    height: calc(var(--border-width-1) + var(--border-width-2));
-    background: var(--text-on-accent);
-    border-radius: calc(var(--border-width-1) + var(--border-width-2))
-        calc(var(--border-width-1) + var(--border-width-2)) 0 0;
-    box-shadow: 0 0 var(--space-2) rgba(255, 255, 255, 0.5);
+    height: 2px;
+    background: var(--accent-primary);
+    box-shadow: var(--glow-cyan);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
