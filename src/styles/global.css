@@ -466,7 +466,7 @@ td[data-type="number"] {
 
 @media (max-width: 900px) {
     :root {
-        --title-panel-height: 4.375rem; /* 70px @ 16px 基准 */
+        --title-panel-height: 6.5rem; /* 104px @ 16px 基准 */
         --nav-panel-height: 4.375rem; /* 70px @ 16px 基准 */
         --command-panel-width: 8.75rem; /* 140px @ 16px 基准 */
         --button-min-size: 3.75rem; /* 60px @ 16px 基准 */
