@@ -58,6 +58,16 @@ interface AppState {
      */
     cycleTheme: () => void;
 
+    /** 视觉效果强度（用于在低性能工控设备上降低渲染开销） */
+    visualEffects: "full" | "reduced";
+
+    /**
+     * 设置视觉效果强度
+     *
+     * @param effects - full/reduced
+     */
+    setVisualEffects: (effects: "full" | "reduced") => void;
+
     // 调试：前端日志桥接到后端（终端输出）
     // 默认关闭，避免影响正常使用时的性能与噪音
     /** 是否启用前端日志桥接 */
@@ -146,6 +156,9 @@ export const useAppStore = create<AppState>()(
                     return { theme: next };
                 }),
 
+            visualEffects: "full",
+            setVisualEffects: (effects) => set({ visualEffects: effects }),
+
             debugLogBridgeEnabled: false,
             setDebugLogBridgeEnabled: (enabled) =>
                 set({ debugLogBridgeEnabled: enabled }),
@@ -175,6 +188,7 @@ export const useAppStore = create<AppState>()(
             partialize: (state) => ({
                 language: state.language,
                 theme: state.theme,
+                visualEffects: state.visualEffects,
                 commandPanelPosition: state.commandPanelPosition,
                 scaleOverride: state.scaleOverride,
             }),

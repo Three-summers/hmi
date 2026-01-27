@@ -109,6 +109,10 @@
     --blur-sm: 8px;
     --blur-md: 12px;
 
+    /* backdrop-filter：允许在低性能设备上统一降级为 none（避免高成本实时模糊） */
+    --backdrop-filter-sm: blur(var(--blur-sm));
+    --backdrop-filter-md: blur(var(--blur-md));
+
     /* 边框宽度 */
     --border-width-1: 1px;
     --border-width-2: 2px;
@@ -403,6 +407,14 @@
     --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.6);
     --shadow-glow: 0 0 30px var(--accent-primary);
     --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   视觉效果强度（性能模式）
+   ═══════════════════════════════════════════════════════════════════════════ */
+[data-effects="reduced"] {
+    --backdrop-filter-sm: none;
+    --backdrop-filter-md: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

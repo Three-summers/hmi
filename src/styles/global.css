@@ -221,8 +221,8 @@ textarea {
 /* ═══ 工具类：玻璃卡片 ═══ */
 .glass-card {
     background: var(--glass-bg);
-    backdrop-filter: blur(var(--blur-md));
-    -webkit-backdrop-filter: blur(var(--blur-md));
+    backdrop-filter: var(--backdrop-filter-md);
+    -webkit-backdrop-filter: var(--backdrop-filter-md);
     border: var(--border-width-1) solid var(--glass-border);
     border-radius: var(--button-radius-lg);
     box-shadow: var(--shadow-md);

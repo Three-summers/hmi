@@ -60,11 +60,12 @@ export function MainLayout() {
         })),
     );
 
-    // 从应用 Store 获取命令面板位置和主题配置
-    const { commandPanelPosition, theme } = useAppStore(
+    // 从应用 Store 获取命令面板位置、主题与视觉效果配置
+    const { commandPanelPosition, theme, visualEffects } = useAppStore(
         useShallow((state) => ({
             commandPanelPosition: state.commandPanelPosition,
             theme: state.theme,
+            visualEffects: state.visualEffects,
         })),
     );
 
@@ -128,6 +129,11 @@ export function MainLayout() {
         // 统一通过 data-theme 切换主题，保持 CSS 变量方案的可扩展性与低侵入性
         document.documentElement.dataset.theme = theme;
     }, [theme]);
+
+    useEffect(() => {
+        // 统一通过 data-effects 控制高成本视觉效果（例如 backdrop-filter）
+        document.documentElement.dataset.effects = visualEffects;
+    }, [visualEffects]);
 
     const resetToSafeView = useCallback(() => {
         // 降级策略：当关键视图（尤其是含 Canvas 绘制的 Monitor）发生异常时，

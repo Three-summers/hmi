@@ -9,6 +9,7 @@
 import { useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import type { DialogType, MessageIconType, DialogButtons } from "@/types";
+import { ErrorIcon, InfoIcon, ProgressIcon, WarningIcon } from "./Icons";
 import styles from "./Dialog.module.css";
 
 interface DialogProps {
@@ -37,11 +38,11 @@ interface DialogProps {
     onApply?: () => void;
 }
 
-const iconMap: Record<MessageIconType, string> = {
-    information: "ℹ️",
-    progress: "⏳",
-    attention: "⚠️",
-    error: "❌",
+const iconMap: Record<MessageIconType, JSX.Element> = {
+    information: <InfoIcon />,
+    progress: <ProgressIcon />,
+    attention: <WarningIcon />,
+    error: <ErrorIcon />,
 };
 
 export type DialogEscapeAction = "cancel" | "close" | "no" | null;

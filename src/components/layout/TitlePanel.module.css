@@ -89,8 +89,8 @@
     gap: var(--space-2);
     padding: var(--space-2) var(--space-4);
     background: var(--bg-display);
-    backdrop-filter: blur(var(--blur-sm));
-    -webkit-backdrop-filter: blur(var(--blur-sm));
+    backdrop-filter: var(--backdrop-filter-sm);
+    -webkit-backdrop-filter: var(--backdrop-filter-sm);
     border-radius: var(--button-radius);
     border: var(--border-width-1) solid var(--border-color);
     transition: all var(--transition-fast);
@@ -173,8 +173,8 @@
     gap: var(--space-2);
     padding: var(--space-2) var(--space-4);
     background: var(--bg-display);
-    backdrop-filter: blur(var(--blur-sm));
-    -webkit-backdrop-filter: blur(var(--blur-sm));
+    backdrop-filter: var(--backdrop-filter-sm);
+    -webkit-backdrop-filter: var(--backdrop-filter-sm);
     border-radius: var(--button-radius);
     border: var(--border-width-1) solid var(--border-color);
 }
@@ -221,7 +221,8 @@
     gap: var(--sp-sm);
     padding: var(--space-2) var(--space-4);
     background: rgba(255, 59, 59, 0.15);
-    backdrop-filter: blur(var(--blur-sm));
+    backdrop-filter: var(--backdrop-filter-sm);
+    -webkit-backdrop-filter: var(--backdrop-filter-sm);
     border-radius: var(--button-radius);
     border: var(--border-width-1) solid var(--color-alarm);
     color: var(--color-alarm);
@@ -407,7 +408,8 @@
     right: 0;
     bottom: 0;
     background: var(--overlay-modal);
-    backdrop-filter: blur(var(--blur-sm));
+    backdrop-filter: var(--backdrop-filter-sm);
+    -webkit-backdrop-filter: var(--backdrop-filter-sm);
     display: flex;
     align-items: center;
     justify-content: center;

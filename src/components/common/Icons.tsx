@@ -16,11 +16,13 @@ import {
     MdDelete,
     MdDoneAll,
     MdEdit,
+    MdErrorOutline,
     MdExitToApp,
     MdFileUpload,
     MdSave,
     MdFullscreen,
     MdHelpOutline,
+    MdHourglassTop,
     MdInfo,
     MdInsertDriveFile,
     MdLanguage,
@@ -37,6 +39,7 @@ import {
     MdRestore,
     MdSecurity,
     MdSettings,
+    MdSpeed,
     MdShowChart,
     MdStop,
     MdUsb,
@@ -74,6 +77,7 @@ export const SerialIcon = MdUsb;
 export const NetworkIcon = MdPublic;
 export const LogIcon = MdListAlt;
 export const ChartIcon = MdShowChart;
+export const SpeedIcon = MdSpeed;
 
 // TitlePanel / CommandPanel 需要的图标（供后续任务替换内联 SVG）
 export const DateIcon = MdCalendarToday;
@@ -84,6 +88,8 @@ export const FullscreenIcon = MdFullscreen;
 export const ZoomIcon = MdZoomIn;
 export const ExitIcon = MdExitToApp;
 export const OkIcon = MdCheck;
+export const ErrorIcon = MdErrorOutline;
+export const ProgressIcon = MdHourglassTop;
 export const OperatorIcon = MdPerson;
 export const EngineerIcon = MdBuild;
 export const AdminIcon = MdSecurity;

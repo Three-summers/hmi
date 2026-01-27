@@ -25,6 +25,7 @@ import {
     SerialIcon,
     NetworkIcon,
     LogIcon,
+    SpeedIcon,
     ConnectIcon,
     CloseIcon,
 } from "@/components/common";
@@ -105,6 +106,8 @@ export default function SetupView() {
         setTheme,
         commandPanelPosition,
         setCommandPanelPosition,
+        visualEffects,
+        setVisualEffects,
         debugLogBridgeEnabled,
         setDebugLogBridgeEnabled,
     } = useStoreWhenActive(
@@ -116,6 +119,8 @@ export default function SetupView() {
             setTheme: state.setTheme,
             commandPanelPosition: state.commandPanelPosition,
             setCommandPanelPosition: state.setCommandPanelPosition,
+            visualEffects: state.visualEffects,
+            setVisualEffects: state.setVisualEffects,
             debugLogBridgeEnabled: state.debugLogBridgeEnabled,
             setDebugLogBridgeEnabled: state.setDebugLogBridgeEnabled,
         })),
@@ -264,9 +269,9 @@ export default function SetupView() {
                                             data-selected={language === "zh"}
                                             onClick={() => setLanguage("zh")}
                                         >
-                                            <span className={styles.optionIcon}>
-                                                🇨🇳
-                                            </span>
+                                            <LanguageIcon
+                                                className={styles.optionIcon}
+                                            />
                                             {t("common.languages.zh")}
                                         </button>
                                         <button
@@ -274,9 +279,9 @@ export default function SetupView() {
                                             data-selected={language === "en"}
                                             onClick={() => setLanguage("en")}
                                         >
-                                            <span className={styles.optionIcon}>
-                                                🇺🇸
-                                            </span>
+                                            <NetworkIcon
+                                                className={styles.optionIcon}
+                                            />
                                             {t("common.languages.en")}
                                         </button>
                                     </div>
@@ -352,6 +357,46 @@ export default function SetupView() {
                                                 className={styles.optionIcon}
                                             />
                                             {t("setup.layoutLeft")}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className={styles.section}>
+                                    <div className={styles.sectionHeader}>
+                                        <div className={styles.sectionIcon}>
+                                            <SpeedIcon />
+                                        </div>
+                                        <div>
+                                            <h3 className={styles.sectionTitle}>
+                                                {t("setup.effects")}
+                                            </h3>
+                                            <p className={styles.sectionDesc}>
+                                                {t("setup.effectsDesc")}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className={styles.optionRow}>
+                                        <button
+                                            className={styles.optionButton}
+                                            data-selected={
+                                                visualEffects === "full"
+                                            }
+                                            onClick={() =>
+                                                setVisualEffects("full")
+                                            }
+                                        >
+                                            {t("setup.effectsStandard")}
+                                        </button>
+                                        <button
+                                            className={styles.optionButton}
+                                            data-selected={
+                                                visualEffects === "reduced"
+                                            }
+                                            onClick={() =>
+                                                setVisualEffects("reduced")
+                                            }
+                                        >
+                                            {t("setup.effectsReduced")}
                                         </button>
                                     </div>
                                 </div>
