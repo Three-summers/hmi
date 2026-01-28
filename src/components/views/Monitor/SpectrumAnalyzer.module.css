@@ -282,6 +282,44 @@
     font-variant-numeric: tabular-nums;
 }
 
+.fieldActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-sm);
+    align-items: center;
+}
+
+.fieldActionBtn {
+    padding: var(--sp-xs) var(--sp-sm);
+    border-radius: var(--button-radius);
+    border: var(--border-width-1) solid var(--button-border);
+    background: var(--button-bg);
+    color: var(--text-primary);
+    font-size: var(--font-size-small);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.fieldActionBtn:hover {
+    border-color: var(--accent-primary);
+    background: var(--button-bg-hover);
+}
+
+.fieldActionBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.fieldActionBtn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.fieldActionBtn[aria-disabled="true"]:hover {
+    border-color: var(--button-border);
+    background: var(--button-bg);
+}
+
 .slider {
     width: 100%;
     accent-color: var(--color-processing);

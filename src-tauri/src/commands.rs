@@ -1,5 +1,6 @@
 use crate::comm::{serial, tcp, CommState};
 use crate::sensor::SensorSimulator;
+use base64::{engine::general_purpose, Engine as _};
 use serde::Deserialize;
 use tauri::{AppHandle, Manager, State};
 use std::path::PathBuf;
@@ -30,6 +31,63 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
     }
 
     log_dir
+        .to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| "Invalid path encoding".to_string())
+}
+
+/// 保存频谱分析仪截图到系统下载目录
+///
+/// 说明：
+/// - 由前端传入 PNG 的 base64（DataURL 去掉前缀部分）
+/// - 默认保存到系统下载目录；若无法获取下载目录则回退到 Log 目录
+/// - 后端负责写盘，避免前端引入额外 FS 依赖导致入口 chunk 膨胀
+#[tauri::command]
+pub fn save_spectrum_screenshot(
+    app: AppHandle,
+    filename: String,
+    data_base64: String,
+    directory: Option<String>,
+) -> Result<String, String> {
+    if filename.trim().is_empty() {
+        return Err("filename is empty".to_string());
+    }
+
+    // 简单约束：避免 filename 带路径分隔符导致写入到意外位置
+    if filename.contains('/') || filename.contains('\\') {
+        return Err("filename contains invalid path separator".to_string());
+    }
+
+    let base_dir: PathBuf = if let Some(dir) = directory {
+        let trimmed = dir.trim();
+        if trimmed.is_empty() {
+            return Err("directory is empty".to_string());
+        }
+        PathBuf::from(trimmed)
+    } else {
+        let app_clone = app.clone();
+        app.path()
+            .download_dir()
+            .map_err(|e| e.to_string())
+            .or_else(|_| get_log_dir(app_clone).map(PathBuf::from))?
+    };
+
+    // 若目录不存在则创建（用户选择目录一般已存在，但这里做兜底）
+    if !base_dir.exists() {
+        std::fs::create_dir_all(&base_dir)
+            .map_err(|e| format!("Failed to create screenshot directory: {}", e))?;
+    }
+
+    let file_path = base_dir.join(&filename);
+
+    let png_bytes = general_purpose::STANDARD
+        .decode(data_base64.as_bytes())
+        .map_err(|e| format!("Failed to decode screenshot base64: {}", e))?;
+
+    std::fs::write(&file_path, png_bytes)
+        .map_err(|e| format!("Failed to write screenshot file: {}", e))?;
+
+    file_path
         .to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| "Invalid path encoding".to_string())

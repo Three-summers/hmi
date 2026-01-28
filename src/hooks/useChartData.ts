@@ -11,7 +11,7 @@
 
 import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import uPlot from "uplot";
+import type uPlot from "uplot";
 import { FILES_CONFIG } from "@/constants";
 import { readCssVar, withAlpha } from "@/utils";
 import { toErrorMessage } from "@/utils/error";
@@ -27,6 +27,23 @@ const DEFAULT_CHART_COLORS = [
     "#66ffaa",
     "#ff8800",
 ];
+
+type UPlotCtor = new (
+    opts: uPlot.Options,
+    data: uPlot.AlignedData,
+    target: HTMLElement,
+) => uPlot;
+
+let uPlotCtorPromise: Promise<UPlotCtor> | null = null;
+
+async function getUPlotCtor(): Promise<UPlotCtor> {
+    if (!uPlotCtorPromise) {
+        uPlotCtorPromise = import("uplot").then(
+            (mod) => ((mod as any).default ?? mod) as UPlotCtor,
+        );
+    }
+    return uPlotCtorPromise;
+}
 
 export function formatHms(seconds: number): string {
     const date = new Date(seconds * 1000);
@@ -599,139 +616,153 @@ export function useChartData({
             destroySmallCharts();
         }
 
+        let cancelled = false;
+
         const raf = requestAnimationFrame(() => {
-            try {
-                const existingCache = plotDataCacheRef.current;
+            void (async () => {
+                try {
+                    const UPlot = await getUPlotCtor();
+                    if (cancelled) return;
 
-                // 先销毁已禁用列的实例，避免实例长期堆积
-                for (const [colIndex, instance] of Array.from(
-                    uplotInstances.current.entries(),
-                )) {
-                    if (!enabledColumns.has(colIndex)) {
-                        instance.destroy();
-                        uplotInstances.current.delete(colIndex);
-                        if (existingCache && existingCache.csvData === csvData) {
-                            existingCache.yByCol.delete(colIndex);
+                    const existingCache = plotDataCacheRef.current;
+
+                    // 先销毁已禁用列的实例，避免实例长期堆积
+                    for (const [colIndex, instance] of Array.from(
+                        uplotInstances.current.entries(),
+                    )) {
+                        if (!enabledColumns.has(colIndex)) {
+                            instance.destroy();
+                            uplotInstances.current.delete(colIndex);
+                            if (
+                                existingCache &&
+                                existingCache.csvData === csvData
+                            ) {
+                                existingCache.yByCol.delete(colIndex);
+                            }
                         }
                     }
-                }
 
-                // 构建/复用数据缓存：xData 只需要计算一次；yData 按列懒加载
-                let cache = plotDataCacheRef.current;
-                if (!cache || cache.csvData !== csvData) {
-                    cache = {
-                        csvData,
-                        xData: csvData.rows.map((row) => row[0]),
-                        yByCol: new Map<number, number[]>(),
-                    };
-                    plotDataCacheRef.current = cache;
-                }
-
-                // 数据不足：保持空态，不创建图表
-                if (cache.xData.length < 2) {
-                    destroySmallCharts();
-                    lastCsvDataRef.current = csvData;
-                    return;
-                }
-
-                const csvChanged = lastCsvDataRef.current !== csvData;
-
-                for (const colIndex of enabledColumns) {
-                    if (colIndex >= csvData.headers.length) continue;
-
-                    const container = chartRefs.current.get(colIndex);
-                    if (!container) continue;
-
-                    const width = container.clientWidth;
-                    if (width <= 0) continue;
-
-                    const height = px(200);
-
-                    let yData = cache.yByCol.get(colIndex);
-                    if (!yData) {
-                        yData = csvData.rows.map((row) => row[colIndex]);
-                        cache.yByCol.set(colIndex, yData);
-                    }
-
-                    const data: uPlot.AlignedData = [cache.xData, yData];
-
-                    const existing = uplotInstances.current.get(colIndex);
-                    if (!existing) {
-                        const axisFontSize = px(11);
-                        const xAxisSize = px(30);
-                        const yAxisSize = px(50);
-
-                        const color = getSeriesColor(colIndex, chartColors);
-                        const opts: uPlot.Options = {
-                            width,
-                            height,
-                            scales: {
-                                x: { time: true },
-                                y: { auto: true },
-                            },
-                            series: [
-                                {},
-                                {
-                                    label: csvData.headers[colIndex],
-                                    stroke: color,
-                                    width: 2 * safeScaleFactor,
-                                    fill: getSeriesFill(color),
-                                },
-                            ],
-                            axes: [
-                                {
-                                    stroke: "rgba(180, 200, 230, 0.9)",
-                                    grid: {
-                                        stroke: "rgba(100, 150, 200, 0.2)",
-                                    },
-                                    ticks: {
-                                        stroke: "rgba(100, 150, 200, 0.3)",
-                                    },
-                                    size: xAxisSize,
-                                    font: `${axisFontSize}px Arial, sans-serif`,
-                                    values: createXAxisValuesFormatter(
-                                        safeScaleFactor,
-                                    ),
-                                },
-                                {
-                                    stroke: "rgba(180, 200, 230, 0.9)",
-                                    grid: {
-                                        stroke: "rgba(100, 150, 200, 0.2)",
-                                    },
-                                    ticks: {
-                                        stroke: "rgba(100, 150, 200, 0.3)",
-                                    },
-                                    size: yAxisSize,
-                                    font: `${axisFontSize}px Arial, sans-serif`,
-                                },
-                            ],
-                            cursor: {
-                                // 小图模式禁用拖拽交互（避免误操作 & 与滚动冲突）
-                                drag: { x: false, y: false },
-                            },
+                    // 构建/复用数据缓存：xData 只需要计算一次；yData 按列懒加载
+                    let cache = plotDataCacheRef.current;
+                    if (!cache || cache.csvData !== csvData) {
+                        cache = {
+                            csvData,
+                            xData: csvData.rows.map((row) => row[0]),
+                            yByCol: new Map<number, number[]>(),
                         };
+                        plotDataCacheRef.current = cache;
+                    }
 
-                        const chart = new uPlot(opts, data, container);
-                        uplotInstances.current.set(colIndex, chart);
-                    } else {
-                        existing.setSize({ width, height });
-                        if (csvChanged) {
-                            existing.setData(data);
-                            existing.series[1].label =
-                                csvData.headers[colIndex];
+                    // 数据不足：保持空态，不创建图表
+                    if (cache.xData.length < 2) {
+                        destroySmallCharts();
+                        lastCsvDataRef.current = csvData;
+                        return;
+                    }
+
+                    const csvChanged = lastCsvDataRef.current !== csvData;
+
+                    for (const colIndex of enabledColumns) {
+                        if (colIndex >= csvData.headers.length) continue;
+
+                        const container = chartRefs.current.get(colIndex);
+                        if (!container) continue;
+
+                        const width = container.clientWidth;
+                        if (width <= 0) continue;
+
+                        const height = px(200);
+
+                        let yData = cache.yByCol.get(colIndex);
+                        if (!yData) {
+                            yData = csvData.rows.map((row) => row[colIndex]);
+                            cache.yByCol.set(colIndex, yData);
+                        }
+
+                        const data: uPlot.AlignedData = [cache.xData, yData];
+
+                        const existing = uplotInstances.current.get(colIndex);
+                        if (!existing) {
+                            const axisFontSize = px(11);
+                            const xAxisSize = px(30);
+                            const yAxisSize = px(50);
+
+                            const color = getSeriesColor(colIndex, chartColors);
+                            const opts: uPlot.Options = {
+                                width,
+                                height,
+                                scales: {
+                                    x: { time: true },
+                                    y: { auto: true },
+                                },
+                                series: [
+                                    {},
+                                    {
+                                        label: csvData.headers[colIndex],
+                                        stroke: color,
+                                        width: 2 * safeScaleFactor,
+                                        fill: getSeriesFill(color),
+                                    },
+                                ],
+                                axes: [
+                                    {
+                                        stroke: "rgba(180, 200, 230, 0.9)",
+                                        grid: {
+                                            stroke: "rgba(100, 150, 200, 0.2)",
+                                        },
+                                        ticks: {
+                                            stroke: "rgba(100, 150, 200, 0.3)",
+                                        },
+                                        size: xAxisSize,
+                                        font: `${axisFontSize}px Arial, sans-serif`,
+                                        values: createXAxisValuesFormatter(
+                                            safeScaleFactor,
+                                        ),
+                                    },
+                                    {
+                                        stroke: "rgba(180, 200, 230, 0.9)",
+                                        grid: {
+                                            stroke: "rgba(100, 150, 200, 0.2)",
+                                        },
+                                        ticks: {
+                                            stroke: "rgba(100, 150, 200, 0.3)",
+                                        },
+                                        size: yAxisSize,
+                                        font: `${axisFontSize}px Arial, sans-serif`,
+                                    },
+                                ],
+                                cursor: {
+                                    // 小图模式禁用拖拽交互（避免误操作 & 与滚动冲突）
+                                    drag: { x: false, y: false },
+                                },
+                            };
+
+                            const chart = new UPlot(opts, data, container);
+                            uplotInstances.current.set(colIndex, chart);
+                        } else {
+                            existing.setSize({ width, height });
+                            if (csvChanged) {
+                                existing.setData(data);
+                                existing.series[1].label =
+                                    csvData.headers[colIndex];
+                            }
                         }
                     }
-                }
 
-                lastCsvDataRef.current = csvData;
-            } catch (error) {
-                console.error("[Files] uPlot 小图初始化失败：", error);
-                setChartError(normalizeToError(error));
-                destroySmallCharts();
-            }
+                    lastCsvDataRef.current = csvData;
+                } catch (error) {
+                    if (cancelled) return;
+                    console.error("[Files] uPlot 小图初始化失败：", error);
+                    setChartError(normalizeToError(error));
+                    destroySmallCharts();
+                }
+            })();
         });
 
-        return () => cancelAnimationFrame(raf);
+        return () => {
+            cancelled = true;
+            cancelAnimationFrame(raf);
+        };
     }, [
         chartColors,
         chartError,
@@ -767,101 +798,121 @@ export function useChartData({
         const alignedData: uPlot.AlignedData = [xData, yData];
         enlargedFullXRange.current = getXRange(xData);
 
+        let cancelled = false;
+
         const raf = requestAnimationFrame(() => {
-            try {
-                const safeScaleFactor =
-                    Number.isFinite(scaleFactor) && scaleFactor > 0
-                        ? scaleFactor
-                        : 1;
-                const px = (value: number) =>
-                    Math.round(value * safeScaleFactor);
-                const width = container.clientWidth || px(800);
-                const height = container.clientHeight || px(520);
+            void (async () => {
+                try {
+                    const UPlot = await getUPlotCtor();
+                    if (cancelled) return;
 
-                const axisFontSize = px(12);
-                const xAxisSize = px(40);
-                const yAxisSize = px(60);
+                    const safeScaleFactor =
+                        Number.isFinite(scaleFactor) && scaleFactor > 0
+                            ? scaleFactor
+                            : 1;
+                    const px = (value: number) =>
+                        Math.round(value * safeScaleFactor);
+                    const width = container.clientWidth || px(800);
+                    const height = container.clientHeight || px(520);
 
-                const color = getSeriesColor(enlargedColumn, chartColors);
-                const opts: uPlot.Options = {
-                    width,
-                    height,
-                    scales: {
-                        x: { time: true },
-                        y: { auto: true },
-                    },
-                    series: [
-                        {},
-                        {
-                            label: csvData.headers[enlargedColumn],
-                            stroke: color,
-                            width: 2 * safeScaleFactor,
-                            fill: getSeriesFill(color),
+                    const axisFontSize = px(12);
+                    const xAxisSize = px(40);
+                    const yAxisSize = px(60);
+
+                    const color = getSeriesColor(enlargedColumn, chartColors);
+                    const opts: uPlot.Options = {
+                        width,
+                        height,
+                        scales: {
+                            x: { time: true },
+                            y: { auto: true },
                         },
-                    ],
-                    axes: [
-                        {
-                            stroke: "rgba(180, 200, 230, 0.9)",
-                            grid: { stroke: "rgba(100, 150, 200, 0.2)" },
-                            ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
-                            size: xAxisSize,
-                            font: `${axisFontSize}px Arial, sans-serif`,
-                            values: createXAxisValuesFormatter(safeScaleFactor),
-                        },
-                        {
-                            stroke: "rgba(180, 200, 230, 0.9)",
-                            grid: { stroke: "rgba(100, 150, 200, 0.2)" },
-                            ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
-                            size: yAxisSize,
-                            font: `${axisFontSize}px Arial, sans-serif`,
-                        },
-                    ],
-                    cursor: {
-                        drag: { x: true, y: false },
-                    },
-                    select: {
-                        show: true,
-                        left: 0,
-                        top: 0,
-                        width: 0,
-                        height: 0,
-                    },
-                    hooks: {
-                        setSelect: [
-                            (u) => {
-                                const { left, width: selectWidth } = u.select;
-                                if (selectWidth < 10) return;
-                                const min = u.posToVal(left, "x");
-                                const max = u.posToVal(left + selectWidth, "x");
-                                if (
-                                    !Number.isFinite(min) ||
-                                    !Number.isFinite(max) ||
-                                    min === max
-                                )
-                                    return;
-                                u.setScale("x", {
-                                    min: Math.min(min, max),
-                                    max: Math.max(min, max),
-                                });
-                                u.setSelect(
-                                    { left: 0, top: 0, width: 0, height: 0 },
-                                    false,
-                                );
+                        series: [
+                            {},
+                            {
+                                label: csvData.headers[enlargedColumn],
+                                stroke: color,
+                                width: 2 * safeScaleFactor,
+                                fill: getSeriesFill(color),
                             },
                         ],
-                    },
-                };
+                        axes: [
+                            {
+                                stroke: "rgba(180, 200, 230, 0.9)",
+                                grid: { stroke: "rgba(100, 150, 200, 0.2)" },
+                                ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
+                                size: xAxisSize,
+                                font: `${axisFontSize}px Arial, sans-serif`,
+                                values: createXAxisValuesFormatter(
+                                    safeScaleFactor,
+                                ),
+                            },
+                            {
+                                stroke: "rgba(180, 200, 230, 0.9)",
+                                grid: { stroke: "rgba(100, 150, 200, 0.2)" },
+                                ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
+                                size: yAxisSize,
+                                font: `${axisFontSize}px Arial, sans-serif`,
+                            },
+                        ],
+                        cursor: {
+                            drag: { x: true, y: false },
+                        },
+                        select: {
+                            show: true,
+                            left: 0,
+                            top: 0,
+                            width: 0,
+                            height: 0,
+                        },
+                        hooks: {
+                            setSelect: [
+                                (u) => {
+                                    const { left, width: selectWidth } =
+                                        u.select;
+                                    if (selectWidth < 10) return;
+                                    const min = u.posToVal(left, "x");
+                                    const max = u.posToVal(
+                                        left + selectWidth,
+                                        "x",
+                                    );
+                                    if (
+                                        !Number.isFinite(min) ||
+                                        !Number.isFinite(max) ||
+                                        min === max
+                                    )
+                                        return;
+                                    u.setScale("x", {
+                                        min: Math.min(min, max),
+                                        max: Math.max(min, max),
+                                    });
+                                    u.setSelect(
+                                        {
+                                            left: 0,
+                                            top: 0,
+                                            width: 0,
+                                            height: 0,
+                                        },
+                                        false,
+                                    );
+                                },
+                            ],
+                        },
+                    };
 
-                const chart = new uPlot(opts, alignedData, container);
-                enlargedUplotInstance.current = chart;
-            } catch (error) {
-                console.error("[Files] uPlot 放大图初始化失败：", error);
-                setEnlargedChartError(normalizeToError(error));
-                destroyEnlargedChart();
-            }
+                    const chart = new UPlot(opts, alignedData, container);
+                    enlargedUplotInstance.current = chart;
+                } catch (error) {
+                    if (cancelled) return;
+                    console.error("[Files] uPlot 放大图初始化失败：", error);
+                    setEnlargedChartError(normalizeToError(error));
+                    destroyEnlargedChart();
+                }
+            })();
         });
 
         return () => {
+            cancelled = true;
             cancelAnimationFrame(raf);
             destroyEnlargedChart();
         };

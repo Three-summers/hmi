@@ -44,3 +44,13 @@ export interface SpectrumStats {
     bandwidth: number;
 }
 
+/**
+ * 频谱分析仪截图保存模式
+ *
+ * 说明：
+ * - `downloads`：默认保存到下载目录
+ *   - 浏览器：触发下载（由浏览器/系统下载目录接管）
+ *   - Tauri：由后端写入系统下载目录（无浏览器下载弹窗）
+ * - `custom`：保存到用户选择的目录（通过系统目录选择对话框选择并持久化）
+ */
+export type ScreenshotSaveMode = "downloads" | "custom";

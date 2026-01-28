@@ -410,7 +410,29 @@
                 "threshold": "阈值",
                 "historyDepth": "历史深度",
                 "refreshRate": "刷新率",
-                "colorScheme": "配色方案"
+                "colorScheme": "配色方案",
+                "screenshotSaveDirectory": "截图保存目录"
+            },
+            "screenshotSaveDirectory": {
+                "downloads": "下载目录",
+                "custom": "自定义目录",
+                "choose": "选择目录",
+                "reset": "恢复默认",
+                "notSupported": "当前环境不支持系统目录选择"
+            },
+            "notifications": {
+                "screenshotFailed": "截图失败",
+                "screenshotNotReady": "截图组件未就绪",
+                "screenshotCanvasNotFound": "未找到图表画布",
+                "screenshotGenerationFailed": "生成截图失败",
+                "screenshotSaved": "截图已保存",
+                "downloadStarted": "已触发下载",
+                "fallbackToDownload": "已回落到下载：{{file}}",
+                "fallbackToDownloadPath": "已回落到下载：{{path}}",
+                "savedToCustomDir": "已保存到 {{dir}}：{{file}}",
+                "directoryUpdated": "截图目录已更新",
+                "directoryReset": "已恢复默认截图目录",
+                "directoryPickFailed": "目录选择失败"
             },
             "colorSchemes": {
                 "turbo": "Turbo",

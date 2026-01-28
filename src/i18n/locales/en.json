@@ -410,7 +410,29 @@
                 "threshold": "Threshold",
                 "historyDepth": "History Depth",
                 "refreshRate": "Refresh Rate",
-                "colorScheme": "Color Scheme"
+                "colorScheme": "Color Scheme",
+                "screenshotSaveDirectory": "Screenshot folder"
+            },
+            "screenshotSaveDirectory": {
+                "downloads": "Downloads folder",
+                "custom": "Custom folder",
+                "choose": "Choose folder",
+                "reset": "Reset to default",
+                "notSupported": "Directory picker is not supported in this environment"
+            },
+            "notifications": {
+                "screenshotFailed": "Screenshot failed",
+                "screenshotNotReady": "Screenshot component is not ready",
+                "screenshotCanvasNotFound": "Chart canvases not found",
+                "screenshotGenerationFailed": "Failed to generate screenshot",
+                "screenshotSaved": "Screenshot saved",
+                "downloadStarted": "Download started",
+                "fallbackToDownload": "Fell back to download: {{file}}",
+                "fallbackToDownloadPath": "Fell back to download: {{path}}",
+                "savedToCustomDir": "Saved to {{dir}}: {{file}}",
+                "directoryUpdated": "Screenshot folder updated",
+                "directoryReset": "Screenshot folder reset",
+                "directoryPickFailed": "Failed to choose folder"
             },
             "colorSchemes": {
                 "turbo": "Turbo",

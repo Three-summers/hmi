@@ -41,6 +41,13 @@ vi.mock("./SpectrumChart", () => ({
 
 vi.mock("@/hooks", () => ({
     useSpectrumData: vi.fn(),
+    useNotify: () => ({
+        success: vi.fn(),
+        error: vi.fn(),
+        warning: vi.fn(),
+        info: vi.fn(),
+        notify: vi.fn(),
+    }),
 }));
 
 import SpectrumAnalyzer from "./SpectrumAnalyzer";
@@ -51,6 +58,9 @@ function resetSpectrumAnalyzerStore() {
     store.setHistoryDepth(100);
     store.setRefreshRate(30);
     store.setColorScheme("turbo");
+    store.setScreenshotSaveMode("downloads");
+    store.setScreenshotCustomDirectoryName(null);
+    store.setScreenshotCustomDirectoryPath(null);
     store.setIsPaused(false);
     store.setShowMaxHold(false);
     store.setShowAverage(false);

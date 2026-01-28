@@ -9,19 +9,25 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { readTextFile as tauriReadTextFile } from "@tauri-apps/plugin-fs";
 import { isTimeoutError, withTimeout } from "@/utils/async";
 import type { CsvData, FileNode, PreviewConfig } from "@/types";
 import { useRetry } from "./useRetry";
 
 type Translate = (key: string) => string;
 
+type TauriReadTextFile = typeof import("@tauri-apps/plugin-fs").readTextFile;
+
 type UseFilePreviewDeps = {
-    readTextFile?: typeof tauriReadTextFile;
+    readTextFile?: TauriReadTextFile;
     timeoutMs?: number;
 };
 
 const FILE_PREVIEW_TIMEOUT_MS = 8000;
+
+const defaultReadTextFile: TauriReadTextFile = async (path, options) => {
+    const { readTextFile } = await import("@tauri-apps/plugin-fs");
+    return readTextFile(path, options);
+};
 
 /**
  * 解析 CSV 内容：支持“时间列 + 多数值列”的通用数据日志格式
@@ -108,7 +114,7 @@ export function useFilePreview(
     t: Translate,
     deps: UseFilePreviewDeps = {},
 ): UseFilePreviewReturn {
-    const readTextFile = deps.readTextFile ?? tauriReadTextFile;
+    const readTextFile = deps.readTextFile ?? defaultReadTextFile;
     const timeoutMs = deps.timeoutMs ?? FILE_PREVIEW_TIMEOUT_MS;
 
     const [selectedFilePath, setSelectedFilePath] = useState<string | null>(

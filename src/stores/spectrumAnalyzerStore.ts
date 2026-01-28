@@ -17,7 +17,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { ColorScheme } from "@/types";
+import type { ColorScheme, ScreenshotSaveMode } from "@/types";
 
 interface MarkerPosition {
     x: number;
@@ -34,6 +34,12 @@ interface SpectrumAnalyzerState {
     refreshRate: number;
     /** 配色方案 */
     colorScheme: ColorScheme;
+    /** 截图保存模式 */
+    screenshotSaveMode: ScreenshotSaveMode;
+    /** 自定义截图目录名称（用于 UI 展示；实际目录句柄持久化在 IndexedDB） */
+    screenshotCustomDirectoryName: string | null;
+    /** 自定义截图目录路径（仅 Tauri 使用；浏览器环境依赖 IndexedDB 持久化目录句柄） */
+    screenshotCustomDirectoryPath: string | null;
 
     // UI 状态
     /** 是否暂停 */
@@ -64,6 +70,9 @@ interface SpectrumAnalyzerState {
     setHistoryDepth: (v: number) => void;
     setRefreshRate: (v: number) => void;
     setColorScheme: (v: string) => void;
+    setScreenshotSaveMode: (v: ScreenshotSaveMode) => void;
+    setScreenshotCustomDirectoryName: (v: string | null) => void;
+    setScreenshotCustomDirectoryPath: (v: string | null) => void;
     setIsPaused: (v: boolean) => void;
     setMarkerPosition: (pos: MarkerPosition | null) => void;
     setShowMaxHold: (v: boolean) => void;
@@ -80,6 +89,7 @@ const DEFAULT_THRESHOLD_DBM = -80;
 const DEFAULT_HISTORY_DEPTH = 100;
 const DEFAULT_REFRESH_RATE_HZ = 30;
 const DEFAULT_COLOR_SCHEME: ColorScheme = "turbo";
+const DEFAULT_SCREENSHOT_SAVE_MODE: ScreenshotSaveMode = "downloads";
 
 function isColorScheme(value: string): value is ColorScheme {
     return (
@@ -118,6 +128,9 @@ export const useSpectrumAnalyzerStore = create<SpectrumAnalyzerState>()(
             historyDepth: DEFAULT_HISTORY_DEPTH,
             refreshRate: DEFAULT_REFRESH_RATE_HZ,
             colorScheme: DEFAULT_COLOR_SCHEME,
+            screenshotSaveMode: DEFAULT_SCREENSHOT_SAVE_MODE,
+            screenshotCustomDirectoryName: null,
+            screenshotCustomDirectoryPath: null,
 
             isPaused: false,
             markerPosition: null,
@@ -174,6 +187,34 @@ export const useSpectrumAnalyzerStore = create<SpectrumAnalyzerState>()(
                         : DEFAULT_COLOR_SCHEME;
                     if (nextScheme === state.colorScheme) return state;
                     return { colorScheme: nextScheme };
+                }),
+
+            setScreenshotSaveMode: (v) =>
+                set((state) => {
+                    const nextMode =
+                        v === "custom" || v === "downloads"
+                            ? v
+                            : DEFAULT_SCREENSHOT_SAVE_MODE;
+                    if (nextMode === state.screenshotSaveMode) return state;
+                    return { screenshotSaveMode: nextMode };
+                }),
+
+            setScreenshotCustomDirectoryName: (v) =>
+                set((state) => {
+                    const nextName =
+                        typeof v === "string" && v.trim() ? v.trim() : null;
+                    if (nextName === state.screenshotCustomDirectoryName)
+                        return state;
+                    return { screenshotCustomDirectoryName: nextName };
+                }),
+
+            setScreenshotCustomDirectoryPath: (v) =>
+                set((state) => {
+                    const nextPath =
+                        typeof v === "string" && v.trim() ? v.trim() : null;
+                    if (nextPath === state.screenshotCustomDirectoryPath)
+                        return state;
+                    return { screenshotCustomDirectoryPath: nextPath };
                 }),
 
             setIsPaused: (v) => set({ isPaused: v }),
@@ -276,6 +317,9 @@ export const useSpectrumAnalyzerStore = create<SpectrumAnalyzerState>()(
                 historyDepth: state.historyDepth,
                 refreshRate: state.refreshRate,
                 colorScheme: state.colorScheme,
+                screenshotSaveMode: state.screenshotSaveMode,
+                screenshotCustomDirectoryName: state.screenshotCustomDirectoryName,
+                screenshotCustomDirectoryPath: state.screenshotCustomDirectoryPath,
             }),
         },
     ),

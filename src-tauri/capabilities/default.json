@@ -12,6 +12,7 @@
     "core:path:default",
     "shell:allow-open",
     "log:default",
+    "dialog:allow-open",
     "fs:default",
     "fs:read-all",
     "fs:allow-read-dir",

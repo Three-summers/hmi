@@ -11,6 +11,15 @@
  * @module Screenshot
  */
 
+import { invoke } from "@/platform/invoke";
+import { isTauri } from "@/platform/tauri";
+import type { ScreenshotSaveMode } from "@/types";
+import {
+    isDirectoryPickerSupported,
+    loadScreenshotDirectoryHandle,
+    writeBlobToDirectory,
+} from "@/utils/screenshotDirectory";
+
 /**
  * 补齐两位数字（时间格式化辅助函数）
  *
@@ -54,6 +63,57 @@ function downloadPng(dataUrl: string, filename: string): void {
     link.remove();
 }
 
+function extractPngBase64(dataUrl: string): string | null {
+    const prefix = "data:image/png;base64,";
+    if (!dataUrl.startsWith(prefix)) return null;
+    const base64 = dataUrl.slice(prefix.length);
+    return base64 ? base64 : null;
+}
+
+async function savePngViaTauri(
+    filename: string,
+    dataUrl: string,
+    directory?: string,
+): Promise<string> {
+    const dataBase64 = extractPngBase64(dataUrl);
+    if (!dataBase64) {
+        throw new Error("Invalid PNG data URL");
+    }
+
+    return await invoke<string>("save_spectrum_screenshot", {
+        filename,
+        dataBase64,
+        directory,
+    });
+}
+
+export type CaptureSpectrumAnalyzerOptions = {
+    /** 截图保存模式（默认：downloads） */
+    saveMode?: ScreenshotSaveMode;
+    /** 自定义保存目录路径（仅 Tauri 生效；浏览器环境忽略） */
+    customDirectoryPath?: string | null;
+};
+
+export type ScreenshotCaptureResult =
+    | {
+          kind: "file";
+          filename: string;
+          path: string;
+          /** 发生失败时的回落来源（仅用于提示） */
+          fallbackFrom?: "custom" | "tauri";
+      }
+    | {
+          kind: "custom";
+          filename: string;
+          directoryName: string;
+      }
+    | {
+          kind: "download";
+          filename: string;
+          /** 发生失败时的回落来源（仅用于提示） */
+          fallbackFrom?: "custom" | "tauri";
+      };
+
 /**
  * 捕获频谱分析仪截图（频谱图 + 瀑布图合成）
  *
@@ -66,11 +126,13 @@ function downloadPng(dataUrl: string, filename: string): void {
  *
  * @param chartCanvas - 频谱图 Canvas 元素（uPlot 生成）
  * @param waterfallCanvas - 瀑布图 Canvas 元素（自定义绘制）
+ * @param options - 截图保存选项
  */
 export async function captureSpectrumAnalyzer(
     chartCanvas: HTMLCanvasElement,
     waterfallCanvas: HTMLCanvasElement,
-): Promise<void> {
+    options: CaptureSpectrumAnalyzerOptions = {},
+): Promise<ScreenshotCaptureResult | null> {
     // 1) 创建合成 Canvas（使用 backing store 尺寸，避免截图模糊）
     const width = Math.max(chartCanvas.width, waterfallCanvas.width);
     const height = chartCanvas.height + waterfallCanvas.height;
@@ -80,7 +142,7 @@ export async function captureSpectrumAnalyzer(
     composite.height = Math.max(1, height);
 
     const ctx = composite.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) return null;
 
     // 2) 垂直堆叠两个图表（宽度不一致时居中放置）
     ctx.fillStyle = "rgba(8, 15, 30, 1)";
@@ -101,7 +163,90 @@ export async function captureSpectrumAnalyzer(
     // 3) toDataURL 转 PNG
     const dataUrl = composite.toDataURL("image/png");
 
-    // 4) 触发下载，文件名带时间戳
+    // 4) 保存，文件名带时间戳
     const timestamp = buildTimestamp(new Date());
-    downloadPng(dataUrl, `spectrum-${timestamp}.png`);
+    const filename = `spectrum-${timestamp}.png`;
+
+    const saveMode = options.saveMode ?? "downloads";
+    const customDirectoryPath =
+        typeof options.customDirectoryPath === "string"
+            ? options.customDirectoryPath.trim()
+            : "";
+
+    if (saveMode === "custom") {
+        // Tauri：使用原生写盘（目录由前端选择后传入路径）
+        if (isTauri()) {
+            try {
+                if (!customDirectoryPath) {
+                    throw new Error("Custom screenshot directory is not set");
+                }
+
+                const path = await savePngViaTauri(
+                    filename,
+                    dataUrl,
+                    customDirectoryPath,
+                );
+                return { kind: "file", filename, path };
+            } catch (error) {
+                console.error(
+                    "Failed to save screenshot to custom directory (Tauri):",
+                    error,
+                );
+
+                // 回落到下载目录（仍走后端写盘），避免截图丢失
+                try {
+                    const path = await savePngViaTauri(filename, dataUrl);
+                    return { kind: "file", filename, path, fallbackFrom: "custom" };
+                } catch (fallbackError) {
+                    console.error(
+                        "Failed to save screenshot to Downloads directory (fallback):",
+                        fallbackError,
+                    );
+                    downloadPng(dataUrl, filename);
+                    return { kind: "download", filename, fallbackFrom: "custom" };
+                }
+            }
+        }
+
+        // 浏览器：使用 File System Access API（若不可用则回落到下载）
+        try {
+            if (!isDirectoryPickerSupported()) {
+                throw new Error(
+                    "Directory picker is unavailable in this environment",
+                );
+            }
+
+            const directory = await loadScreenshotDirectoryHandle();
+            if (!directory) {
+                throw new Error("Custom screenshot directory is not set");
+            }
+
+            const blob = await (await fetch(dataUrl)).blob();
+            await writeBlobToDirectory(directory, filename, blob);
+            return { kind: "custom", filename, directoryName: directory.name };
+        } catch (error) {
+            console.error(
+                "Failed to save screenshot to custom directory (Web):",
+                error,
+            );
+            // 兜底：失败时仍然提供下载，避免用户截图丢失
+            downloadPng(dataUrl, filename);
+            return { kind: "download", filename, fallbackFrom: "custom" };
+        }
+    }
+
+    if (isTauri()) {
+        try {
+            const path = await savePngViaTauri(filename, dataUrl);
+            return { kind: "file", filename, path };
+        } catch (error) {
+            console.error("Failed to save screenshot to Downloads directory:", error);
+            // 兜底：写盘失败时仍然提供下载，避免用户截图丢失
+            downloadPng(dataUrl, filename);
+            return { kind: "download", filename, fallbackFrom: "tauri" };
+        }
+    }
+
+    downloadPng(dataUrl, filename);
+    return { kind: "download", filename };
 }

@@ -24,9 +24,24 @@ import {
     SettingsIcon,
 } from "@/components/common/Icons";
 import { useSpectrumData } from "@/hooks";
+import { useNotify } from "@/hooks";
+import { invoke } from "@/platform/invoke";
+import { isTauri } from "@/platform/tauri";
 import { useSpectrumAnalyzerStore } from "@/stores";
 import { captureSpectrumAnalyzer } from "@/utils/screenshot";
-import type { SpectrumData, SpectrumStatus, ColorScheme } from "@/types";
+import { toErrorMessage } from "@/utils/error";
+import type {
+    SpectrumData,
+    SpectrumStatus,
+    ColorScheme,
+    ScreenshotSaveMode,
+} from "@/types";
+import {
+    clearScreenshotDirectoryHandle,
+    isDirectoryPickerSupported,
+    pickScreenshotDirectory,
+    saveScreenshotDirectoryHandle,
+} from "@/utils/screenshotDirectory";
 import SpectrumChart from "./SpectrumChart";
 import WaterfallCanvas from "./WaterfallCanvas";
 import styles from "./SpectrumAnalyzer.module.css";
@@ -34,6 +49,12 @@ import styles from "./SpectrumAnalyzer.module.css";
 export interface SpectrumAnalyzerProps {
     /** Tabs 默认 keepMounted，为避免后台占用资源，需要由父组件告知当前是否处于激活状态 */
     isActive: boolean;
+}
+
+function getPathBasename(path: string): string {
+    const normalized = path.replace(/\\/g, "/");
+    const parts = normalized.split("/").filter(Boolean);
+    return parts[parts.length - 1] ?? path;
 }
 
 function formatHz(value: number): string {
@@ -69,6 +90,9 @@ export interface SpectrumAnalyzerViewProps {
     historyDepth: number;
     refreshRate: number;
     colorScheme: ColorScheme;
+    screenshotSaveMode: ScreenshotSaveMode;
+    screenshotCustomDirectoryName: string | null;
+    directoryPickerSupported: boolean;
     isPaused: boolean;
     showMaxHold: boolean;
     showAverage: boolean;
@@ -88,6 +112,8 @@ export interface SpectrumAnalyzerViewProps {
     onSetHistoryDepth: (value: number) => void;
     onSetRefreshRate: (value: number) => void;
     onSetColorScheme: (value: ColorScheme) => void;
+    onChooseScreenshotDirectory: () => void;
+    onResetScreenshotDirectory: () => void;
 
     /** 仅用于 SSR/单测：控制抽屉初始打开状态 */
     initialConfigOpen?: boolean;
@@ -111,6 +137,9 @@ export function SpectrumAnalyzerView({
     historyDepth,
     refreshRate,
     colorScheme,
+    screenshotSaveMode,
+    screenshotCustomDirectoryName,
+    directoryPickerSupported,
     isPaused,
     showMaxHold,
     showAverage,
@@ -127,6 +156,8 @@ export function SpectrumAnalyzerView({
     onSetHistoryDepth,
     onSetRefreshRate,
     onSetColorScheme,
+    onChooseScreenshotDirectory,
+    onResetScreenshotDirectory,
     initialConfigOpen,
     initialMarker,
 }: SpectrumAnalyzerViewProps) {
@@ -476,6 +507,56 @@ export function SpectrumAnalyzerView({
                             ))}
                         </select>
                     </label>
+
+                    <div className={styles.field}>
+                        <div className={styles.fieldHeader}>
+                            <span className={styles.fieldLabel}>
+                                {t(
+                                    "monitor.spectrumAnalyzer.settings.screenshotSaveDirectory",
+                                )}
+                            </span>
+                            <span className={styles.fieldValue}>
+                                {screenshotSaveMode === "downloads"
+                                    ? t(
+                                          "monitor.spectrumAnalyzer.screenshotSaveDirectory.downloads",
+                                      )
+                                    : screenshotCustomDirectoryName ??
+                                      t(
+                                          "monitor.spectrumAnalyzer.screenshotSaveDirectory.custom",
+                                      )}
+                            </span>
+                        </div>
+
+                        <div className={styles.fieldActions}>
+                            <button
+                                type="button"
+                                className={styles.fieldActionBtn}
+                                onClick={onChooseScreenshotDirectory}
+                                aria-disabled={!directoryPickerSupported}
+                                title={
+                                    directoryPickerSupported
+                                        ? undefined
+                                        : t(
+                                              "monitor.spectrumAnalyzer.screenshotSaveDirectory.notSupported",
+                                          )
+                                }
+                            >
+                                {t(
+                                    "monitor.spectrumAnalyzer.screenshotSaveDirectory.choose",
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.fieldActionBtn}
+                                onClick={onResetScreenshotDirectory}
+                                disabled={screenshotSaveMode === "downloads"}
+                            >
+                                {t(
+                                    "monitor.spectrumAnalyzer.screenshotSaveDirectory.reset",
+                                )}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </aside>
         </div>
@@ -490,6 +571,13 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
     const historyDepth = useSpectrumAnalyzerStore((s) => s.historyDepth);
     const refreshRate = useSpectrumAnalyzerStore((s) => s.refreshRate);
     const colorScheme = useSpectrumAnalyzerStore((s) => s.colorScheme);
+    const screenshotSaveMode = useSpectrumAnalyzerStore((s) => s.screenshotSaveMode);
+    const screenshotCustomDirectoryName = useSpectrumAnalyzerStore(
+        (s) => s.screenshotCustomDirectoryName,
+    );
+    const screenshotCustomDirectoryPath = useSpectrumAnalyzerStore(
+        (s) => s.screenshotCustomDirectoryPath,
+    );
     const isPaused = useSpectrumAnalyzerStore((s) => s.isPaused);
     const maxHoldData = useSpectrumAnalyzerStore((s) => s.maxHoldData);
     const averageData = useSpectrumAnalyzerStore((s) => s.averageData);
@@ -500,11 +588,21 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
     const setHistoryDepth = useSpectrumAnalyzerStore((s) => s.setHistoryDepth);
     const setRefreshRate = useSpectrumAnalyzerStore((s) => s.setRefreshRate);
     const setColorScheme = useSpectrumAnalyzerStore((s) => s.setColorScheme);
+    const setScreenshotSaveMode = useSpectrumAnalyzerStore((s) => s.setScreenshotSaveMode);
+    const setScreenshotCustomDirectoryName = useSpectrumAnalyzerStore(
+        (s) => s.setScreenshotCustomDirectoryName,
+    );
+    const setScreenshotCustomDirectoryPath = useSpectrumAnalyzerStore(
+        (s) => s.setScreenshotCustomDirectoryPath,
+    );
     const setIsPaused = useSpectrumAnalyzerStore((s) => s.setIsPaused);
     const setShowMaxHold = useSpectrumAnalyzerStore((s) => s.setShowMaxHold);
     const setShowAverage = useSpectrumAnalyzerStore((s) => s.setShowAverage);
     const resetMaxHold = useSpectrumAnalyzerStore((s) => s.resetMaxHold);
     const resetAverage = useSpectrumAnalyzerStore((s) => s.resetAverage);
+
+    const { t } = useTranslation();
+    const notify = useNotify();
 
     const [frequencies, setFrequencies] = useState<number[]>([]);
     const [amplitudes, setAmplitudes] = useState<number[]>([]);
@@ -541,7 +639,13 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
     const handleScreenshot = useCallback(async () => {
         const chartHost = chartHostRef.current;
         const waterfallHost = waterfallHostRef.current;
-        if (!chartHost || !waterfallHost) return;
+        if (!chartHost || !waterfallHost) {
+            notify.error(
+                t("monitor.spectrumAnalyzer.notifications.screenshotFailed"),
+                t("monitor.spectrumAnalyzer.notifications.screenshotNotReady"),
+            );
+            return;
+        }
 
         const chartCanvasCandidate =
             chartHost.querySelector("canvas.u-canvas") ??
@@ -552,14 +656,166 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
             !(chartCanvasCandidate instanceof HTMLCanvasElement) ||
             !(waterfallCanvasCandidate instanceof HTMLCanvasElement)
         ) {
+            notify.error(
+                t("monitor.spectrumAnalyzer.notifications.screenshotFailed"),
+                t(
+                    "monitor.spectrumAnalyzer.notifications.screenshotCanvasNotFound",
+                ),
+            );
             return;
         }
 
-        await captureSpectrumAnalyzer(
+        const result = await captureSpectrumAnalyzer(
             chartCanvasCandidate,
             waterfallCanvasCandidate,
+            {
+                saveMode: screenshotSaveMode,
+                customDirectoryPath: screenshotCustomDirectoryPath,
+            },
         );
-    }, []);
+
+        if (!result) {
+            notify.error(
+                t("monitor.spectrumAnalyzer.notifications.screenshotFailed"),
+                t(
+                    "monitor.spectrumAnalyzer.notifications.screenshotGenerationFailed",
+                ),
+            );
+            return;
+        }
+
+        if (result.kind === "file") {
+            if (result.fallbackFrom) {
+                notify.warning(
+                    t("monitor.spectrumAnalyzer.notifications.screenshotSaved"),
+                    t(
+                        "monitor.spectrumAnalyzer.notifications.fallbackToDownloadPath",
+                        { path: result.path },
+                    ),
+                );
+                return;
+            }
+
+            notify.success(
+                t("monitor.spectrumAnalyzer.notifications.screenshotSaved"),
+                result.path,
+            );
+            return;
+        }
+
+        if (result.kind === "custom") {
+            notify.success(
+                t("monitor.spectrumAnalyzer.notifications.screenshotSaved"),
+                t("monitor.spectrumAnalyzer.notifications.savedToCustomDir", {
+                    dir: result.directoryName,
+                    file: result.filename,
+                }),
+            );
+            return;
+        }
+
+        if (result.fallbackFrom) {
+            notify.warning(
+                t("monitor.spectrumAnalyzer.notifications.screenshotSaved"),
+                t("monitor.spectrumAnalyzer.notifications.fallbackToDownload", {
+                    file: result.filename,
+                }),
+            );
+            return;
+        }
+
+        notify.info(
+            t("monitor.spectrumAnalyzer.notifications.downloadStarted"),
+            result.filename,
+        );
+    }, [notify, screenshotCustomDirectoryPath, screenshotSaveMode, t]);
+
+    const directoryPickerSupported = useMemo(
+        () => (isTauri() ? true : isDirectoryPickerSupported()),
+        [],
+    );
+
+    const handleChooseScreenshotDirectory = useCallback(async () => {
+        if (!directoryPickerSupported) {
+            notify.error(
+                t("monitor.spectrumAnalyzer.notifications.directoryPickFailed"),
+                t("monitor.spectrumAnalyzer.screenshotSaveDirectory.notSupported"),
+            );
+            return;
+        }
+
+        try {
+            if (isTauri()) {
+                const selected = await invoke<string | string[] | null>(
+                    "plugin:dialog|open",
+                    {
+                        options: {
+                            directory: true,
+                            multiple: false,
+                        },
+                    },
+                );
+
+                const path = Array.isArray(selected) ? selected[0] : selected;
+                if (!path) return;
+
+                setScreenshotSaveMode("custom");
+                setScreenshotCustomDirectoryPath(path);
+                setScreenshotCustomDirectoryName(getPathBasename(path));
+                notify.success(
+                    t("monitor.spectrumAnalyzer.notifications.directoryUpdated"),
+                    getPathBasename(path),
+                );
+                return;
+            }
+
+            const handle = await pickScreenshotDirectory();
+            if (!handle) return;
+
+            await saveScreenshotDirectoryHandle(handle);
+            setScreenshotSaveMode("custom");
+            setScreenshotCustomDirectoryName(handle.name);
+            setScreenshotCustomDirectoryPath(null);
+            notify.success(
+                t("monitor.spectrumAnalyzer.notifications.directoryUpdated"),
+                handle.name,
+            );
+        } catch (error) {
+            notify.error(
+                t("monitor.spectrumAnalyzer.notifications.directoryPickFailed"),
+                toErrorMessage(error),
+            );
+        }
+    }, [
+        directoryPickerSupported,
+        notify,
+        setScreenshotCustomDirectoryName,
+        setScreenshotCustomDirectoryPath,
+        setScreenshotSaveMode,
+        t,
+    ]);
+
+    const handleResetScreenshotDirectory = useCallback(async () => {
+        try {
+            await clearScreenshotDirectoryHandle();
+        } catch (error) {
+            console.error("Failed to clear screenshot directory handle:", error);
+        }
+
+        setScreenshotSaveMode("downloads");
+        setScreenshotCustomDirectoryName(null);
+        setScreenshotCustomDirectoryPath(null);
+        notify.info(
+            t("monitor.spectrumAnalyzer.notifications.directoryReset"),
+            t("monitor.spectrumAnalyzer.screenshotSaveDirectory.downloads"),
+        );
+    }, [
+        notify,
+        setScreenshotCustomDirectoryName,
+        setScreenshotCustomDirectoryPath,
+        setScreenshotSaveMode,
+        t,
+    ]);
 
     useEffect(() => {
         // 键盘快捷键：仅在当前视图激活时生效，避免全局误触
@@ -607,6 +863,9 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
             historyDepth={historyDepth}
             refreshRate={refreshRate}
             colorScheme={colorScheme}
+            screenshotSaveMode={screenshotSaveMode}
+            screenshotCustomDirectoryName={screenshotCustomDirectoryName}
+            directoryPickerSupported={directoryPickerSupported}
             isPaused={isPaused}
             showMaxHold={showMaxHold}
             showAverage={showAverage}
@@ -628,6 +887,12 @@ export default function SpectrumAnalyzer({ isActive }: SpectrumAnalyzerProps) {
             onSetHistoryDepth={setHistoryDepth}
             onSetRefreshRate={setRefreshRate}
             onSetColorScheme={setColorScheme}
+            onChooseScreenshotDirectory={() => {
+                void handleChooseScreenshotDirectory();
+            }}
+            onResetScreenshotDirectory={() => {
+                void handleResetScreenshotDirectory();
+            }}
         />
     );
 }

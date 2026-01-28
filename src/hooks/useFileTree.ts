@@ -10,7 +10,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { readDir as tauriReadDir } from "@tauri-apps/plugin-fs";
 import { invoke as defaultInvoke } from "@/platform/invoke";
 import { isTauri as defaultIsTauri } from "@/platform/tauri";
 import { isTimeoutError, withTimeout } from "@/utils/async";
@@ -21,10 +20,12 @@ const FILE_TREE_TIMEOUT_MS = 8000;
 
 type Translate = (key: string) => string;
 
+type TauriReadDir = typeof import("@tauri-apps/plugin-fs").readDir;
+
 type UseFileTreeDeps = {
     isTauri?: () => boolean;
     invoke?: typeof defaultInvoke;
-    readDir?: typeof tauriReadDir;
+    readDir?: TauriReadDir;
     timeoutMs?: number;
 };
 
@@ -36,6 +37,11 @@ export type UseFileTreeReturn = {
     logBasePath: string;
     toggleDirectory: (path: string) => void;
     retryTree: () => void;
+};
+
+const defaultReadDir: TauriReadDir = async (path, options) => {
+    const { readDir } = await import("@tauri-apps/plugin-fs");
+    return readDir(path, options);
 };
 
 /**
@@ -51,7 +57,7 @@ export function useFileTree(
 ): UseFileTreeReturn {
     const isTauri = deps.isTauri ?? defaultIsTauri;
     const invoke = deps.invoke ?? defaultInvoke;
-    const readDir = deps.readDir ?? tauriReadDir;
+    const readDir = deps.readDir ?? defaultReadDir;
     const timeoutMs = deps.timeoutMs ?? FILE_TREE_TIMEOUT_MS;
 
     const [fileTree, setFileTree] = useState<FileNode[]>([]);
