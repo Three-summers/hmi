@@ -223,7 +223,7 @@
         "languageDesc": "Select display language",
         "theme": "Theme",
         "effects": "Visual Effects",
-        "effectsDesc": "Reduce blur and glow effects for better performance",
+        "effectsDesc": "Disable animations, shadows and blur for better performance",
         "effectsStandard": "Standard",
         "effectsReduced": "Performance",
         "layout": "Layout",

@@ -11,8 +11,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "test:node": "node --test --loader ./tests-node/loader.mjs tests-node",
-    "test:node:coverage": "NODE_V8_COVERAGE=coverage node --test --experimental-test-coverage --loader ./tests-node/loader.mjs tests-node",
+    "test:node": "node --test --loader ./tests-node/loader.mjs tests-node/*.test.mjs",
+    "test:node:coverage": "NODE_V8_COVERAGE=coverage node --test --experimental-test-coverage --loader ./tests-node/loader.mjs tests-node/*.test.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

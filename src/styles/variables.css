@@ -415,6 +415,54 @@
 [data-effects="reduced"] {
     --backdrop-filter-sm: none;
     --backdrop-filter-md: none;
+
+    /* 动效：高性能模式下统一关闭过渡（避免低端 GPU 合成开销） */
+    --transition-fast: 0ms linear;
+    --transition-normal: 0ms linear;
+    --transition-slow: 0ms linear;
+    --transition-bounce: 0ms linear;
+
+    /* 阴影/光晕：高性能模式下尽量去除（box-shadow/text-shadow/filter 代价较高） */
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --shadow-xl: none;
+    --shadow-glow: none;
+    --shadow-inner: none;
+    --shadow-inset-panel: none;
+
+    --button-shadow: none;
+    --button-shadow-hover: none;
+
+    --border-glow: transparent;
+
+    --color-alarm-glow: transparent;
+    --color-warning-glow: transparent;
+    --color-processing-glow: transparent;
+    --color-attention-glow: transparent;
+
+    --_glow-cyan: none;
+    --_glow-red: none;
+    --_glow-amber: none;
+    --_glow-green: none;
+
+    --glow-processing: none;
+    --glow-alarm: none;
+    --glow-warning: none;
+    --glow-attention: none;
+
+    /* 状态高亮：保留最小轮廓，避免多层光晕 */
+    --highlight-alarm: 0 0 0 2px var(--color-alarm);
+    --highlight-warning: 0 0 0 2px var(--color-warning);
+    --highlight-processing: 0 0 0 2px var(--color-processing);
+    --highlight-attention: 0 0 0 2px var(--color-attention);
+
+    /* 背景装饰：关闭噪点/暗角（进一步减少额外绘制层） */
+    --bg-overlay-opacity: 0;
+    --vignette-opacity: 0;
+
+    /* 玻璃高光：关闭 */
+    --glass-shine: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

@@ -530,6 +530,34 @@ td[data-type="number"] {
     }
 }
 
+/* ═══ 高性能模式（应用内设置：设置 → 视觉效果 → 高性能） ═══ */
+
+/* 强制减少动效：避免低性能设备在合成/布局阶段产生额外开销 */
+[data-effects="reduced"] *,
+[data-effects="reduced"] *::before,
+[data-effects="reduced"] *::after {
+    animation: none !important;
+    transition: none !important;
+}
+
+/* 统一移除高成本的阴影/滤镜类效果（避免额外离屏渲染） */
+[data-effects="reduced"] * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+}
+
+/* 背景纹理/暗角属于纯装饰：高性能模式直接移除，减少额外绘制层 */
+[data-effects="reduced"] body::before,
+[data-effects="reduced"] body::after {
+    content: none;
+}
+
+/* 玻璃高光属于纯装饰：高性能模式移除伪元素，减少层叠 */
+[data-effects="reduced"] .glass-card::before {
+    content: none;
+}
+
 /* ═══ 打印样式 ═══ */
 
 @media print {

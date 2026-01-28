@@ -223,7 +223,7 @@
         "languageDesc": "选择显示语言",
         "theme": "主题",
         "effects": "视觉效果",
-        "effectsDesc": "降低模糊与光晕等特效以提升性能",
+        "effectsDesc": "关闭动画、阴影、模糊与背景装饰以提升性能",
         "effectsStandard": "标准",
         "effectsReduced": "高性能",
         "layout": "布局",

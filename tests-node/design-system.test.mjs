@@ -57,6 +57,28 @@ describe("T06 UI 设计系统统一（design tokens）", () => {
         assert.match(css, /--transition-normal:\s*200ms/);
     });
 
+    it("variables.css：高性能模式应进一步降低动效与装饰性渲染", async () => {
+        const css = await readText("src/styles/variables.css");
+
+        // reduced 模式基础开关
+        assert.match(css, /\[data-effects=\"reduced\"\]\s*{/);
+
+        // 关闭过渡（让交互在低端设备上更“硬切”，避免合成开销）
+        assert.match(css, /--transition-fast:\s*0ms\s+linear/);
+        assert.match(css, /--transition-normal:\s*0ms\s+linear/);
+
+        // 关闭阴影/光晕（减少离屏渲染与模糊成本）
+        assert.match(css, /--shadow-md:\s*none/);
+        assert.match(css, /--color-processing-glow:\s*transparent/);
+
+        // 关闭背景装饰层
+        assert.match(css, /--bg-overlay-opacity:\s*0/);
+        assert.match(css, /--vignette-opacity:\s*0/);
+
+        // 玻璃高光降级
+        assert.match(css, /--glass-shine:\s*none/);
+    });
+
     it("fonts：本地字体文件应存在（避免运行时网络依赖）", async () => {
         const fontsDir = path.join(projectRoot, "src/assets/fonts");
         const entries = await fs.readdir(fontsDir);
@@ -84,6 +106,19 @@ describe("T06 UI 设计系统统一（design tokens）", () => {
         assert.match(css, /var\(--input-padding-y\)/);
         assert.match(css, /var\(--badge-height\)/);
         assert.match(css, /var\(--transition-fast\)/);
+    });
+
+    it("global.css：高性能模式应强制禁用动画并移除装饰性背景层", async () => {
+        const css = await readText("src/styles/global.css");
+
+        // 强制禁用动画/过渡
+        assert.match(css, /\[data-effects=\"reduced\"\]\s*\*,/);
+        assert.match(css, /animation:\s*none\s*!important/);
+        assert.match(css, /transition:\s*none\s*!important/);
+
+        // 移除背景伪元素
+        assert.match(css, /\[data-effects=\"reduced\"\]\s*body::before/);
+        assert.match(css, /content:\s*none/);
     });
 });
 

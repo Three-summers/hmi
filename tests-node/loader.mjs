@@ -81,6 +81,15 @@ function isTsLikeUrl(url) {
 }
 
 export async function resolve(specifier, context, defaultResolve) {
+    // 兼容：tests-node 里复用 vitest 的 describe/it 写法，但实际用 node:test 执行
+    // 避免直接 import "vitest" 时触发 vitest 运行时依赖（需要 vitest runner 的内部状态）
+    if (specifier === "vitest") {
+        return {
+            url: "data:text/javascript,export { describe, it, before, after, beforeEach, afterEach } from 'node:test';",
+            shortCircuit: true,
+        };
+    }
+
     // 路径别名：@/xxx -> <root>/src/xxx
     if (specifier.startsWith("@/")) {
         const mapped = path.join(projectRoot, "src", specifier.slice(2));
