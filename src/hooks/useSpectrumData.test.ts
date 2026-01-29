@@ -162,5 +162,26 @@ describe("useSpectrumData", () => {
         unmount();
         expect(unlisten).toHaveBeenCalledTimes(1);
     });
-});
 
+    it("启动失败：应进入 error 并释放 unlisten（避免错误态继续消费事件）", async () => {
+        vi.mocked(invoke).mockImplementation(async (command: string) => {
+            if (command === "start_sensor_simulation") {
+                throw new Error("start failed");
+            }
+            return undefined as any;
+        });
+
+        const { result } = renderHook(() =>
+            useSpectrumData({
+                enabled: true,
+            }),
+        );
+
+        await waitFor(() => {
+            expect(result.current.status).toBe("error");
+        });
+
+        expect(unlisten).toHaveBeenCalledTimes(1);
+        expect(result.current.latestRef.current).toBeNull();
+    });
+});

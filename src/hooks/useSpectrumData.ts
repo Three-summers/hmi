@@ -228,6 +228,7 @@ export function useSpectrumData(
         let unlisten: (() => void) | null = null;
 
         const setup = async () => {
+            let localUnlisten: (() => void) | null = null;
             try {
                 const unlistenFn = await listen<SpectrumData>(
                     eventName,
@@ -276,11 +277,22 @@ export function useSpectrumData(
                     return;
                 }
 
+                localUnlisten = unlistenFn;
                 unlisten = unlistenFn;
                 await invoke(startCommand);
             } catch (err) {
                 console.error("Failed to setup spectrum subscription:", err);
                 if (cancelled) return;
+                // 若已注册事件监听但启动失败，必须立即释放监听：
+                // 否则会出现“错误态仍然消费事件/更新状态”的竞态与泄漏。
+                try {
+                    localUnlisten?.();
+                } catch {
+                    // 忽略释放失败，避免二次异常覆盖原错误
+                }
+                if (unlisten === localUnlisten) {
+                    unlisten = null;
+                }
                 const message = toErrorMessage(err);
                 setStatus("error");
                 setError(message);
