@@ -9,6 +9,7 @@
  */
 
 import { useTranslation } from "react-i18next";
+import { useEffect } from "react";
 import type { ViewId } from "@/types";
 import { CommandIcons, InfoIcon, WarningIcon } from "@/components/common";
 import { useViewCommandState } from "./ViewCommandContext";
@@ -41,11 +42,31 @@ function ConfirmModal({
     onCancel,
 }: ConfirmModalProps) {
     const { t } = useTranslation();
+    useEffect(() => {
+        if (!isOpen) return;
+
+        // Escape 关闭：避免触发全局快捷键逻辑，优先完成“确认/取消”流程
+        // 说明：按 SEMI E95，导航栏可用；但对话框交互应优先。
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== "Escape") return;
+            e.preventDefault();
+            onCancel();
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [isOpen, onCancel]);
+
     if (!isOpen) return null;
 
     return (
         <div className={styles.modalOverlay} onClick={onCancel}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div
+                className={styles.modal}
+                role="dialog"
+                aria-modal="false"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <div className={styles.modalHeader}>
                     <div className={styles.modalIcon}>
                         <WarningIcon />
@@ -74,13 +95,14 @@ function ConfirmModal({
  */
 export function CommandPanel({ currentView }: CommandPanelProps) {
     const { t } = useTranslation();
-    const { commandsByView, confirmState, closeConfirm, handleConfirm } =
+    const { commandsByView, confirmStatesByView, closeConfirm, handleConfirm } =
         useViewCommandState();
     const { subCommandsByView } = useSubViewCommandState();
 
     const viewCommands = commandsByView[currentView] ?? [];
     const subViewCommands = subCommandsByView[currentView] ?? [];
     const commandCount = viewCommands.length + subViewCommands.length;
+    const confirmState = confirmStatesByView[currentView];
 
     return (
         <div className={styles.commandPanel}>
@@ -152,11 +174,11 @@ export function CommandPanel({ currentView }: CommandPanelProps) {
             )}
 
             <ConfirmModal
-                isOpen={confirmState.isOpen}
-                title={confirmState.title}
-                message={confirmState.message}
-                onConfirm={handleConfirm}
-                onCancel={closeConfirm}
+                isOpen={Boolean(confirmState?.isOpen)}
+                title={confirmState?.title ?? ""}
+                message={confirmState?.message ?? ""}
+                onConfirm={() => handleConfirm(currentView)}
+                onCancel={() => closeConfirm(currentView)}
             />
         </div>
     );

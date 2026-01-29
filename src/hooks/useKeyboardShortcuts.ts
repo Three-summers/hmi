@@ -33,15 +33,14 @@ function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 /**
- * 判断是否存在打开的模态对话框
+ * 判断是否存在打开的对话框
  *
- * @returns 是否有模态对话框处于打开状态
+ * @returns 是否有对话框处于打开状态
  */
-function isModalOpen(): boolean {
-    // Dialog 使用 aria-modal=true，打开时应避免全局快捷键干扰其交互
-    return Boolean(
-        document.querySelector('[role="dialog"][aria-modal="true"]'),
-    );
+function isDialogOpen(): boolean {
+    // SEMI E95：对话框弹出时应优先保证其交互（避免全局快捷键干扰）。
+    // 说明：部分对话框为“非模态”（aria-modal=false）但仍需阻止误触全局行为。
+    return Boolean(document.querySelector('[role="dialog"]'));
 }
 
 /**
@@ -64,7 +63,7 @@ export function useKeyboardShortcuts() {
 
             // 对话框打开时，优先保证对话框自己的键盘交互（例如 Escape 关闭）
             // 仅保留全屏快捷键，避免切视图/触发操作影响用户的“确认/取消”流程。
-            if (isModalOpen() && event.key !== "F11") {
+            if (isDialogOpen() && event.key !== "F11") {
                 return;
             }
 

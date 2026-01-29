@@ -7,7 +7,7 @@ import {
     useState,
 } from "react";
 import type { CommandButtonConfig, ViewId } from "@/types";
-import { useConfirm } from "@/hooks";
+import { useNavigationStore } from "@/stores";
 
 /**
  * ViewCommandContext
@@ -26,8 +26,22 @@ import { useConfirm } from "@/hooks";
  */
 
 type CommandsByView = Partial<Record<ViewId, CommandButtonConfig[]>>;
-type ConfirmState = ReturnType<typeof useConfirm>["confirmState"];
-type ShowConfirm = ReturnType<typeof useConfirm>["showConfirm"];
+
+/** 确认对话框状态（按视图隔离） */
+type ConfirmState = {
+    /** 是否打开（用于表达语义；实际渲染以 state 是否存在为准） */
+    isOpen: boolean;
+    /** 标题 */
+    title: string;
+    /** 提示消息 */
+    message: string;
+    /** 确认后的回调函数 */
+    onConfirm: () => void;
+};
+
+type ConfirmStatesByView = Partial<Record<ViewId, ConfirmState>>;
+
+type ShowConfirm = (title: string, message: string, onConfirm: () => void) => void;
 
 interface ViewCommandActions {
     setViewCommands: (viewId: ViewId, commands: CommandButtonConfig[]) => void;
@@ -37,9 +51,9 @@ interface ViewCommandActions {
 
 interface ViewCommandState {
     commandsByView: CommandsByView;
-    confirmState: ConfirmState;
-    closeConfirm: () => void;
-    handleConfirm: () => void;
+    confirmStatesByView: ConfirmStatesByView;
+    closeConfirm: (viewId: ViewId) => void;
+    handleConfirm: (viewId: ViewId) => void;
 }
 
 const ViewCommandActionsContext = createContext<ViewCommandActions | null>(null);
@@ -47,8 +61,44 @@ const ViewCommandStateContext = createContext<ViewCommandState | null>(null);
 
 export function ViewCommandProvider({ children }: { children: React.ReactNode }) {
     const [commandsByView, setCommandsByView] = useState<CommandsByView>(() => ({}));
-    const { confirmState, showConfirm, closeConfirm, handleConfirm } =
-        useConfirm();
+    const [confirmStatesByView, setConfirmStatesByView] =
+        useState<ConfirmStatesByView>(() => ({}));
+
+    // 打开确认弹窗：按当前视图写入状态，实现“切页隐藏/切回恢复”
+    const showConfirm = useCallback<ShowConfirm>(
+        (title: string, message: string, onConfirm: () => void) => {
+            const viewId = useNavigationStore.getState().currentView;
+            setConfirmStatesByView((prev) => ({
+                ...prev,
+                [viewId]: { isOpen: true, title, message, onConfirm },
+            }));
+            // SEMI E95：其他功能区有未完成任务（如打开的对话框）→ 中蓝色高亮提示
+            useNavigationStore.getState().setUnfinishedTask(viewId, true);
+        },
+        [],
+    );
+
+    // 关闭确认弹窗：按视图清理，不影响其他视图的未确认对话框
+    const closeConfirm = useCallback((viewId: ViewId) => {
+        setConfirmStatesByView((prev) => {
+            if (!prev[viewId]) return prev;
+            const next = { ...prev };
+            delete next[viewId];
+            return next;
+        });
+        useNavigationStore.getState().setUnfinishedTask(viewId, false);
+    }, []);
+
+    // 执行确认：先回调，再关闭弹窗（并清理导航高亮）
+    const handleConfirm = useCallback(
+        (viewId: ViewId) => {
+            const state = confirmStatesByView[viewId];
+            if (!state) return;
+            state.onConfirm();
+            closeConfirm(viewId);
+        },
+        [closeConfirm, confirmStatesByView],
+    );
 
     const setViewCommands = useCallback(
         (viewId: ViewId, commands: CommandButtonConfig[]) => {
@@ -74,8 +124,13 @@ export function ViewCommandProvider({ children }: { children: React.ReactNode })
     }, [clearViewCommands, setViewCommands, showConfirm]);
 
     const stateValue = useMemo<ViewCommandState>(() => {
-        return { commandsByView, confirmState, closeConfirm, handleConfirm };
-    }, [closeConfirm, commandsByView, confirmState, handleConfirm]);
+        return {
+            commandsByView,
+            confirmStatesByView,
+            closeConfirm,
+            handleConfirm,
+        };
+    }, [closeConfirm, commandsByView, confirmStatesByView, handleConfirm]);
 
     return (
         <ViewCommandActionsContext.Provider value={actionsValue}>
@@ -125,4 +180,3 @@ export function useRegisterViewCommands(
         setViewCommands(viewId, commands);
     }, [commands, enabled, setViewCommands, viewId]);
 }
-

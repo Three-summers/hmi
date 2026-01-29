@@ -276,15 +276,17 @@
 
 .modalOverlay {
     position: fixed;
-    top: 0;
+    /* SEMI E95：对话框不得遮挡标题栏/导航栏（两者始终可用） */
+    top: var(--title-panel-height);
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--nav-panel-height);
     background: var(--overlay-modal);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    /* 低于 TitlePanel/NavPanel（z-index:10），避免任何边界误差导致无法切页 */
+    z-index: 9;
     animation: fade-in var(--transition-fast);
 }
 
