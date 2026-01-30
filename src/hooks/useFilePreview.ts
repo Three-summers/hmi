@@ -139,8 +139,10 @@ export function useFilePreview(
 
     const selectedFileName = useMemo(() => {
         if (!selectedFilePath) return null;
-        const name = selectedFilePath.split("/").pop();
-        return name ?? selectedFilePath;
+        // Windows 路径可能使用 "\\"；统一按 "/" 分隔便于 UI 展示与定位
+        const normalized = selectedFilePath.replace(/\\/g, "/");
+        const name = normalized.split("/").pop();
+        return name ?? normalized;
     }, [selectedFilePath]);
 
     const isCsvFile = useMemo(() => {

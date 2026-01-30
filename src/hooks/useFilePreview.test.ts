@@ -39,6 +39,26 @@ describe("hooks/useFilePreview", () => {
         expect(result.current.preview.error).toBeNull();
     });
 
+    it("selectedFileName：Windows 路径应正确提取文件名", async () => {
+        const t = (key: string) => key;
+        const readTextFile = vi.fn().mockResolvedValue("t,a\n0,1\n1,2\n");
+
+        const { result } = renderHook(() =>
+            useFilePreview(t, { readTextFile: readTextFile as any }),
+        );
+
+        await act(async () => {
+            await result.current.selectFile({
+                name: "a.csv",
+                path: "C:\\log\\a.csv",
+                isDirectory: false,
+            });
+        });
+
+        expect(readTextFile).toHaveBeenCalledWith("C:\\log\\a.csv");
+        expect(result.current.preview.selectedFileName).toBe("a.csv");
+    });
+
     it("读取失败时应自动重试一次并成功", async () => {
         vi.useFakeTimers();
 
@@ -120,4 +140,3 @@ describe("hooks/useFilePreview", () => {
         expect(readTextFile).toHaveBeenCalledTimes(2);
     });
 });
-

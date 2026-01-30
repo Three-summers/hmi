@@ -21,11 +21,13 @@ const FILE_TREE_TIMEOUT_MS = 8000;
 type Translate = (key: string) => string;
 
 type TauriReadDir = typeof import("@tauri-apps/plugin-fs").readDir;
+type TauriPathJoin = typeof import("@tauri-apps/api/path").join;
 
 type UseFileTreeDeps = {
     isTauri?: () => boolean;
     invoke?: typeof defaultInvoke;
     readDir?: TauriReadDir;
+    join?: TauriPathJoin;
     timeoutMs?: number;
 };
 
@@ -44,6 +46,11 @@ const defaultReadDir: TauriReadDir = async (path, options) => {
     return readDir(path, options);
 };
 
+const defaultJoin: TauriPathJoin = async (...paths) => {
+    const { join } = await import("@tauri-apps/api/path");
+    return join(...paths);
+};
+
 /**
  * Files 文件树 Hook
  *
@@ -58,6 +65,7 @@ export function useFileTree(
     const isTauri = deps.isTauri ?? defaultIsTauri;
     const invoke = deps.invoke ?? defaultInvoke;
     const readDir = deps.readDir ?? defaultReadDir;
+    const join = deps.join ?? defaultJoin;
     const timeoutMs = deps.timeoutMs ?? FILE_TREE_TIMEOUT_MS;
 
     const [fileTree, setFileTree] = useState<FileNode[]>([]);
@@ -126,9 +134,10 @@ export function useFileTree(
             const tree: FileNode[] = [];
 
             for (const entry of entries) {
+                const filePath = await join(logBasePath, entry.name);
                 const fileEntry: FileNode = {
                     name: entry.name,
-                    path: `${logBasePath}/${entry.name}`,
+                    path: filePath,
                     isDirectory: entry.isDirectory,
                 };
 
@@ -137,11 +146,13 @@ export function useFileTree(
                         const subEntries = (await runIoRetry(() =>
                             withTimeout(readDir(fileEntry.path), timeoutMs),
                         )) as Array<{ name: string; isDirectory: boolean }>;
-                        fileEntry.children = subEntries.map((sub) => ({
-                            name: sub.name,
-                            path: `${fileEntry.path}/${sub.name}`,
-                            isDirectory: sub.isDirectory,
-                        }));
+                        fileEntry.children = await Promise.all(
+                            subEntries.map(async (sub) => ({
+                                name: sub.name,
+                                path: await join(fileEntry.path, sub.name),
+                                isDirectory: sub.isDirectory,
+                            })),
+                        );
                     } catch {
                         fileEntry.children = [];
                     }

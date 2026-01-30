@@ -44,25 +44,36 @@ export default function FilesView() {
     const scaleFactor = useCanvasScale(16);
     const [activeTab, setActiveTab] = useState<"overview" | "info">("overview");
 
+    const fileTree = useFileTree(t);
+    const { preview, selectFile, retryPreview } = useFilePreview(t);
+
     const commands = useMemo<CommandButtonConfig[]>(
         () => [
             {
                 id: "refresh",
                 labelKey: "common.refresh",
-                onClick: () =>
+                disabled: fileTree.treeLoading || preview.loading,
+                onClick: () => {
+                    fileTree.retryTree();
+                    void retryPreview();
                     info(
                         t("notification.helpRefreshed"),
                         t("notification.fileListRefreshed"),
-                    ),
+                    );
+                },
             },
         ],
-        [info, t],
+        [
+            fileTree.retryTree,
+            fileTree.treeLoading,
+            info,
+            preview.loading,
+            retryPreview,
+            t,
+        ],
     );
 
     useRegisterViewCommands("files", commands, isViewActive);
-
-    const fileTree = useFileTree(t);
-    const { preview, selectFile, retryPreview } = useFilePreview(t);
 
     const charts = useChartData({
         csvData: preview.csvData,

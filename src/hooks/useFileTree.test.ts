@@ -26,6 +26,7 @@ describe("hooks/useFileTree", () => {
     const t = (key: string) => key;
     const isTauriTrue = () => true;
     const isTauriFalse = () => false;
+    const joinPosix = async (...paths: string[]) => paths.join("/");
 
     it("浏览器环境（非 Tauri）应进入不可用错误态", async () => {
         const { result } = renderHook(() =>
@@ -49,6 +50,7 @@ describe("hooks/useFileTree", () => {
                 isTauri: isTauriTrue,
                 invoke,
                 readDir,
+                join: joinPosix,
             }),
         );
 
@@ -86,6 +88,7 @@ describe("hooks/useFileTree", () => {
                 isTauri: isTauriTrue,
                 invoke,
                 readDir: readDir as any,
+                join: joinPosix,
             }),
         );
 
@@ -129,6 +132,7 @@ describe("hooks/useFileTree", () => {
                 isTauri: isTauriTrue,
                 invoke,
                 readDir: readDir as any,
+                join: joinPosix,
             }),
         );
 
@@ -173,6 +177,7 @@ describe("hooks/useFileTree", () => {
                 isTauri: isTauriTrue,
                 invoke,
                 readDir: readDir as any,
+                join: joinPosix,
             }),
         );
 
@@ -217,6 +222,7 @@ describe("hooks/useFileTree", () => {
                 isTauri: isTauriTrue,
                 invoke,
                 readDir: readDir as any,
+                join: joinPosix,
             }),
         );
 
@@ -250,6 +256,7 @@ describe("hooks/useFileTree", () => {
                 isTauri: isTauriTrue,
                 invoke,
                 readDir,
+                join: joinPosix,
             }),
         );
 
@@ -278,6 +285,7 @@ describe("hooks/useFileTree", () => {
                 isTauri: isTauriTrue,
                 invoke,
                 readDir: readDir as any,
+                join: joinPosix,
             }),
         );
 
@@ -316,6 +324,7 @@ describe("hooks/useFileTree", () => {
                 isTauri: isTauriTrue,
                 invoke,
                 readDir: readDir as any,
+                join: joinPosix,
             }),
         );
 
@@ -347,6 +356,7 @@ describe("hooks/useFileTree", () => {
                 isTauri: isTauriTrue,
                 invoke,
                 readDir,
+                join: joinPosix,
                 timeoutMs: 10,
             }),
         );
@@ -375,6 +385,7 @@ describe("hooks/useFileTree", () => {
                 isTauri: isTauriTrue,
                 invoke,
                 readDir: readDir as any,
+                join: joinPosix,
                 timeoutMs: 10,
             }),
         );
@@ -395,5 +406,51 @@ describe("hooks/useFileTree", () => {
         expect(readDir).toHaveBeenCalledTimes(2);
         expect(result.current.fileTree).toHaveLength(1);
         expect(result.current.visibleItems[0]?.entry.name).toBe("a.csv");
+    });
+
+    it("Windows 路径：应使用 join 构建子路径，避免分隔符混用", async () => {
+        const invoke = vi.fn().mockResolvedValue("C:\\log");
+        const joinWindows = vi.fn(async (...paths: string[]) => {
+            return paths
+                .map((p, idx) =>
+                    idx === 0
+                        ? p.replace(/[\\/]+$/, "")
+                        : p.replace(/^[\\/]+/, ""),
+                )
+                .join("\\");
+        });
+        const readDir = vi
+            .fn()
+            .mockResolvedValueOnce([{ name: "dir", isDirectory: true }])
+            .mockResolvedValueOnce([{ name: "a.csv", isDirectory: false }]);
+
+        const { result } = renderHook(() =>
+            useFileTree(t, {
+                isTauri: isTauriTrue,
+                invoke,
+                readDir: readDir as any,
+                join: joinWindows as any,
+            }),
+        );
+
+        await waitFor(() => {
+            expect(result.current.fileTree).toHaveLength(1);
+        });
+
+        expect(result.current.logBasePath).toBe("C:\\log");
+        expect(result.current.fileTree[0]?.path).toBe("C:\\log\\dir");
+        expect(joinWindows).toHaveBeenCalled();
+
+        act(() => {
+            result.current.toggleDirectory("C:\\log\\dir");
+        });
+
+        await waitFor(() => {
+            expect(result.current.visibleItems).toHaveLength(2);
+        });
+
+        expect(result.current.visibleItems[1]?.entry.path).toBe(
+            "C:\\log\\dir\\a.csv",
+        );
     });
 });

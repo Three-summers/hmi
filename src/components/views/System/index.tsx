@@ -113,63 +113,6 @@ export default function SystemView() {
     const { showConfirm } = useViewCommandActions();
     const { success, error, info } = useNotify();
 
-    const commands = useMemo<CommandButtonConfig[]>(
-        () => [
-            {
-                id: "refresh",
-                labelKey: "common.refresh",
-                onClick: () =>
-                    info(
-                        t("notification.refreshing"),
-                        t("notification.systemDataRefreshed"),
-                    ),
-            },
-            {
-                id: "start",
-                labelKey: "common.start",
-                highlight: "attention",
-                onClick: () =>
-                    success(
-                        t("notification.systemStarted"),
-                        t("notification.allSubsystemsOnline"),
-                    ),
-            },
-            {
-                id: "stop",
-                labelKey: "common.stop",
-                highlight: "alarm",
-                onClick: () =>
-                    showConfirm(
-                        t("system.title"),
-                        t("system.emergencyStopConfirm"),
-                        () =>
-                            error(
-                                t("notification.systemStopped"),
-                                t("notification.allSubsystemsShutdown"),
-                            ),
-                    ),
-            },
-            {
-                id: "emergency",
-                labelKey: "system.emergencyStop",
-                highlight: "alarm",
-                onClick: () =>
-                    showConfirm(
-                        t("system.emergencyStop"),
-                        t("system.emergencyStopConfirm"),
-                        () =>
-                            error(
-                                t("notification.emergencyStop"),
-                                t("notification.allOperationsHalted"),
-                            ),
-                    ),
-            },
-        ],
-        [error, info, showConfirm, success, t],
-    );
-
-    useRegisterViewCommands("system", commands, isViewActive);
-
     const [activeTab, setActiveTab] = useState<"overview" | "subsystems">(
         "overview",
     );
@@ -213,14 +156,74 @@ export default function SystemView() {
                 };
             });
             setSystemStatus("ready");
-        } catch (error) {
-            console.error("Failed to load system info:", error);
+        } catch (err) {
+            console.error("Failed to load system info:", err);
             const message =
-                error instanceof Error ? error.message : String(error);
+                err instanceof Error ? err.message : String(err);
             setSystemStatus("error");
             setSystemError(message);
         }
     }, []);
+
+    const commands = useMemo<CommandButtonConfig[]>(
+        () => [
+            {
+                id: "refresh",
+                labelKey: "common.refresh",
+                disabled: systemStatus === "loading",
+                onClick: () => {
+                    void refreshSystemInfo(true);
+                    info(
+                        t("notification.refreshing"),
+                        t("notification.systemDataRefreshed"),
+                    );
+                },
+            },
+            {
+                id: "start",
+                labelKey: "common.start",
+                highlight: "attention",
+                onClick: () =>
+                    success(
+                        t("notification.systemStarted"),
+                        t("notification.allSubsystemsOnline"),
+                    ),
+            },
+            {
+                id: "stop",
+                labelKey: "common.stop",
+                highlight: "alarm",
+                onClick: () =>
+                    showConfirm(
+                        t("system.title"),
+                        t("system.emergencyStopConfirm"),
+                        () =>
+                            error(
+                                t("notification.systemStopped"),
+                                t("notification.allSubsystemsShutdown"),
+                            ),
+                    ),
+            },
+            {
+                id: "emergency",
+                labelKey: "system.emergencyStop",
+                highlight: "alarm",
+                onClick: () =>
+                    showConfirm(
+                        t("system.emergencyStop"),
+                        t("system.emergencyStopConfirm"),
+                        () =>
+                            error(
+                                t("notification.emergencyStop"),
+                                t("notification.allOperationsHalted"),
+                            ),
+                    ),
+            },
+        ],
+        [error, info, refreshSystemInfo, showConfirm, success, systemStatus, t],
+    );
+
+    useRegisterViewCommands("system", commands, isViewActive);
 
     useEffect(() => {
         void refreshSystemInfo(true);
