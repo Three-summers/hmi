@@ -276,11 +276,19 @@ export default function WaterfallCanvas({
             const height = buffer.height;
             if (width <= 0 || height <= 0) return;
 
-            // 1) 获取旧数据 (0, 0, width, height-1)
-            // 2) 放置到 (0, 1) 位置（向下偏移1像素）
+            // 1) 将旧图像整体向下滚动 1px（避免 get/putImageData 的大块像素拷贝）
             if (height > 1) {
-                const oldData = ctx.getImageData(0, 0, width, height - 1);
-                ctx.putImageData(oldData, 0, 1);
+                ctx.drawImage(
+                    buffer,
+                    0,
+                    0,
+                    width,
+                    height - 1,
+                    0,
+                    1,
+                    width,
+                    height - 1,
+                );
             }
 
             // 3) 在顶部 (0, 0) 绘制新行

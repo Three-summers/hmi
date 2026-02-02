@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -20,40 +19,18 @@ impl Default for TcpConfig {
     }
 }
 
-pub struct TcpConnection {
-    stream: TcpStream,
-    config: TcpConfig,
+pub async fn open_stream(config: &TcpConfig) -> Result<TcpStream, String> {
+    let addr = format!("{}:{}", config.host, config.port);
+    let stream = tokio::time::timeout(
+        Duration::from_millis(config.timeout_ms),
+        TcpStream::connect(&addr),
+    )
+    .await
+    .map_err(|_| "Connection timeout".to_string())?
+    .map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // 工业现场常见：希望尽量减少交互延迟，TCP_NODELAY 可以减少小包延迟
+    let _ = stream.set_nodelay(true);
+    Ok(stream)
 }
 
-impl TcpConnection {
-    pub async fn new(config: TcpConfig) -> Result<Self, String> {
-        let addr = format!("{}:{}", config.host, config.port);
-        let stream = tokio::time::timeout(
-            Duration::from_millis(config.timeout_ms),
-            TcpStream::connect(&addr),
-        )
-        .await
-        .map_err(|_| "Connection timeout".to_string())?
-        .map_err(|e| format!("Failed to connect: {}", e))?;
-
-        Ok(Self { stream, config })
-    }
-
-    pub async fn send(&mut self, data: &[u8]) -> Result<(), String> {
-        self.stream
-            .write_all(data)
-            .await
-            .map_err(|e| format!("Failed to send data: {}", e))
-    }
-
-    pub async fn receive(&mut self, buffer: &mut [u8]) -> Result<usize, String> {
-        self.stream
-            .read(buffer)
-            .await
-            .map_err(|e| format!("Failed to receive data: {}", e))
-    }
-
-    pub fn config(&self) -> &TcpConfig {
-        &self.config
-    }
-}

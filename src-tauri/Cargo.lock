@@ -1479,6 +1479,8 @@ name = "hmi"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "bytes",
+ "crc32fast",
  "log",
  "serde",
  "serde_json",

@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useRef } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@/platform/invoke";
 import { useNavigationStore, useAppStore } from "@/stores";
 import { isTauri } from "@/platform/tauri";
 import { LOG_BRIDGE_CONFIG } from "@/constants";

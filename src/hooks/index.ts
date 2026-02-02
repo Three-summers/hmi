@@ -15,3 +15,6 @@ export { useSpectrumData } from "./useSpectrumData";
 export { useChartInit } from "./useChartInit";
 export { useStoreWhenActive } from "./useStoreWhenActive";
 export { useIntervalWhenActive } from "./useIntervalWhenActive";
+export { useTauriEventStream } from "./useTauriEventStream";
+export { useCommEventBridge } from "./useCommEventBridge";
+export { useHmipEventBridge } from "./useHmipEventBridge";

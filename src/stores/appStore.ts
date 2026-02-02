@@ -16,6 +16,39 @@ import i18n from "@/i18n";
 import { THEME_ORDER } from "@/constants";
 import type { CommandPanelPosition, ThemeId, UserSession } from "@/types";
 
+function getDefaultVisualEffects(): "full" | "reduced" {
+    // 仅作为“首次启动/无持久化值”时的默认策略，用户可在 Setup 手动切换并持久化。
+    // 低性能判定策略（尽量保守）：CPU 核心数较少 / 内存较小 / 系统偏好减少动效。
+    try {
+        if (typeof window !== "undefined") {
+            const prefersReduced = Boolean(
+                window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
+            );
+            if (prefersReduced) return "reduced";
+        }
+
+        if (typeof navigator !== "undefined") {
+            const cores =
+                typeof navigator.hardwareConcurrency === "number"
+                    ? navigator.hardwareConcurrency
+                    : undefined;
+            const mem =
+                typeof (navigator as any).deviceMemory === "number"
+                    ? (navigator as any).deviceMemory
+                    : undefined;
+
+            if (typeof mem === "number" && mem > 0 && mem <= 4) return "reduced";
+            if (typeof cores === "number" && cores > 0 && cores <= 4) {
+                return "reduced";
+            }
+        }
+    } catch {
+        // 忽略探测失败，回退到 full
+    }
+
+    return "full";
+}
+
 interface AppState {
     /** 当前用户会话（未登录为 null） */
     user: UserSession | null;
@@ -156,7 +189,7 @@ export const useAppStore = create<AppState>()(
                     return { theme: next };
                 }),
 
-            visualEffects: "full",
+            visualEffects: getDefaultVisualEffects(),
             setVisualEffects: (effects) => set({ visualEffects: effects }),
 
             debugLogBridgeEnabled: false,

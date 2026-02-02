@@ -9,11 +9,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
-import { invoke } from "@/platform/invoke";
-import { isTauri } from "@/platform/tauri";
-import { toErrorMessage } from "@/utils/error";
 import type { SpectrumData, SpectrumStats, SpectrumStatus } from "@/types";
+import { useTauriEventStream } from "./useTauriEventStream";
 
 export interface UseSpectrumDataOptions {
     /** 是否启用订阅（通常为：视图可见 + 当前子页激活） */
@@ -176,31 +173,9 @@ export function useSpectrumData(
         stopCommand = "stop_sensor_simulation",
     } = options;
 
-    const [status, setStatus] = useState<SpectrumStatus>("loading");
-    const [error, setError] = useState<string | null>(null);
     const [stats, setStats] = useState<SpectrumStats>(DEFAULT_SPECTRUM_STATS);
-    const [retryToken, setRetryToken] = useState(0);
-
-    const latestRef = useRef<SpectrumData | null>(null);
-    const hasReceivedDataRef = useRef(false);
-    const isPausedRef = useRef(isPaused);
-    const maxHzRef = useRef(maxHz);
-    const emitWhenPausedRef = useRef(emitWhenPaused);
     const statsEnabledRef = useRef(statsEnabled);
     const onFrameRef = useRef(onFrame);
-    const lastAcceptedAtRef = useRef<number>(0);
-
-    useEffect(() => {
-        isPausedRef.current = isPaused;
-    }, [isPaused]);
-
-    useEffect(() => {
-        maxHzRef.current = maxHz;
-    }, [maxHz]);
-
-    useEffect(() => {
-        emitWhenPausedRef.current = emitWhenPaused;
-    }, [emitWhenPaused]);
 
     useEffect(() => {
         statsEnabledRef.current = statsEnabled;
@@ -210,120 +185,43 @@ export function useSpectrumData(
         onFrameRef.current = onFrame;
     }, [onFrame]);
 
+    const {
+        status,
+        error,
+        latestRef,
+        clear: clearStream,
+        retry: retryStream,
+    } = useTauriEventStream<SpectrumData>({
+        enabled,
+        eventName,
+        isPaused,
+        emitWhenPaused,
+        maxHz,
+        startCommand,
+        stopCommand,
+        onEvent: (frame, meta) => {
+            if (statsEnabledRef.current && !meta.paused) {
+                setStats(computeSpectrumStats(frame));
+            }
+            onFrameRef.current?.(frame);
+        },
+    });
+
     useEffect(() => {
-        if (!enabled) return;
-
-        if (!isTauri()) {
-            setStatus("unavailable");
-            setError(null);
-            return;
+        if (status === "error") {
+            setStats(DEFAULT_SPECTRUM_STATS);
         }
-
-        setStatus("loading");
-        setError(null);
-        hasReceivedDataRef.current = false;
-        lastAcceptedAtRef.current = 0;
-
-        let cancelled = false;
-        let unlisten: (() => void) | null = null;
-
-        const setup = async () => {
-            let localUnlisten: (() => void) | null = null;
-            try {
-                const unlistenFn = await listen<SpectrumData>(
-                    eventName,
-                    (event) => {
-                        if (cancelled) return;
-
-                        const frame = event.payload;
-                        latestRef.current = frame;
-
-                        if (!hasReceivedDataRef.current) {
-                            hasReceivedDataRef.current = true;
-                            setStatus("ready");
-                            setError(null);
-                        }
-
-                        const paused = isPausedRef.current;
-                        const shouldEmit =
-                            !paused || emitWhenPausedRef.current;
-                        if (!shouldEmit) return;
-
-                        const limitHz = maxHzRef.current;
-                        if (Number.isFinite(limitHz) && (limitHz ?? 0) > 0) {
-                            const desiredRate = Math.max(1, limitHz ?? 1);
-                            const minInterval = 1000 / desiredRate;
-                            const now = performance.now();
-                            const lastAccepted = lastAcceptedAtRef.current;
-                            if (
-                                lastAccepted &&
-                                now - lastAccepted < minInterval
-                            ) {
-                                return;
-                            }
-                            lastAcceptedAtRef.current = now;
-                        }
-
-                        if (statsEnabledRef.current && !paused) {
-                            setStats(computeSpectrumStats(frame));
-                        }
-
-                        onFrameRef.current?.(frame);
-                    },
-                );
-
-                if (cancelled) {
-                    unlistenFn();
-                    return;
-                }
-
-                localUnlisten = unlistenFn;
-                unlisten = unlistenFn;
-                await invoke(startCommand);
-            } catch (err) {
-                console.error("Failed to setup spectrum subscription:", err);
-                if (cancelled) return;
-                // 若已注册事件监听但启动失败，必须立即释放监听：
-                // 否则会出现“错误态仍然消费事件/更新状态”的竞态与泄漏。
-                try {
-                    localUnlisten?.();
-                } catch {
-                    // 忽略释放失败，避免二次异常覆盖原错误
-                }
-                if (unlisten === localUnlisten) {
-                    unlisten = null;
-                }
-                const message = toErrorMessage(err);
-                setStatus("error");
-                setError(message);
-                latestRef.current = null;
-                setStats(DEFAULT_SPECTRUM_STATS);
-            }
-        };
-
-        void setup();
-
-        return () => {
-            cancelled = true;
-            if (isTauri()) {
-                invoke(stopCommand).catch(console.error);
-            }
-            unlisten?.();
-        };
-    }, [enabled, eventName, retryToken, startCommand, stopCommand]);
+    }, [status]);
 
     const clear = useCallback(() => {
-        latestRef.current = null;
-        hasReceivedDataRef.current = false;
         setStats(DEFAULT_SPECTRUM_STATS);
-        setError(null);
-        setStatus(isTauri() ? "loading" : "unavailable");
-    }, []);
+        clearStream();
+    }, [clearStream]);
 
     const retry = useCallback(() => {
-        clear();
-        setRetryToken((prev) => prev + 1);
-    }, [clear]);
+        setStats(DEFAULT_SPECTRUM_STATS);
+        retryStream();
+    }, [retryStream]);
 
-    return { status, error, latestRef, stats, clear, retry };
+    return { status: status as SpectrumStatus, error, latestRef, stats, clear, retry };
 }

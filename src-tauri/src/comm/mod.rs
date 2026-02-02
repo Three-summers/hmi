@@ -1,3 +1,5 @@
+pub mod actor;
+pub mod proto;
 pub mod serial;
 pub mod tcp;
 
@@ -7,6 +9,6 @@ use tokio::sync::Mutex;
 /// Communication state managed by Tauri
 #[derive(Default)]
 pub struct CommState {
-    pub serial: Arc<Mutex<Option<serial::SerialConnection>>>,
-    pub tcp: Arc<Mutex<Option<tcp::TcpConnection>>>,
+    pub serial: Arc<Mutex<Option<actor::CommActorHandle>>>,
+    pub tcp: Arc<Mutex<Option<actor::CommActorHandle>>>,
 }

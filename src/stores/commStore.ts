@@ -18,17 +18,48 @@ import { COMM_CONFIG } from "@/constants";
 import { invoke } from "@/platform/invoke";
 import { withTimeout } from "@/utils/async";
 import { toErrorMessage } from "@/utils/error";
+import { toByteArray } from "@/protocol/hmip";
 import type { ErrorHandler } from "@/types/common";
-import type { SerialConfig, TcpConfig, CommState } from "@/types";
+import type {
+    CommEvent,
+    CommState,
+    CommTransport,
+    CommTransportStatus,
+    HmipSendFrame,
+    SerialConfig,
+    TcpConfig,
+} from "@/types";
 
 interface CommOperationOptions {
     /** 超时时间 (ms)，未设置则使用默认值 */
     timeoutMs?: number;
     /** 出错回调（用于 UI 层做额外处理） */
     onError?: ErrorHandler;
+    /** 写入优先级（用于后端写队列：报警/控制命令可优先） */
+    priority?: "high" | "normal";
 }
 
 interface CommStoreState extends CommState {
+    // 后端事件读模型（selector-friendly）
+    serialStatus: CommTransportStatus;
+    tcpStatus: CommTransportStatus;
+    serialRxBytes: number;
+    serialTxBytes: number;
+    tcpRxBytes: number;
+    tcpTxBytes: number;
+    serialRxCount: number;
+    serialTxCount: number;
+    tcpRxCount: number;
+    tcpTxCount: number;
+    serialLastRxText: string | null;
+    tcpLastRxText: string | null;
+    serialLastEventAtMs: number | null;
+    tcpLastEventAtMs: number | null;
+    commEventLog: CommEvent[];
+
+    handleCommEvent: (event: CommEvent) => void;
+    clearCommEventLog: () => void;
+
     // 串口操作
     connectSerial: (
         config: SerialConfig,
@@ -51,6 +82,16 @@ interface CommStoreState extends CommState {
         options?: CommOperationOptions,
     ) => Promise<void>;
 
+    // HMIP（HMI Binary Protocol v1）发送：前端 payload → Rust 封帧 → Transport 写入
+    sendSerialHmipFrame: (
+        frame: HmipSendFrame,
+        options?: CommOperationOptions,
+    ) => Promise<number>;
+    sendTcpHmipFrame: (
+        frame: HmipSendFrame,
+        options?: CommOperationOptions,
+    ) => Promise<number>;
+
     // 获取可用串口列表
     getSerialPorts: (options?: CommOperationOptions) => Promise<string[]>;
 
@@ -60,6 +101,91 @@ interface CommStoreState extends CommState {
 
 /** 默认通信超时（ms）：作为 UI 侧兜底，避免请求无限悬挂 */
 const DEFAULT_COMM_TIMEOUT_MS = COMM_CONFIG.TCP_TIMEOUT_MS;
+const COMM_EVENT_LOG_MAX = 200;
+
+function updateTransportModel(params: {
+    transport: CommTransport;
+    event: CommEvent;
+    prev: Pick<
+        CommStoreState,
+        | "serialStatus"
+        | "tcpStatus"
+        | "serialRxBytes"
+        | "serialTxBytes"
+        | "tcpRxBytes"
+        | "tcpTxBytes"
+        | "serialRxCount"
+        | "serialTxCount"
+        | "tcpRxCount"
+        | "tcpTxCount"
+        | "serialLastRxText"
+        | "tcpLastRxText"
+        | "serialLastEventAtMs"
+        | "tcpLastEventAtMs"
+        | "serialConnected"
+        | "tcpConnected"
+        | "lastError"
+    >;
+}): Partial<CommStoreState> {
+    const { transport, event, prev } = params;
+    const patch: Partial<CommStoreState> = {
+        lastError:
+            event.type === "error" ? `[${transport}] ${event.message}` : prev.lastError,
+    };
+
+    if (transport === "serial") {
+        patch.serialLastEventAtMs = event.timestamp_ms;
+        if (event.type === "connected") {
+            patch.serialStatus = "connected";
+            patch.serialConnected = true;
+            patch.lastError = undefined;
+        }
+        if (event.type === "disconnected") {
+            patch.serialStatus = "disconnected";
+            patch.serialConnected = false;
+        }
+        if (event.type === "reconnecting") {
+            patch.serialStatus = "reconnecting";
+            patch.serialConnected = false;
+        }
+        if (event.type === "rx") {
+            patch.serialRxBytes = prev.serialRxBytes + event.size;
+            patch.serialRxCount = prev.serialRxCount + 1;
+            patch.serialLastRxText = event.text ?? null;
+        }
+        if (event.type === "tx") {
+            patch.serialTxBytes = prev.serialTxBytes + event.size;
+            patch.serialTxCount = prev.serialTxCount + 1;
+        }
+        return patch;
+    }
+
+    patch.tcpLastEventAtMs = event.timestamp_ms;
+    if (event.type === "connected") {
+        patch.tcpStatus = "connected";
+        patch.tcpConnected = true;
+        patch.lastError = undefined;
+    }
+    if (event.type === "disconnected") {
+        patch.tcpStatus = "disconnected";
+        patch.tcpConnected = false;
+    }
+    if (event.type === "reconnecting") {
+        patch.tcpStatus = "reconnecting";
+        patch.tcpConnected = false;
+    }
+    if (event.type === "rx") {
+        patch.tcpRxBytes = prev.tcpRxBytes + event.size;
+        patch.tcpRxCount = prev.tcpRxCount + 1;
+        patch.tcpLastRxText = event.text ?? null;
+    }
+    if (event.type === "tx") {
+        patch.tcpTxBytes = prev.tcpTxBytes + event.size;
+        patch.tcpTxCount = prev.tcpTxCount + 1;
+    }
+
+    return patch;
+}
 
 /**
  * 带超时的 Tauri invoke 调用
@@ -99,6 +225,43 @@ export const useCommStore = create<CommStoreState>((set) => ({
     serialConfig: undefined,
     tcpConfig: undefined,
     lastError: undefined,
+    serialStatus: "disconnected",
+    tcpStatus: "disconnected",
+    serialRxBytes: 0,
+    serialTxBytes: 0,
+    tcpRxBytes: 0,
+    tcpTxBytes: 0,
+    serialRxCount: 0,
+    serialTxCount: 0,
+    tcpRxCount: 0,
+    tcpTxCount: 0,
+    serialLastRxText: null,
+    tcpLastRxText: null,
+    serialLastEventAtMs: null,
+    tcpLastEventAtMs: null,
+    commEventLog: [],
+
+    handleCommEvent: (event) =>
+        set((state) => {
+            const fullLog = [...state.commEventLog, event];
+            const nextLog =
+                fullLog.length > COMM_EVENT_LOG_MAX
+                    ? fullLog.slice(fullLog.length - COMM_EVENT_LOG_MAX)
+                    : fullLog;
+
+            const patch = updateTransportModel({
+                transport: event.transport,
+                event,
+                prev: state,
+            });
+
+            return {
+                ...patch,
+                commEventLog: nextLog,
+            };
+        }),
+
+    clearCommEventLog: () => set({ commEventLog: [] }),
 
     connectSerial: async (config, options) => {
         try {
@@ -121,6 +284,7 @@ export const useCommStore = create<CommStoreState>((set) => ({
                 serialConnected: true,
                 serialConfig: config,
                 lastError: undefined,
+                serialStatus: "connected",
             });
         } catch (error) {
             const message = toErrorMessage(error);
@@ -138,6 +302,7 @@ export const useCommStore = create<CommStoreState>((set) => ({
                 serialConnected: false,
                 serialConfig: undefined,
                 lastError: undefined,
+                serialStatus: "disconnected",
             });
         } catch (error) {
             const message = toErrorMessage(error);
@@ -150,7 +315,9 @@ export const useCommStore = create<CommStoreState>((set) => ({
     sendSerialData: async (data, options) => {
         try {
             const timeoutMs = options?.timeoutMs ?? DEFAULT_COMM_TIMEOUT_MS;
-            await invokeWithTimeout("send_serial_data", { data }, timeoutMs);
+            const args: Record<string, unknown> = { data };
+            if (options?.priority) args.priority = options.priority;
+            await invokeWithTimeout("send_serial_data", args, timeoutMs);
         } catch (error) {
             const message = toErrorMessage(error);
             set({ lastError: message });
@@ -178,6 +345,7 @@ export const useCommStore = create<CommStoreState>((set) => ({
                 tcpConnected: true,
                 tcpConfig: config,
                 lastError: undefined,
+                tcpStatus: "connected",
             });
         } catch (error) {
             const message = toErrorMessage(error);
@@ -195,6 +363,7 @@ export const useCommStore = create<CommStoreState>((set) => ({
                 tcpConnected: false,
                 tcpConfig: undefined,
                 lastError: undefined,
+                tcpStatus: "disconnected",
             });
         } catch (error) {
             const message = toErrorMessage(error);
@@ -207,7 +376,69 @@ export const useCommStore = create<CommStoreState>((set) => ({
     sendTcpData: async (data, options) => {
         try {
             const timeoutMs = options?.timeoutMs ?? DEFAULT_COMM_TIMEOUT_MS;
-            await invokeWithTimeout("send_tcp_data", { data }, timeoutMs);
+            const args: Record<string, unknown> = { data };
+            if (options?.priority) args.priority = options.priority;
+            await invokeWithTimeout("send_tcp_data", args, timeoutMs);
+        } catch (error) {
+            const message = toErrorMessage(error);
+            set({ lastError: message });
+            options?.onError?.(message, error);
+            throw error;
+        }
+    },
+
+    sendSerialHmipFrame: async (frame, options) => {
+        try {
+            const timeoutMs = options?.timeoutMs ?? DEFAULT_COMM_TIMEOUT_MS;
+
+            const payload = toByteArray(frame.payload);
+            const argsFrame: Record<string, unknown> = {
+                msg_type: frame.msgType,
+                payload,
+            };
+
+            if (typeof frame.flags === "number") argsFrame.flags = frame.flags;
+            if (typeof frame.channel === "number") argsFrame.channel = frame.channel;
+            if (typeof frame.seq === "number") argsFrame.seq = frame.seq;
+
+            const priority = options?.priority ?? frame.priority;
+            if (priority) argsFrame.priority = priority;
+
+            return await invokeWithTimeout<number>(
+                "send_serial_hmip_frame",
+                { frame: argsFrame },
+                timeoutMs,
+            );
+        } catch (error) {
+            const message = toErrorMessage(error);
+            set({ lastError: message });
+            options?.onError?.(message, error);
+            throw error;
+        }
+    },
+
+    sendTcpHmipFrame: async (frame, options) => {
+        try {
+            const timeoutMs = options?.timeoutMs ?? DEFAULT_COMM_TIMEOUT_MS;
+
+            const payload = toByteArray(frame.payload);
+            const argsFrame: Record<string, unknown> = {
+                msg_type: frame.msgType,
+                payload,
+            };
+
+            if (typeof frame.flags === "number") argsFrame.flags = frame.flags;
+            if (typeof frame.channel === "number") argsFrame.channel = frame.channel;
+            if (typeof frame.seq === "number") argsFrame.seq = frame.seq;
+
+            const priority = options?.priority ?? frame.priority;
+            if (priority) argsFrame.priority = priority;
+
+            return await invokeWithTimeout<number>(
+                "send_tcp_hmip_frame",
+                { frame: argsFrame },
+                timeoutMs,
+            );
         } catch (error) {
             const message = toErrorMessage(error);
             set({ lastError: message });

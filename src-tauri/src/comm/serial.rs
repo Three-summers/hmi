@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio_serial::{SerialPortBuilderExt, SerialStream};
+use tokio_serial::{
+    DataBits, Parity, SerialPortBuilderExt, SerialPortBuilder, SerialStream, StopBits,
+};
 
 // 使用 serde 使其可以序列化和反序列化
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -25,36 +26,43 @@ impl Default for SerialConfig {
     }
 }
 
-pub struct SerialConnection {
-    port: SerialStream,
-    config: SerialConfig,
+fn map_data_bits(value: u8) -> DataBits {
+    match value {
+        5 => DataBits::Five,
+        6 => DataBits::Six,
+        7 => DataBits::Seven,
+        _ => DataBits::Eight,
+    }
 }
 
-impl SerialConnection {
-    pub fn new(config: SerialConfig) -> Result<Self, String> {
-        let port = tokio_serial::new(&config.port, config.baud_rate)
-            .timeout(Duration::from_millis(100))
-            .open_native_async()
-            .map_err(|e| format!("Failed to open serial port: {}", e))?;
-
-        Ok(Self { port, config })
+fn map_stop_bits(value: u8) -> StopBits {
+    match value {
+        2 => StopBits::Two,
+        _ => StopBits::One,
     }
+}
 
-    pub async fn send(&mut self, data: &[u8]) -> Result<(), String> {
-        AsyncWriteExt::write_all(&mut self.port, data)
-            .await
-            .map_err(|e| format!("Failed to send data: {}", e))
+fn map_parity(value: &str) -> Parity {
+    match value.to_ascii_lowercase().as_str() {
+        "odd" => Parity::Odd,
+        "even" => Parity::Even,
+        _ => Parity::None,
     }
+}
 
-    pub async fn receive(&mut self, buffer: &mut [u8]) -> Result<usize, String> {
-        AsyncReadExt::read(&mut self.port, buffer)
-            .await
-            .map_err(|e| format!("Failed to receive data: {}", e))
-    }
+pub fn build_port(config: &SerialConfig) -> SerialPortBuilder {
+    tokio_serial::new(&config.port, config.baud_rate)
+        .data_bits(map_data_bits(config.data_bits))
+        .stop_bits(map_stop_bits(config.stop_bits))
+        .parity(map_parity(&config.parity))
+        // 读超时：避免永久阻塞在 read
+        .timeout(Duration::from_millis(100))
+}
 
-    pub fn config(&self) -> &SerialConfig {
-        &self.config
-    }
+pub fn open_stream(config: &SerialConfig) -> Result<SerialStream, String> {
+    build_port(config)
+        .open_native_async()
+        .map_err(|e| format!("Failed to open serial port: {}", e))
 }
 
 /// List available serial ports
@@ -64,3 +72,4 @@ pub fn list_ports() -> Result<Vec<String>, String> {
 
     Ok(ports.into_iter().map(|p| p.port_name).collect())
 }
+

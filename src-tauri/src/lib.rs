@@ -39,6 +39,8 @@ pub fn run() {
             commands::connect_tcp,
             commands::disconnect_tcp,
             commands::send_tcp_data,
+            commands::send_tcp_hmip_frame,
+            commands::send_serial_hmip_frame,
             commands::start_sensor_simulation,
             commands::stop_sensor_simulation,
             commands::frontend_log_batch,

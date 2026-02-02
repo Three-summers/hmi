@@ -151,6 +151,56 @@ describe("stores/commStore", () => {
         expect(invokeMock).toHaveBeenCalledWith("send_tcp_data", { data: [9, 8, 7] });
     });
 
+    it("sendTcpHmipFrame 成功时应调用后端命令并返回 seq", async () => {
+        const invokeMock = vi.fn().mockResolvedValue(7);
+        vi.doMock("@/platform/invoke", () => ({ invoke: invokeMock }));
+
+        const { useCommStore } = await import("../commStore");
+
+        const seq = await useCommStore.getState().sendTcpHmipFrame({
+            msgType: 0x01,
+            flags: 0,
+            channel: 2,
+            payload: new Uint8Array([1, 2, 3]),
+            priority: "high",
+        });
+
+        expect(seq).toBe(7);
+        expect(invokeMock).toHaveBeenCalledWith("send_tcp_hmip_frame", {
+            frame: {
+                msg_type: 0x01,
+                flags: 0,
+                channel: 2,
+                payload: [1, 2, 3],
+                priority: "high",
+            },
+        });
+    });
+
+    it("sendSerialHmipFrame：options.priority 应覆盖 frame.priority", async () => {
+        const invokeMock = vi.fn().mockResolvedValue(1);
+        vi.doMock("@/platform/invoke", () => ({ invoke: invokeMock }));
+
+        const { useCommStore } = await import("../commStore");
+
+        await useCommStore.getState().sendSerialHmipFrame(
+            {
+                msgType: 0x03,
+                payload: [9],
+                priority: "normal",
+            },
+            { priority: "high" },
+        );
+
+        expect(invokeMock).toHaveBeenCalledWith("send_serial_hmip_frame", {
+            frame: {
+                msg_type: 0x03,
+                payload: [9],
+                priority: "high",
+            },
+        });
+    });
+
     it("getSerialPorts 成功时应返回端口列表", async () => {
         const invokeMock = vi.fn().mockResolvedValue(["COM1", "COM2"]);
         vi.doMock("@/platform/invoke", () => ({ invoke: invokeMock }));

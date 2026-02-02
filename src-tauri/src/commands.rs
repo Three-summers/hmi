@@ -1,9 +1,13 @@
-use crate::comm::{serial, tcp, CommState};
+use crate::comm::{actor::CommPriority, proto, serial, tcp, CommState};
 use crate::sensor::SensorSimulator;
 use base64::{engine::general_purpose, Engine as _};
 use serde::Deserialize;
+use std::sync::atomic::{AtomicU32, Ordering};
+use tokio::sync::mpsc::error::TrySendError;
 use tauri::{AppHandle, Manager, State};
 use std::path::PathBuf;
+
+static HMIP_NEXT_SEQ: AtomicU32 = AtomicU32::new(1);
 
 /// 获取 Log 目录路径
 #[tauri::command]
@@ -102,63 +106,207 @@ pub async fn get_serial_ports() -> Result<Vec<String>, String> {
 /// 连接串口
 #[tauri::command]
 pub async fn connect_serial(
+    app: AppHandle,
     state: State<'_, CommState>,
     config: serial::SerialConfig,
 ) -> Result<(), String> {
-    let conn = serial::SerialConnection::new(config)?;
-    let mut serial_lock = state.serial.lock().await;
-    *serial_lock = Some(conn);
+    let stream = serial::open_stream(&config)?;
+    let handle = crate::comm::actor::spawn_serial_actor(app, config.clone(), stream);
+
+    let old = {
+        let mut serial_lock = state.serial.lock().await;
+        serial_lock.replace(handle)
+    };
+    if let Some(old) = old {
+        old.shutdown().await;
+    }
     Ok(())
 }
 
 /// 断开串口
 #[tauri::command]
 pub async fn disconnect_serial(state: State<'_, CommState>) -> Result<(), String> {
-    let mut serial_lock = state.serial.lock().await;
-    *serial_lock = None;
+    let old = {
+        let mut serial_lock = state.serial.lock().await;
+        serial_lock.take()
+    };
+    if let Some(old) = old {
+        old.shutdown().await;
+    }
     Ok(())
 }
 
 /// 通过串口发送数据
 #[tauri::command]
-pub async fn send_serial_data(state: State<'_, CommState>, data: Vec<u8>) -> Result<(), String> {
-    let mut serial_lock = state.serial.lock().await;
-    if let Some(ref mut conn) = *serial_lock {
-        conn.send(&data).await
-    } else {
-        Err("Serial port not connected".to_string())
-    }
+pub async fn send_serial_data(
+    state: State<'_, CommState>,
+    data: Vec<u8>,
+    priority: Option<CommPriority>,
+) -> Result<(), String> {
+    let (tx_high, tx_normal) = {
+        let serial_lock = state.serial.lock().await;
+        let handle = serial_lock
+            .as_ref()
+            .ok_or_else(|| "Serial port not connected".to_string())?;
+        (handle.tx_high.clone(), handle.tx_normal.clone())
+    };
+
+    let tx = match priority.unwrap_or_default() {
+        CommPriority::High => tx_high,
+        CommPriority::Normal => tx_normal,
+    };
+
+    tx.try_send(data).map_err(|err| match err {
+        TrySendError::Full(_) => "Serial write queue is full".to_string(),
+        TrySendError::Closed(_) => "Serial connection is closed".to_string(),
+    })
 }
 
 /// 连接 TCP 服务
 #[tauri::command]
 pub async fn connect_tcp(
+    app: AppHandle,
     state: State<'_, CommState>,
     config: tcp::TcpConfig,
 ) -> Result<(), String> {
-    let conn = tcp::TcpConnection::new(config).await?;
-    let mut tcp_lock = state.tcp.lock().await;
-    *tcp_lock = Some(conn);
+    let stream = tcp::open_stream(&config).await?;
+    let handle = crate::comm::actor::spawn_tcp_actor(app, config.clone(), stream);
+
+    let old = {
+        let mut tcp_lock = state.tcp.lock().await;
+        tcp_lock.replace(handle)
+    };
+    if let Some(old) = old {
+        old.shutdown().await;
+    }
     Ok(())
 }
 
 /// 断开 TCP
 #[tauri::command]
 pub async fn disconnect_tcp(state: State<'_, CommState>) -> Result<(), String> {
-    let mut tcp_lock = state.tcp.lock().await;
-    *tcp_lock = None;
+    let old = {
+        let mut tcp_lock = state.tcp.lock().await;
+        tcp_lock.take()
+    };
+    if let Some(old) = old {
+        old.shutdown().await;
+    }
     Ok(())
 }
 
 /// 通过 TCP 发送数据
 #[tauri::command]
-pub async fn send_tcp_data(state: State<'_, CommState>, data: Vec<u8>) -> Result<(), String> {
-    let mut tcp_lock = state.tcp.lock().await;
-    if let Some(ref mut conn) = *tcp_lock {
-        conn.send(&data).await
-    } else {
-        Err("TCP not connected".to_string())
-    }
+pub async fn send_tcp_data(
+    state: State<'_, CommState>,
+    data: Vec<u8>,
+    priority: Option<CommPriority>,
+) -> Result<(), String> {
+    let (tx_high, tx_normal) = {
+        let tcp_lock = state.tcp.lock().await;
+        let handle = tcp_lock
+            .as_ref()
+            .ok_or_else(|| "TCP not connected".to_string())?;
+        (handle.tx_high.clone(), handle.tx_normal.clone())
+    };
+
+    let tx = match priority.unwrap_or_default() {
+        CommPriority::High => tx_high,
+        CommPriority::Normal => tx_normal,
+    };
+
+    tx.try_send(data).map_err(|err| match err {
+        TrySendError::Full(_) => "TCP write queue is full".to_string(),
+        TrySendError::Closed(_) => "TCP connection is closed".to_string(),
+    })
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct HmipSendFrame {
+    pub msg_type: u8,
+    pub flags: Option<u8>,
+    pub channel: Option<u8>,
+    pub seq: Option<u32>,
+    pub payload: Vec<u8>,
+    pub priority: Option<CommPriority>,
+}
+
+fn next_hmip_seq(seq: Option<u32>) -> u32 {
+    seq.unwrap_or_else(|| HMIP_NEXT_SEQ.fetch_add(1, Ordering::Relaxed))
+}
+
+#[tauri::command]
+pub async fn send_tcp_hmip_frame(
+    state: State<'_, CommState>,
+    frame: HmipSendFrame,
+) -> Result<u32, String> {
+    let (tx_high, tx_normal) = {
+        let tcp_lock = state.tcp.lock().await;
+        let handle = tcp_lock
+            .as_ref()
+            .ok_or_else(|| "TCP not connected".to_string())?;
+        (handle.tx_high.clone(), handle.tx_normal.clone())
+    };
+
+    let seq = next_hmip_seq(frame.seq);
+    let flags = frame.flags.unwrap_or(0);
+    let channel = frame.channel.unwrap_or(0);
+    let bytes = proto::encode_frame(proto::EncodeFrameParams {
+        msg_type: frame.msg_type,
+        flags,
+        channel,
+        seq,
+        payload: &frame.payload,
+    });
+
+    let tx = match frame.priority.unwrap_or_default() {
+        CommPriority::High => tx_high,
+        CommPriority::Normal => tx_normal,
+    };
+
+    tx.try_send(bytes).map_err(|err| match err {
+        TrySendError::Full(_) => "TCP write queue is full".to_string(),
+        TrySendError::Closed(_) => "TCP connection is closed".to_string(),
+    })?;
+
+    Ok(seq)
+}
+
+#[tauri::command]
+pub async fn send_serial_hmip_frame(
+    state: State<'_, CommState>,
+    frame: HmipSendFrame,
+) -> Result<u32, String> {
+    let (tx_high, tx_normal) = {
+        let serial_lock = state.serial.lock().await;
+        let handle = serial_lock
+            .as_ref()
+            .ok_or_else(|| "Serial port not connected".to_string())?;
+        (handle.tx_high.clone(), handle.tx_normal.clone())
+    };
+
+    let seq = next_hmip_seq(frame.seq);
+    let flags = frame.flags.unwrap_or(0);
+    let channel = frame.channel.unwrap_or(0);
+    let bytes = proto::encode_frame(proto::EncodeFrameParams {
+        msg_type: frame.msg_type,
+        flags,
+        channel,
+        seq,
+        payload: &frame.payload,
+    });
+
+    let tx = match frame.priority.unwrap_or_default() {
+        CommPriority::High => tx_high,
+        CommPriority::Normal => tx_normal,
+    };
+
+    tx.try_send(bytes).map_err(|err| match err {
+        TrySendError::Full(_) => "Serial write queue is full".to_string(),
+        TrySendError::Closed(_) => "Serial connection is closed".to_string(),
+    })?;
+
+    Ok(seq)
 }
 
 /// 启动传感器数据模拟

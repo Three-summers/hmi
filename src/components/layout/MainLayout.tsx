@@ -33,6 +33,8 @@ import { useAlarmStore, useNavigationStore, useAppStore } from "@/stores";
 import {
     useKeyboardShortcuts,
     useFrontendLogBridge,
+    useCommEventBridge,
+    useHmipEventBridge,
     useHMIScale,
     useNotify,
 } from "@/hooks";
@@ -76,6 +78,12 @@ export function MainLayout() {
 
     // 安装前端日志桥接（可选，通过设置开关控制）
     useFrontendLogBridge();
+
+    // 安装 Comm 事件桥接：将后端 comm-event 分发到前端读模型/告警
+    useCommEventBridge();
+
+    // 安装 HMIP 事件桥接：将后端 hmip-event 分发到前端读模型/告警
+    useHmipEventBridge();
 
     // 安装 HMI 缩放系统（rem + 动态根字体）
     useHMIScale();
