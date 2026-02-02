@@ -97,3 +97,27 @@ Keep-Alive 会让页面在后台仍然挂载，因此需要避免：
    - `lazy(() => import(...))` 组件
 4. 如页面含轮询/动画/订阅，建议使用 `useIsViewActive()` 做可见性门控
 
+## 7. 通信/协议事件桥接（后端 → Store/告警）
+
+目标：把后端的“连接/收发/协议解码”观测信息稳定注入前端数据层，并驱动 E95 语义高亮（Nav/Title/Command）。
+
+实现方式：在 `MainLayout` 统一安装 bridge hook（避免各视图自行订阅导致 Keep-Alive 泄漏）。
+
+- `useCommEventBridge`：
+  - 订阅后端 `comm-event`（连接/重连/收发/错误）
+  - 写入 `commStore` 读模型（status/计数/事件日志）
+  - 将关键错误映射为 warning 告警（含短窗口去重）
+- `useHmipEventBridge`：
+  - 订阅后端 `hmip-event`（HMIP 解码结果/解码错误）
+  - 写入 `hmipStore` 读模型（统计 + 事件日志）
+  - 将 decode_error / 协议错误映射为 warning 告警（含短窗口去重）
+
+关键文件：
+
+- `src/components/layout/MainLayout.tsx`
+- `src/hooks/useCommEventBridge.ts`
+- `src/hooks/useHmipEventBridge.ts`
+- `src/stores/commStore.ts`
+- `src/stores/hmipStore.ts`
+
+协议细节：见 `docs/implementation/11-hmip-binary-protocol.md`。

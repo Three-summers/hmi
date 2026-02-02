@@ -18,6 +18,8 @@
 - 快捷键：`src/hooks/useKeyboardShortcuts.ts`
 - 缩放系统：`src/hooks/useHMIScale.ts`
 - 前端日志桥接：`src/hooks/useFrontendLogBridge.ts`（默认关闭）
+- 通信事件桥接：`src/hooks/useCommEventBridge.ts`（订阅 `comm-event`，写入 commStore + 告警映射）
+- 协议事件桥接：`src/hooks/useHmipEventBridge.ts`（订阅 `hmip-event`，写入 hmipStore + 告警映射）
 - 主题切换：通过 `document.documentElement.dataset.theme`
 
 字符画：布局组合
@@ -180,4 +182,3 @@ Keep-Alive 场景下，很多视图长期挂载。
 目标：
 
 - 某个视图渲染异常时，只降级该区域并提供“重试/返回安全视图”，避免整个应用白屏。
-

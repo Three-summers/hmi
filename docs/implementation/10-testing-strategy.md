@@ -82,3 +82,23 @@ Keep-Alive 会导致“组件不卸载但不可见”，因此测试应关注：
 
 这些点在实际运行中直接影响 CPU 与用户体验，是 Keep-Alive 架构的关键验收项。
 
+## 6. 事件流与桥接的测试：listen mock + 计时控制
+
+随着 `platform/events` 与通用 `useTauriEventStream` 的引入，事件相关逻辑大多可以在 Vitest/JSDOM 下验证：
+
+- `useTauriEventStream`：
+  - mock `@/platform/events.listen`，捕获 handler，并验证 `unlisten` 是否在 unmount/错误路径下被调用
+  - 控制 `performance.now()`：验证 `maxHz` 节流“不影响 latestRef，但会丢弃过密 onEvent”
+- `useCommEventBridge` / `useHmipEventBridge`：
+  - mock `Date.now()`：验证错误告警的短窗口去重
+  - 注入可观测的 `alarmStore.addAlarm`：避免依赖持久化与内部计数器
+- `commStore/hmipStore` 读模型：
+  - 直接调用 `handleCommEvent/handleHmipEvent`，验证状态聚合与事件日志上限（防止无限增长）
+
+对照源码与用例：
+
+- `src/hooks/useTauriEventStream.test.ts`
+- `src/hooks/useCommEventBridge.test.ts`
+- `src/hooks/useHmipEventBridge.test.ts`
+- `src/stores/__tests__/commStore.events.test.ts`
+- `src/stores/__tests__/hmipStore.events.test.ts`

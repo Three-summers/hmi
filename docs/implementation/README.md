@@ -20,6 +20,7 @@
 - `08-error-retry-logging.md`：错误处理、重试体系、前端日志桥接
 - `09-theme-scale-i18n.md`：主题/缩放/i18n 的实现方式与联动点
 - `10-testing-strategy.md`：单元测试与 mock 策略（Vitest/JSDOM/依赖注入）
+- `11-hmip-binary-protocol.md`：HMIP 二进制协议（帧格式/CRC/消息类型/事件流）
 
 ## 约定：如何在文档里“对照源码”
 
@@ -39,8 +40,8 @@
 │  代码：src/                  │
 └───────────────┬──────────────┘
                 │ invoke / event listen
-                │  - invoke: @tauri-apps/api/core
-                │  - listen: @tauri-apps/api/event
+                │  - invoke: src/platform/invoke.ts (动态 import @tauri-apps/api/core)
+                │  - listen: src/platform/events.ts (动态 import @tauri-apps/api/event)
                 ▼
 ┌──────────────────────────────┐
 │           Backend             │
@@ -52,6 +53,8 @@
 关键点：
 
 - **调用（RPC）**：前端通过 `src/platform/invoke.ts` 统一入口调用后端 `#[tauri::command]`
-- **推送（Event）**：后端通过 `app.emit("spectrum-data", payload)` 推送，前端通过 `listen("spectrum-data", cb)` 订阅
-- **双模运行**：浏览器模式下没有 Tauri API，需要 `isTauri()` 分支与 invoke mock（详见 `03-ipc-and-platform.md`）
-
+- **推送（Event）**：后端通过 `app.emit(...)` 推送多条事件流，前端通过 `src/platform/events.ts` 统一入口订阅
+  - `spectrum-data`：传感器模拟的 SpectrumData（Monitor 频谱链路）
+  - `comm-event`：串口/TCP 连接/收发/错误等通用事件（写入 commStore 读模型）
+  - `hmip-event`：HMIP 协议解码结果/解码错误（写入 hmipStore 读模型）
+- **双模运行**：浏览器模式下没有 Tauri API，需要 `isTauri()` 分支与 invoke/events 的降级策略（详见 `03-ipc-and-platform.md`）

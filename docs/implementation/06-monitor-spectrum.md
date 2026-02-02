@@ -65,6 +65,11 @@
 
 统一封装起来。
 
+补充：为避免不同模块重复实现 listen/start/stop/节流/错误清理，本项目已将通用能力抽象为：
+
+- `src/hooks/useTauriEventStream.ts`：通用事件流订阅 Hook（门控 + 节流 + 错误态 + unlisten 清理）
+- `useSpectrumData` 是其特化：补充 `SpectrumData` 类型与 stats 计算逻辑
+
 ### 3.1 enabled + isTauri：双门控
 
 字符画：什么时候会真正订阅？
@@ -216,4 +221,3 @@ ResizeObserver -> 得到 width/height
 ```
 
 这能最大程度复用已有 UI/交互/性能策略。
-

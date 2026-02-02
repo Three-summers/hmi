@@ -17,6 +17,7 @@
 
 - Tauri 环境判断：`src/platform/tauri.ts`（`isTauri()`）
 - invoke 抽象：`src/platform/invoke.ts`（Tauri 调用/浏览器 mock 统一入口）
+- 事件订阅抽象：`src/platform/events.ts`（Tauri listen 动态 import + 错误收敛）
 
 ## 2. 启动入口（前端 / 后端）
 
@@ -66,7 +67,7 @@ tauri dev
 
 ```
 Frontend (src/)
-  ├─ platform/          平台抽象（isTauri / invoke / window）
+  ├─ platform/          平台抽象（isTauri / invoke / events / window）
   ├─ stores/            状态管理（Zustand）
   ├─ hooks/             副作用与逻辑复用（订阅、图表、重试等）
   ├─ components/layout/ 主布局 + Keep-Alive + 命令系统
@@ -77,7 +78,7 @@ Frontend (src/)
 Backend (src-tauri/src/)
   ├─ lib.rs              Tauri Builder / plugins / command 注册 / state 注入
   ├─ commands.rs         #[tauri::command] RPC 接口集合
-  ├─ comm/               串口与 TCP 通信实现
+  ├─ comm/               串口/TCP 字节流 + Actor + HMIP 协议封装
   └─ sensor.rs           频谱数据模拟 + 事件推送
 ```
 
@@ -97,8 +98,13 @@ UI/Store/Hook
 
 ```
 Rust: app.emit("spectrum-data", payload)  (src-tauri/src/sensor.rs)
-  └─ Frontend: listen("spectrum-data", cb) (src/hooks/useSpectrumData.ts)
+  └─ Frontend: listen("spectrum-data", cb) (src/platform/events.ts / src/hooks/useSpectrumData.ts)
+
+Rust: app.emit("comm-event", payload)     (src-tauri/src/comm/actor.rs)
+  └─ Frontend: useCommEventBridge() -> 写入 commStore 读模型 + 告警映射 (MainLayout 安装)
+
+Rust: app.emit("hmip-event", payload)     (src-tauri/src/comm/actor.rs)
+  └─ Frontend: useHmipEventBridge() -> 写入 hmipStore 读模型 + 告警映射 (MainLayout 安装)
 ```
 
 后续模块文档会围绕这两条主干展开：哪里发起、哪里消费、怎么做性能/错误处理/降级。
-

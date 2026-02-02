@@ -465,9 +465,9 @@ App
 │       子视图: useRegisterSubViewCommands(id, cmds, enabled)  │
 │       面板: useSubViewCommandState() → subCommandsByView     │
 │                                                               │
-│  5. Event Emitter（Tauri → Frontend）                        │
-│     Rust: app.emit("spectrum-data", &data)                   │
-│     React: listen("spectrum-data", callback)                 │
+│  5. Event Stream（Tauri → Frontend）                         │
+│     Rust: app.emit("spectrum-data" | "comm-event" | "hmip-event", payload)│
+│     React: src/platform/events.listen(...) / useTauriEventStream / 全局 bridge│
 │                                                               │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -485,7 +485,8 @@ src-tauri/src/
 │   ├── 插件注册
 │   │   ├── tauri_plugin_log      # 日志插件
 │   │   ├── tauri_plugin_shell    # Shell 插件
-│   │   └── tauri_plugin_fs       # 文件系统插件
+│   │   ├── tauri_plugin_fs       # 文件系统插件
+│   │   └── tauri_plugin_dialog   # 系统对话框插件
 │   │
 │   ├── 命令注册
 │   │   └── invoke_handler(...)   # 注册所有 Tauri 命令
@@ -496,6 +497,7 @@ src-tauri/src/
 │
 ├── commands.rs             # Tauri 命令定义
 │   ├── get_log_dir               # 获取日志目录
+│   ├── save_spectrum_screenshot  # 保存频谱分析仪截图
 │   ├── get_serial_ports          # 列出可用串口
 │   ├── connect_serial            # 连接串口
 │   ├── disconnect_serial         # 断开串口
@@ -503,6 +505,8 @@ src-tauri/src/
 │   ├── connect_tcp               # 连接 TCP
 │   ├── disconnect_tcp            # 断开 TCP
 │   ├── send_tcp_data             # 发送 TCP 数据
+│   ├── send_tcp_hmip_frame       # 发送 HMIP 帧（TCP）
+│   ├── send_serial_hmip_frame    # 发送 HMIP 帧（串口）
 │   ├── start_sensor_simulation   # 启动传感器模拟
 │   ├── stop_sensor_simulation    # 停止传感器模拟
 │   └── frontend_log_batch        # 前端日志批量转发
@@ -513,13 +517,10 @@ src-tauri/src/
 │
 └── comm/                   # 通信模块
     ├── mod.rs                    # 模块入口 + CommState
-    ├── serial.rs                 # 串口通信
-    │   ├── SerialConfig          # 配置结构
-    │   ├── SerialConnection      # 连接管理
-    │   └── list_ports()          # 枚举端口
-    └── tcp.rs                    # TCP 通信
-        ├── TcpConfig             # 配置结构
-        └── TcpConnection         # 连接管理
+    ├── actor.rs                  # IO 循环 + 重连 + 事件推送（comm-event/hmip-event）
+    ├── proto.rs                  # HMIP 协议：封帧/解帧/CRC/重同步/消息 decode
+    ├── serial.rs                 # 串口：配置 + open_stream + list_ports
+    └── tcp.rs                    # TCP：配置 + open_stream
 ```
 
 ### 7.2 Tauri 命令调用流程
@@ -673,25 +674,32 @@ src-tauri/src/
 │                             │                      │             │
 │                             │                      ▼             │
 │                             │            ┌────────────────────┐ │
-│                             │            │ SerialConnection   │ │
-│                             │            │ ::new(config)      │ │
+│                             │            │ serial::open_stream│ │
 │                             │            └────────────────────┘ │
 │                             │                      │             │
 │                             │                      ▼             │
 │                             │            ┌────────────────────┐ │
-│                             │            │ tokio_serial       │ │
-│                             │            │ open_native_async()│ │
+│                             │            │ spawn_serial_actor │ │
+│                             │            │ -> CommActorHandle │ │
 │                             │            └────────────────────┘ │
 │                             │                      │             │
 │                             │                      ▼             │
 │                             │            ┌────────────────────┐ │
-│                             │            │ Physical Serial    │ │
-│                             │            │ Port (Hardware)    │ │
+│                             │            │ Actor IO Loop      │ │
+│                             │            │ read/write/reconnect│ │
+│                             │            │ HMIP decode (proto)│ │
+│                             │            └────────────────────┘ │
+│                             │                      │             │
+│                             │                      ▼             │
+│                             │            ┌────────────────────┐ │
+│                             │            │ Physical Transport  │ │
+│                             │            │ (Serial/TCP)        │ │
 │                             │            └────────────────────┘ │
 │                             │                                    │
 │  ◀──────────────────────────┴────────────────────────────────── │
 │  状态更新：                                                       │
 │  • serialConnected: true                                        │
+│  • serialStatus: "connected"                                    │
 │  • serialConfig: {...}                                          │
 │  • lastError: undefined                                         │
 │                                                                  │
@@ -704,6 +712,14 @@ src-tauri/src/
 │    options?.onError?.(message, error)                           │
 │    throw error  // 继续向上抛出                                   │
 │  }                                                               │
+│                                                                  │
+│  Rust -> Frontend events（观测/读模型）：                          │
+│  • comm-event：connected/disconnected/reconnecting/rx/tx/error   │
+│  • hmip-event：message/decode_error                              │
+│                                                                  │
+│  Frontend bridges（MainLayout 安装）：                             │
+│  • useCommEventBridge -> commStore.handleCommEvent + 告警映射      │
+│  • useHmipEventBridge -> hmipStore.handleHmipEvent + 告警映射      │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -760,8 +776,20 @@ src-tauri/src/
 │  │  ┌─────────────────────────────────────────────────────┐    ││
 │  │  │  serialConnected: boolean                            │    ││
 │  │  │  tcpConnected: boolean                               │    ││
-│  │  │  serialConfig?: SerialConfig                         │    ││
-│  │  │  tcpConfig?: TcpConfig                               │    ││
+│  │  │  serialStatus/tcpStatus: CommTransportStatus          │    ││
+│  │  │  serialRxBytes/TxBytes, tcpRxBytes/TxBytes            │    ││
+│  │  │  commEventLog: CommEvent[] (max=200)                  │    ││
+│  │  │  lastError?: string                                  │    ││
+│  │  └─────────────────────────────────────────────────────┘    ││
+│  │  持久化: 无                                                   ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                     hmipStore (协议)                         ││
+│  │  ┌─────────────────────────────────────────────────────┐    ││
+│  │  │  serialMessageCount/tcpMessageCount                  │    ││
+│  │  │  serialDecodeErrorCount/tcpDecodeErrorCount          │    ││
+│  │  │  hmipEventLog: HmipEvent[] (max=200)                 │    ││
 │  │  │  lastError?: string                                  │    ││
 │  │  └─────────────────────────────────────────────────────┘    ││
 │  │  持久化: 无                                                   ││
@@ -816,10 +844,11 @@ const state = useNavigationStore();
 │  │                                                            │  │
 │  │  操作：                                                     │  │
 │  │  • list_ports() → Vec<String>                             │  │
-│  │  • connect(config) → Result<(), String>                   │  │
-│  │  • send(data) → Result<(), String>                        │  │
-│  │  • receive(buffer) → Result<usize, String>                │  │
-│  │  • disconnect() → Result<(), String>                      │  │
+│  │  • connect_serial(config) → Result<(), String>            │  │
+│  │  • disconnect_serial() → Result<(), String>               │  │
+│  │  • send_serial_data(data, priority?) → Result<(), String> │  │
+│  │  • send_serial_hmip_frame(frame) → Result<u32, String>    │  │
+│  │  • 后端推送：comm-event / hmip-event                      │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │                                                                  │
 │  ┌───────────────────────────────────────────────────────────┐  │
@@ -831,10 +860,11 @@ const state = useNavigationStore();
 │  │  • timeout_ms: u64       (默认 5000ms)                    │  │
 │  │                                                            │  │
 │  │  操作：                                                     │  │
-│  │  • connect(config) → Result<(), String>                   │  │
-│  │  • send(data) → Result<(), String>                        │  │
-│  │  • receive(buffer) → Result<usize, String>                │  │
-│  │  • disconnect() → Result<(), String>                      │  │
+│  │  • connect_tcp(config) → Result<(), String>               │  │
+│  │  • disconnect_tcp() → Result<(), String>                  │  │
+│  │  • send_tcp_data(data, priority?) → Result<(), String>    │  │
+│  │  • send_tcp_hmip_frame(frame) → Result<u32, String>       │  │
+│  │  • 后端推送：comm-event / hmip-event                      │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -847,42 +877,26 @@ const state = useNavigationStore();
 │                    Connection State Machine                      │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│                      ┌──────────────┐                           │
-│                      │  Disconnected │                           │
-│                      │  (Initial)    │                           │
-│                      └───────┬───────┘                           │
-│                              │                                   │
-│                    connect() │                                   │
-│                              ▼                                   │
-│                      ┌──────────────┐                           │
-│             ┌────────│  Connecting  │────────┐                  │
-│             │        └──────────────┘        │                  │
-│             │                                │                  │
-│      timeout│                         success│                  │
-│             ▼                                ▼                  │
-│     ┌──────────────┐                ┌──────────────┐           │
-│     │    Error     │                │  Connected   │◀──┐       │
-│     │              │                │              │   │       │
-│     └──────┬───────┘                └───────┬──────┘   │       │
-│            │                                │          │       │
-│            │                      send()    │    recv()│       │
-│            │                                ▼          │       │
-│            │                       ┌──────────────┐   │       │
-│            │                       │ Communicating│───┘       │
-│            │                       └──────────────┘           │
-│            │                                │                  │
-│            │                     disconnect()                   │
-│            │                                │                  │
-│            └────────────────────────────────┼──────────────────│
-│                                             ▼                  │
-│                                      ┌──────────────┐          │
-│                                      │  Disconnected │          │
-│                                      └──────────────┘          │
+│  ┌──────────────┐        comm-event.connected         ┌──────────────┐│
+│  │ disconnected │ ───────────────────────────────────▶│  connected   ││
+│  └──────┬───────┘                                      └──────┬───────┘│
+│         │ comm-event.reconnecting                             │ rx/tx/error│
+│         ▼                                                     │            │
+│  ┌──────────────┐        comm-event.connected         ┌──────────────┐    │
+│  │ reconnecting │ ───────────────────────────────────▶│  connected   │◀───┘
+│  └──────┬───────┘                                      └──────┬───────┘
+│         │ disconnect_*()                                       │ disconnect_*()
+│         └────────────────────────────── comm-event.disconnected ┘
 │                                                                  │
-│  状态存储：                                                       │
-│  • serialConnected / tcpConnected: boolean                      │
-│  • serialConfig / tcpConfig: 当前配置                            │
-│  • lastError: 最近一次错误信息                                   │
+│  事件：                                                          │
+│  • reconnecting: { attempt, delay_ms }                           │
+│  • rx/tx: 计数、字节累计、文本预览（用于调试）                     │
+│  • hmip-event: message/decode_error（协议观测）                   │
+│                                                                  │
+│  状态存储（前端读模型）：                                         │
+│  • serialStatus / tcpStatus: disconnected|connected|reconnecting  │
+│  • serialConnected / tcpConnected: boolean（兼容/派生）            │
+│  • lastError: 最近一次错误信息                                    │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -2224,16 +2238,19 @@ setTimeout(() => {
 | 命令名 | 功能 | 参数 | 返回值 |
 |--------|------|------|--------|
 | get_log_dir | 获取日志目录 | - | String |
+| save_spectrum_screenshot | 保存频谱分析仪截图 | { filename, data_base64, directory? } | String |
 | get_serial_ports | 列出可用串口 | - | Vec<String> |
 | connect_serial | 连接串口 | SerialConfig | () |
 | disconnect_serial | 断开串口 | - | () |
-| send_serial_data | 发送串口数据 | Vec<u8> | () |
+| send_serial_data | 发送串口数据 | { data: Vec<u8>, priority? } | () |
 | connect_tcp | 连接 TCP | TcpConfig | () |
 | disconnect_tcp | 断开 TCP | - | () |
-| send_tcp_data | 发送 TCP 数据 | Vec<u8> | () |
+| send_tcp_data | 发送 TCP 数据 | { data: Vec<u8>, priority? } | () |
+| send_serial_hmip_frame | 发送 HMIP 帧（串口） | { frame: HmipSendFrame } | u32(seq) |
+| send_tcp_hmip_frame | 发送 HMIP 帧（TCP） | { frame: HmipSendFrame } | u32(seq) |
 | start_sensor_simulation | 启动传感器模拟 | - | () |
 | stop_sensor_simulation | 停止传感器模拟 | - | () |
-| frontend_log_batch | 前端日志批量转发 | Vec<LogEntry> | () |
+| frontend_log_batch | 前端日志批量转发 | Vec<FrontendLogEntry> | () |
 
 ### C. 常量配置速查
 

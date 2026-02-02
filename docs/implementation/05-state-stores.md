@@ -10,7 +10,8 @@
 - `navigationStore.ts`：主视图切换、历史栈、对话框状态、未完成任务标记
 - `alarmStore.ts`：告警列表 + 未确认计数（持久化）
 - `notificationStore.ts`：Toast 通知列表（内存态）
-- `commStore.ts`：前端通信操作封装（invoke + timeout + 错误收敛）
+- `commStore.ts`：通信操作 + `comm-event` 读模型（invoke + timeout + 错误收敛 + 事件聚合）
+- `hmipStore.ts`：`hmip-event` 读模型（协议解码事件统计 + 有限长度事件日志）
 - `spectrumAnalyzerStore.ts`：频谱分析参数（持久化）+ 运行时缓存（MaxHold/Average/瀑布图缓冲）
 
 字符画：Store 与 UI 的关系（概念）
@@ -131,6 +132,8 @@ addNotification(...)
 - 把“UI 按钮点击”变成类型化的异步动作：connect/disconnect/send/listPorts
 - 所有后端交互统一走 `src/platform/invoke.ts`
 - 统一做 `withTimeout` + `toErrorMessage`，并写入 `lastError`
+- 同时维护后端 `comm-event` 的读模型（status/计数/文本预览/事件日志），便于 UI selector 使用
+- 提供 HMIP 发送 API：前端 payload → Rust 封帧 → Transport 写入
 
 字符画：前端 config 到后端 config 的字段映射
 
@@ -143,7 +146,21 @@ SerialConfig (TS, camelCase)
 invoke("connect_serial", { config: { ...snake_case... } })
 ```
 
-## 7. spectrumAnalyzerStore：配置持久化 + 实时缓存
+## 7. hmipStore：协议事件读模型（hmip-event）
+
+源码对应：`src/stores/hmipStore.ts`
+
+定位：
+
+- 收敛后端 `hmip-event`（Rust 已完成 HMIP 解码）到前端 selector-friendly 的读模型
+- 维护有限长度的事件日志（默认上限 200），便于调试与回放
+
+与 UI 的职责边界约定：
+
+- bridge（`useHmipEventBridge`）负责：订阅事件、错误/解码失败告警映射与去重
+- store（`hmipStore`）负责：统计字段聚合 + 事件日志存储（避免把 UI 语义写进数据层）
+
+## 8. spectrumAnalyzerStore：配置持久化 + 实时缓存
 
 源码对应：`src/stores/spectrumAnalyzerStore.ts`
 
@@ -181,4 +198,3 @@ pushWaterfallRow(row)
 ```
 
 > 对“频谱链路”的详细解释见 `06-monitor-spectrum.md`。
-

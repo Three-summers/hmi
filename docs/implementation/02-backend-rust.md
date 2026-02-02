@@ -73,7 +73,7 @@ debug?
 
 ### 2.2 串口 / TCP 命令：连接状态存放在哪里？
 
-后端用 `CommState` 保存连接对象：
+后端用 `CommState` 保存 **Actor 句柄**（而不是直接持有连接对象）：
 
 源码对应：
 
@@ -84,22 +84,30 @@ debug?
 
 ```
 CommState
-  serial: Arc<Mutex<Option<SerialConnection>>>
-  tcp:    Arc<Mutex<Option<TcpConnection>>>
+  serial: Arc<Mutex<Option<CommActorHandle>>>
+  tcp:    Arc<Mutex<Option<CommActorHandle>>>
 ```
 
 字符画：命令与状态的关系
 
 ```
 connect_serial(config)
-  ├─ SerialConnection::new(config)
-  └─ state.serial.lock().await = Some(conn)
+  ├─ serial::open_stream(config)
+  ├─ spawn_serial_actor(app, config, stream) -> CommActorHandle
+  └─ state.serial.lock().await = Some(handle)   (如有旧 handle，先 shutdown)
 
-send_serial_data(bytes)
-  ├─ lock serial
-  ├─ if Some(conn) -> conn.send(bytes).await
-  └─ else -> Err("Serial port not connected")
+send_serial_data(bytes, priority?)
+  ├─ lock serial -> 拿到 handle.tx_high/tx_normal
+  ├─ priority=high -> try_send(tx_high)
+  ├─ priority=normal(default) -> try_send(tx_normal)
+  └─ else -> Err("Serial port not connected" / "write queue is full" / "connection is closed")
 ```
+
+Actor 的额外价值：
+
+- 统一 IO 循环（读/写/超时）与异常处理
+- 自动重连（带退避），并通过 `comm-event` 把状态推送到前端
+- 在读路径上尝试解析 HMIP 帧，并通过 `hmip-event` 推送协议事件（便于对接与观测）
 
 ### 2.3 前端日志批量转发：frontend_log_batch
 
@@ -112,43 +120,80 @@ send_serial_data(bytes)
 
 - 把 WebView 内的 console/error 汇总到 Rust log（target = `frontend`），便于终端过滤与调试。
 
-## 3. 通信实现：comm/serial.rs 与 comm/tcp.rs
+### 2.4 HMIP：send_*_hmip_frame（前端 payload → Rust 封帧 → Transport 写入）
 
 源码对应：
 
+- `src-tauri/src/commands.rs`：`send_tcp_hmip_frame` / `send_serial_hmip_frame`
+- `src-tauri/src/comm/proto.rs`：`encode_frame`（HMIP 头部 + 可选 CRC32）
+
+命令参数（概念）：
+
+```
+HmipSendFrame {
+  msg_type: u8,
+  payload: Vec<u8>,
+  flags?: u8,
+  channel?: u8,
+  seq?: u32,
+  priority?: high|normal
+}
+```
+
+行为要点：
+
+- 若未指定 `seq`：后端生成自增序号（便于对端关联与日志定位）
+- `flags & 0x01` 时：后端在帧头写入 `payload_crc32` 并做校验
+
+> HMIP 协议细节见：`docs/implementation/11-hmip-binary-protocol.md`。
+
+## 3. 通信实现：comm/actor.rs + comm/proto.rs + comm/serial.rs + comm/tcp.rs
+
+源码对应：
+
+- `src-tauri/src/comm/actor.rs`
+- `src-tauri/src/comm/proto.rs`
 - `src-tauri/src/comm/serial.rs`
 - `src-tauri/src/comm/tcp.rs`
 
-### 3.1 SerialConnection
+### 3.1 serial.rs：串口配置 + open_stream
 
 要点：
 
-- 使用 `tokio-serial` 打开串口（async）
-- 提供 `send/receive`（当前前端只用到 send，receive 暂未接入 UI）
+- 使用 `tokio-serial` 构建串口参数（dataBits/stopBits/parity）
+- `open_stream(config)` 打开 `SerialStream`
+- `list_ports()` 枚举可用串口名
 
-字符画：串口对象生命周期
-
-```
-SerialConnection::new(config)
-  └─ tokio_serial::new(port, baud).open_native_async()
-
-send(data)
-  └─ AsyncWriteExt::write_all(port, data).await
-```
-
-### 3.2 TcpConnection
+### 3.2 tcp.rs：TCP 配置 + open_stream
 
 要点：
 
-- `TcpStream::connect(addr)` 包一层 `tokio::time::timeout`
-- 提供 `send/receive`
+- `open_stream(config)`：`timeout(timeout_ms, TcpStream::connect(addr))`
+- `set_nodelay(true)`：减少小包交互延迟（现场常见需求）
 
-字符画：TCP 连接超时
+### 3.3 actor.rs：IO 循环 + 重连 + 事件推送
 
-```
-TcpConnection::new(config)
-  └─ timeout(config.timeout_ms, TcpStream::connect(addr)).await
-```
+Actor 的职责：
+
+- 管理单条连接的读写循环（读/写并发 + 写超时）
+- 维护两级写队列（high/normal），支持控制/报警类消息优先写入
+- 断线/异常时自动重连（带退避），并向前端 emit `comm-event`
+- 在读路径上对字节流尝试解析 HMIP 帧，对解码结果 emit `hmip-event`
+
+事件名：
+
+- `comm-event`：connected/disconnected/reconnecting/rx/tx/error
+- `hmip-event`：message/decode_error（含 dropped_bytes 与 message summary）
+
+### 3.4 proto.rs：HMIP 协议（封帧/解帧/CRC/重同步）
+
+proto 模块提供：
+
+- `encode_frame(...)`：构造 HMIP 帧头并拼接 payload（可选 CRC32）
+- `FrameDecoder`：支持拆包/粘包与 magic 重同步的流式解码器
+- `decode_message(frame)`：把推荐 msg_type 解码为可观测的 Message（未知类型保留为 Raw）
+
+> 协议细节（帧格式/消息 payload）见：`docs/implementation/11-hmip-binary-protocol.md`。
 
 ## 4. 事件推送：SensorSimulator 与 spectrum-data
 
@@ -212,4 +257,3 @@ SensorSimulator::start(app)
 ```
 
 这样能把变更收敛在后端采集模块，最大程度复用前端渲染与交互逻辑。
-

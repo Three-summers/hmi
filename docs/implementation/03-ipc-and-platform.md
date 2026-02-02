@@ -66,17 +66,25 @@ toggleFullscreen()
 
 ## 4. 事件：listen 与 emit 的“订阅-推送”模型
 
-本项目实时数据采用 **后端推送**：
+与 `invoke` 类似，本项目把 Tauri 事件订阅也抽象成统一入口：
 
-- 后端：`app.emit("spectrum-data", payload)`（`src-tauri/src/sensor.rs`）
-- 前端：`listen("spectrum-data", cb)`（`src/hooks/useSpectrumData.ts`）
+- `src/platform/events.ts`：`listen(eventName, handler)`（动态 import `@tauri-apps/api/event`，避免浏览器模式运行时报错）
+- 失败时抛 `EventError`（包含 `code/eventName/cause`），便于上层做降级与提示
+
+本项目实时数据采用 **后端推送**（event stream）：
+
+| eventName | 生产者（Rust） | 消费者（TS） | 用途 |
+| --- | --- | --- | --- |
+| `spectrum-data` | `src-tauri/src/sensor.rs` | `src/hooks/useSpectrumData.ts` | 传感器模拟的频谱数据 |
+| `comm-event` | `src-tauri/src/comm/actor.rs` | `src/hooks/useCommEventBridge.ts` | 串口/TCP 通用事件（连接/收发/错误/重连） |
+| `hmip-event` | `src-tauri/src/comm/actor.rs` | `src/hooks/useHmipEventBridge.ts` | HMIP 解码结果/解码错误（对接期观测） |
 
 字符画：事件流（Sequence）
 
 ```
 Frontend (WebView)                         Backend (Rust)
 ────────────────────────────────────────────────────────────────
-listen("spectrum-data", cb)        (建立监听，拿到 unlisten)
+listen("spectrum-data", cb)        (src/platform/events.ts：建立监听，拿到 unlisten)
 invoke("start_sensor_simulation")  ───────────────► start()
                                                spawn loop
                                      emit("spectrum-data", frame) ──► cb(frame)
@@ -89,6 +97,12 @@ unlisten()  (cleanup)
 
 - 数据更新频率高（50ms），用事件推送比轮询更直接
 - UI 可以按“视图可见性”控制订阅（详见 `06-monitor-spectrum.md`、`04-layout-and-view-lifecycle.md`）
+
+补充：两种常见消费方式
+
+1) **高频数据（如 spectrum-data）**：推荐用 `useTauriEventStream` 把 listen + start/stop + 门控 + 节流做成可复用能力，然后由特化 hook（如 `useSpectrumData`）补充业务统计。
+
+2) **全局“读模型事件”（如 comm-event/hmip-event）**：推荐在 `MainLayout` 安装 bridge hook，把事件写入 Store（并做告警去重），避免每个视图各自订阅导致 Keep-Alive 泄漏。
 
 ## 5. 文件系统能力：plugin-fs 的前后端对应
 
@@ -119,5 +133,4 @@ FilesView
 平台抽象层（`src/platform/*`）的核心不是“封装 API”，而是：
 
 - 让上层业务代码**尽可能不关心**自己运行在 Tauri 还是浏览器
-- 把差异集中在少数入口（`isTauri`/`invoke`/`window`）
-
+- 把差异集中在少数入口（`isTauri`/`invoke`/`events`/`window`）
