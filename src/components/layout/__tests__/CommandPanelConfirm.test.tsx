@@ -1,11 +1,14 @@
+import { useMemo } from "react";
 import { fireEvent, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@/test/utils";
-import { useAlarmStore, useNavigationStore } from "@/stores";
+import type { CommandButtonConfig } from "@/types";
+import { useAlarmStore, useAppStore, useNavigationStore } from "@/stores";
 import { NavPanel } from "@/components/layout/NavPanel";
 import { CommandPanel } from "@/components/layout/CommandPanel";
 import {
     ViewCommandProvider,
+    useRegisterViewCommands,
     useViewCommandActions,
 } from "@/components/layout/ViewCommandContext";
 import { SubViewCommandProvider } from "@/components/layout/SubViewCommandContext";
@@ -23,6 +26,38 @@ function ConfirmTrigger({ title }: { title: string }) {
         >
             打开确认对话框
         </button>
+    );
+}
+
+function ProtectedCommandRegister({
+    onAction,
+}: {
+    onAction: () => void;
+}) {
+    const commands = useMemo<CommandButtonConfig[]>(
+        () => [
+            {
+                id: "authGuardAction",
+                labelKey: "test.authGuardAction",
+                ariaLabel: "AUTH_GUARD_ACTION",
+                onClick: onAction,
+            },
+        ],
+        [onAction],
+    );
+
+    useRegisterViewCommands("jobs", commands, true);
+    return null;
+}
+
+function AuthGuardLayout({ onAction }: { onAction: () => void }) {
+    return (
+        <ViewCommandProvider>
+            <SubViewCommandProvider>
+                <CommandPanel currentView="jobs" />
+                <ProtectedCommandRegister onAction={onAction} />
+            </SubViewCommandProvider>
+        </ViewCommandProvider>
     );
 }
 
@@ -63,6 +98,7 @@ describe("CommandPanel Confirm（SEMI E95：可切页、按视图持久化）", 
             },
             viewDialogStates: {},
         });
+        useAppStore.setState({ user: null });
     });
 
     it("切换视图时：对话框隐藏但状态保留；导航按钮高亮提示未完成任务", async () => {
@@ -116,5 +152,33 @@ describe("CommandPanel Confirm（SEMI E95：可切页、按视图持久化）", 
         fireEvent.click(getNavButton("jobs") as Element);
         expect(screen.getByText("TITLE:jobs")).toBeInTheDocument();
         expect(screen.queryByText("TITLE:monitor")).not.toBeInTheDocument();
+    });
+
+    it("未登录时点击命令会拦截执行并请求打开登录弹窗", () => {
+        const onAction = vi.fn();
+        const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+        render(<AuthGuardLayout onAction={onAction} />);
+
+        fireEvent.click(screen.getByLabelText("AUTH_GUARD_ACTION"));
+
+        expect(onAction).not.toHaveBeenCalled();
+        expect(dispatchSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                type: "hmi:request-login-dialog",
+            }),
+        );
+        dispatchSpy.mockRestore();
+    });
+
+    it("已登录时点击命令可正常执行", () => {
+        useAppStore.setState({
+            user: { id: "operator", name: "Operator", role: "operator" },
+        });
+        const onAction = vi.fn();
+
+        render(<AuthGuardLayout onAction={onAction} />);
+        fireEvent.click(screen.getByLabelText("AUTH_GUARD_ACTION"));
+
+        expect(onAction).toHaveBeenCalledTimes(1);
     });
 });

@@ -81,6 +81,14 @@ export interface CommandButtonConfig {
     /** aria-label 文案（用于动态内容） */
     ariaLabel?: string;
     disabled?: boolean;
+    /**
+     * 是否要求登录后才能执行命令（默认由 CommandPanel 视为 true）
+     *
+     * @description
+     * - true/未设置：未登录时点击会被拦截并弹出登录对话框
+     * - false：允许未登录执行（用于只读或辅助类命令）
+     */
+    requiresLogin?: boolean;
     highlight?: HighlightStatus;
     behavior?: ButtonBehavior;
     onClick?: () => void | Promise<void>;

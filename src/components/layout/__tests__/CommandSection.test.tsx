@@ -5,6 +5,7 @@ import { useAppStore } from "@/stores";
 import { CommandSection } from "../CommandSection";
 import { closeWindow, toggleFullscreen } from "@/platform/window";
 import { getStoredCredentials, verifyPassword } from "@/utils/auth";
+import { requestLoginDialog } from "@/utils/loginDialog";
 
 vi.mock("react-i18next", () => ({
     useTranslation: () => ({
@@ -98,6 +99,20 @@ describe("CommandSection", () => {
         expect(screen.queryByText("common.cancel")).not.toBeInTheDocument();
     });
 
+    it("收到登录请求事件时会打开登录弹窗", () => {
+        render(
+            <CommandSection unacknowledgedAlarmCount={0} unacknowledgedWarningCount={0} />,
+        );
+
+        act(() => {
+            requestLoginDialog();
+        });
+
+        expect(
+            screen.getByRole("heading", { name: "title.loginHere" }),
+        ).toBeInTheDocument();
+    });
+
     it("已登录时再次点击登录按钮会登出", () => {
         useAppStore.setState({
             user: { id: "operator", name: "operator", role: "operator" },
@@ -151,4 +166,3 @@ describe("CommandSection", () => {
         ).toBeInTheDocument();
     });
 });
-

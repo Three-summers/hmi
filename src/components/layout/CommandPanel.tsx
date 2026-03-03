@@ -9,9 +9,11 @@
  */
 
 import { useTranslation } from "react-i18next";
-import { useEffect } from "react";
-import type { ViewId } from "@/types";
+import { useCallback, useEffect } from "react";
+import type { CommandButtonConfig, ViewId } from "@/types";
 import { CommandIcons, InfoIcon, WarningIcon } from "@/components/common";
+import { useAppStore } from "@/stores";
+import { requestLoginDialog } from "@/utils/loginDialog";
 import { useViewCommandState } from "./ViewCommandContext";
 import { useSubViewCommandState } from "./SubViewCommandContext";
 import styles from "./CommandPanel.module.css";
@@ -95,6 +97,7 @@ function ConfirmModal({
  */
 export function CommandPanel({ currentView }: CommandPanelProps) {
     const { t } = useTranslation();
+    const user = useAppStore((state) => state.user);
     const { commandsByView, confirmStatesByView, closeConfirm, handleConfirm } =
         useViewCommandState();
     const { subCommandsByView } = useSubViewCommandState();
@@ -103,6 +106,29 @@ export function CommandPanel({ currentView }: CommandPanelProps) {
     const subViewCommands = subCommandsByView[currentView] ?? [];
     const commandCount = viewCommands.length + subViewCommands.length;
     const confirmState = confirmStatesByView[currentView];
+
+    const handleCommandClick = useCallback(
+        (cmd: CommandButtonConfig) => {
+            if (cmd.disabled) return;
+
+            const requiresLogin = cmd.requiresLogin ?? true;
+            if (requiresLogin && !user) {
+                requestLoginDialog();
+                return;
+            }
+
+            void cmd.onClick?.();
+        },
+        [user],
+    );
+
+    const handleConfirmClick = useCallback(() => {
+        if (!user) {
+            requestLoginDialog();
+            return;
+        }
+        handleConfirm(currentView);
+    }, [currentView, handleConfirm, user]);
 
     return (
         <div className={styles.commandPanel}>
@@ -129,7 +155,7 @@ export function CommandPanel({ currentView }: CommandPanelProps) {
                                 className={styles.commandButton}
                                 disabled={cmd.disabled}
                                 data-highlight={cmd.highlight}
-                                onClick={cmd.onClick}
+                                onClick={() => handleCommandClick(cmd)}
                                 title={cmd.title ?? t(cmd.titleKey ?? cmd.labelKey)}
                                 aria-label={
                                     cmd.ariaLabel ??
@@ -152,7 +178,7 @@ export function CommandPanel({ currentView }: CommandPanelProps) {
                                 className={styles.commandButton}
                                 disabled={cmd.disabled}
                                 data-highlight={cmd.highlight}
-                                onClick={cmd.onClick}
+                                onClick={() => handleCommandClick(cmd)}
                                 title={cmd.title ?? t(cmd.titleKey ?? cmd.labelKey)}
                                 aria-label={
                                     cmd.ariaLabel ??
@@ -177,7 +203,7 @@ export function CommandPanel({ currentView }: CommandPanelProps) {
                 isOpen={Boolean(confirmState?.isOpen)}
                 title={confirmState?.title ?? ""}
                 message={confirmState?.message ?? ""}
-                onConfirm={() => handleConfirm(currentView)}
+                onConfirm={handleConfirmClick}
                 onCancel={() => closeConfirm(currentView)}
             />
         </div>

@@ -16,6 +16,7 @@ import type { ThemeId, UserSession } from "@/types";
 import { useAppStore } from "@/stores";
 import { useNotify } from "@/hooks/useNotify";
 import { getStoredCredentials, verifyPassword } from "@/utils/auth";
+import { subscribeLoginDialogRequest } from "@/utils/loginDialog";
 import { closeWindow, toggleFullscreen } from "@/platform/window";
 
 /** 快速登录角色：直接复用 `UserSession.role` 的联合类型 */
@@ -205,6 +206,13 @@ export function useCommandHandler(): UseCommandHandlerReturn {
         window.addEventListener("keydown", handleKeyDown);
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, [closeScaleModal, showScaleModal]);
+
+    useEffect(() => {
+        return subscribeLoginDialogRequest(() => {
+            if (user) return;
+            openLoginModal();
+        });
+    }, [openLoginModal, user]);
 
     useEffect(() => {
         if (!showLoginModal) return;
