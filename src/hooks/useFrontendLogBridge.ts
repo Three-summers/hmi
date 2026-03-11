@@ -226,6 +226,7 @@ export function useFrontendLogBridge() {
             return `[view=${view}] ${base}`;
         };
 
+        // 这里实现是通过劫持 console 全局变量实现，将其函数替换成带入队和格式化的形式
         const patchConsole = (level: ConsoleLevel) => {
             const original = console[level] as (...args: unknown[]) => void;
             originals[level] = original;
@@ -282,6 +283,7 @@ export function useFrontendLogBridge() {
         };
 
         consoleLevels.forEach(patchConsole);
+        // 同时将全局错误也加入队列中统一处理
         window.addEventListener("error", onWindowError);
         window.addEventListener("unhandledrejection", onUnhandledRejection);
 

@@ -21,6 +21,8 @@ impl Default for TcpConfig {
 
 pub async fn open_stream(config: &TcpConfig) -> Result<TcpStream, String> {
     let addr = format!("{}:{}", config.host, config.port);
+    // 这里是两层 Result, 第一层是 timeout 的错误，第二层是 TcpStream::connect 的错误
+    // 所以第一个 map_err 是处理 timeout 的错误，第二个 map_err 是处理连接失败的错误
     let stream = tokio::time::timeout(
         Duration::from_millis(config.timeout_ms),
         TcpStream::connect(&addr),

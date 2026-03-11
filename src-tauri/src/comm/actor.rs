@@ -20,6 +20,7 @@ const RECONNECT_MIN_DELAY_MS: u64 = 200;
 const RECONNECT_MAX_DELAY_MS: u64 = 5000;
 
 #[derive(Debug, Clone, Copy, Deserialize)]
+// snake_case 在反序列化时使用蛇形命名，但在 Rust 代码中仍然使用驼峰命名，比如 CommPriority::High 会被序列化为 "high"
 #[serde(rename_all = "snake_case")]
 pub enum CommPriority {
     High,
@@ -196,10 +197,7 @@ fn emit_event(app: &AppHandle, event: &CommEvent) -> bool {
     match app.emit(COMM_EVENT_NAME, event) {
         Ok(_) => true,
         Err(err) => {
-            log::warn!(
-                "Failed to emit comm event (window may be closed): {}",
-                err
-            );
+            log::warn!("Failed to emit comm event (window may be closed): {}", err);
             false
         }
     }
@@ -209,10 +207,7 @@ fn emit_hmip_event(app: &AppHandle, event: &HmipEvent) -> bool {
     match app.emit(HMIP_EVENT_NAME, event) {
         Ok(_) => true,
         Err(err) => {
-            log::warn!(
-                "Failed to emit hmip event (window may be closed): {}",
-                err
-            );
+            log::warn!("Failed to emit hmip event (window may be closed): {}", err);
             false
         }
     }
@@ -250,6 +245,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
 
     loop {
         tokio::select! {
+            // 当多个分支同时准备就绪时，Tokio 会优先选择前面声明的分支执行
             biased;
 
             _ = &mut *shutdown_rx => {
@@ -584,12 +580,14 @@ pub fn spawn_tcp_actor(
         let mut stream_opt = Some(initial_stream);
 
         loop {
+            // 先使用现有连接，连接断开后再进入重连流程（如果 initial_stream 无效则直接进入重连）
             let stream = if let Some(stream) = stream_opt.take() {
                 stream
             } else {
                 match tcp::open_stream(&config).await {
                     Ok(stream) => stream,
                     Err(err) => {
+                        // 连接失败，进入重连，并有退避机制避免过于频繁的重试
                         attempt = attempt.saturating_add(1);
                         let delay_ms = compute_backoff_ms(attempt);
                         let _ = emit_event(

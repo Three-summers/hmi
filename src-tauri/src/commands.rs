@@ -221,6 +221,8 @@ pub async fn send_tcp_data(
     })
 }
 
+// Deserialize 是 serde 生态中的一个特征表示一个类型可以从外部数据格式反序列化回来
+// 比如从 Json/Toml 等格式反序列化成 Rust 结构体
 #[derive(Debug, Clone, Deserialize)]
 pub struct HmipSendFrame {
     pub msg_type: u8,

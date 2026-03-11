@@ -85,6 +85,7 @@ impl FrameDecoder {
             return Ok(());
         }
 
+        // 使用饱和加法，避免回绕等副作用
         if self.buf.len().saturating_add(bytes.len()) > self.cfg.max_buffer_len {
             // 避免 OOM：直接清空并报错（让上层决定是否重连/告警）
             let dropped = self.buf.len();

@@ -5,6 +5,9 @@ mod sensor;
 use tauri::Manager;
 use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
 
+// cfg_attr(条件, 属性...) 意思是当条件为真则将后面的属性贴到这个项上，如果为假则无作用
+// 这里如果为真，就为 #[tauri::mobile_entry_point]
+// #[cfg(条件) 与 cfg! 不同，第一个在条件为假时根本不参与编译
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // 统一日志输出：使用 tauri-plugin-log 将 Rust/前端转发日志输出到终端（Stdout）
