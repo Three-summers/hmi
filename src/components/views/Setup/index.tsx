@@ -52,6 +52,7 @@ export default function SetupView() {
             {
                 id: "connect",
                 labelKey: "setup.connect",
+                requiresLogin: true,
                 highlight: "attention",
                 onClick: () =>
                     success(
@@ -62,6 +63,7 @@ export default function SetupView() {
             {
                 id: "disconnect",
                 labelKey: "setup.disconnect",
+                requiresLogin: true,
                 onClick: () =>
                     warning(
                         t("notification.disconnected"),
@@ -71,6 +73,7 @@ export default function SetupView() {
             {
                 id: "save",
                 labelKey: "common.save",
+                requiresLogin: true,
                 highlight: "processing",
                 onClick: () =>
                     success(
@@ -81,6 +84,7 @@ export default function SetupView() {
             {
                 id: "reset",
                 labelKey: "common.reset",
+                requiresLogin: true,
                 highlight: "warning",
                 onClick: () =>
                     showConfirm(

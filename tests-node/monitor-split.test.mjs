@@ -75,10 +75,19 @@ function getModulepreloadAssetsFromIndexHtml(indexHtml) {
     return assets;
 }
 
-async function findFirstAssetContaining(assetsDir, marker) {
-    const entries = await fs.readdir(assetsDir);
-    const jsFiles = entries.filter((name) => name.endsWith(".js"));
-    for (const name of jsFiles) {
+function getReferencedJsAssetsFromCode(code) {
+    return Array.from(
+        new Set(
+            [...code.matchAll(/\.\/([A-Za-z0-9._-]+\.js)/g)].map(
+                ([, assetName]) => assetName,
+            ),
+        ),
+    );
+}
+
+async function findFirstReferencedAssetContaining(assetsDir, assetNames, marker) {
+    for (const name of assetNames) {
+        if (!name.endsWith(".js")) continue;
         const content = await readText(path.join(assetsDir, name));
         if (content.includes(marker)) return name;
     }
@@ -247,15 +256,17 @@ describe("T03 Monitor 视图拆分（构建产物代码分割）", () => {
         const indexHtml = await getDistIndexHtml();
         const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
         const assetsDir = path.join(projectRoot, "dist", "assets");
+        const entryCode = await readText(path.join(assetsDir, entryAsset));
+        const entryDeps = getReferencedJsAssetsFromCode(entryCode);
 
-        const monitorChunk = await findFirstAssetContaining(
+        const monitorChunk = await findFirstReferencedAssetContaining(
             assetsDir,
+            entryDeps,
             "monitor.exportData",
         );
         assert.ok(monitorChunk, "cannot locate Monitor view chunk by marker");
         assert.notEqual(monitorChunk, entryAsset);
 
-        const entryCode = await readText(path.join(assetsDir, entryAsset));
         assert.ok(!entryCode.includes("monitor.exportData"));
         assert.ok(!entryCode.includes("monitor.spectrumAnalyzer.controls.pause"));
 
@@ -267,14 +278,16 @@ describe("T03 Monitor 视图拆分（构建产物代码分割）", () => {
         const indexHtml = await getDistIndexHtml();
         const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
         const assetsDir = path.join(projectRoot, "dist", "assets");
+        const entryCode = await readText(path.join(assetsDir, entryAsset));
+        const entryDeps = getReferencedJsAssetsFromCode(entryCode);
 
-        const monitorChunk = await findFirstAssetContaining(
+        const monitorChunk = await findFirstReferencedAssetContaining(
             assetsDir,
+            entryDeps,
             "monitor.exportData",
         );
         assert.ok(monitorChunk, "cannot locate Monitor view chunk by marker");
 
-        const entryCode = await readText(path.join(assetsDir, entryAsset));
         assert.ok(
             entryCode.includes(monitorChunk),
             `entry bundle should reference ${monitorChunk}`,
@@ -288,16 +301,22 @@ describe("T03 Monitor 视图拆分（构建产物代码分割）", () => {
         const indexHtml = await getDistIndexHtml();
         const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
         const assetsDir = path.join(projectRoot, "dist", "assets");
+        const entryCode = await readText(path.join(assetsDir, entryAsset));
+        const entryDeps = getReferencedJsAssetsFromCode(entryCode);
 
-        const monitorChunk = await findFirstAssetContaining(
+        const monitorChunk = await findFirstReferencedAssetContaining(
             assetsDir,
+            entryDeps,
             "monitor.exportData",
         );
         assert.ok(monitorChunk, "cannot locate Monitor view chunk by marker");
+        const monitorCode = await readText(path.join(assetsDir, monitorChunk));
+        const monitorDeps = getReferencedJsAssetsFromCode(monitorCode);
 
-        const spectrumChunk = await findFirstAssetContaining(
+        const spectrumChunk = await findFirstReferencedAssetContaining(
             assetsDir,
-            "spectrum-analyzer-config",
+            monitorDeps,
+            "monitor.spectrumAnalyzer.controls.settings",
         );
         assert.ok(
             spectrumChunk,
@@ -306,10 +325,8 @@ describe("T03 Monitor 视图拆分（构建产物代码分割）", () => {
         assert.notEqual(spectrumChunk, entryAsset);
         assert.notEqual(spectrumChunk, monitorChunk);
 
-        const entryCode = await readText(path.join(assetsDir, entryAsset));
         assert.ok(!entryCode.includes(spectrumChunk));
 
-        const monitorCode = await readText(path.join(assetsDir, monitorChunk));
         assert.ok(
             monitorCode.includes(spectrumChunk),
             `Monitor chunk should reference ${spectrumChunk}`,
@@ -320,18 +337,27 @@ describe("T03 Monitor 视图拆分（构建产物代码分割）", () => {
         const assetsDir = path.join(projectRoot, "dist", "assets");
         const indexHtml = await getDistIndexHtml();
         const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
-
-        const entries = await fs.readdir(assetsDir);
-        const uplotVendor = getFirstAssetByPrefix(entries, "uPlot.min-");
-        assert.ok(uplotVendor, "missing uPlot vendor chunk in dist/assets");
-
-        const spectrumChunk = await findFirstAssetContaining(
+        const entryCode = await readText(path.join(assetsDir, entryAsset));
+        const entryDeps = getReferencedJsAssetsFromCode(entryCode);
+        const monitorChunk = await findFirstReferencedAssetContaining(
             assetsDir,
-            "spectrum-analyzer-config",
+            entryDeps,
+            "monitor.exportData",
+        );
+        assert.ok(monitorChunk, "cannot locate Monitor chunk by marker");
+        const monitorCode = await readText(path.join(assetsDir, monitorChunk));
+        const monitorDeps = getReferencedJsAssetsFromCode(monitorCode);
+        const spectrumChunk = await findFirstReferencedAssetContaining(
+            assetsDir,
+            monitorDeps,
+            "monitor.spectrumAnalyzer.controls.settings",
         );
         assert.ok(spectrumChunk, "cannot locate SpectrumAnalyzer chunk by marker");
 
         const spectrumCode = await readText(path.join(assetsDir, spectrumChunk));
+        const spectrumDeps = getReferencedJsAssetsFromCode(spectrumCode);
+        const uplotVendor = getFirstAssetByPrefix(spectrumDeps, "uPlot.min-");
+        assert.ok(uplotVendor, "missing uPlot vendor dependency in SpectrumAnalyzer chunk");
         assert.match(spectrumCode, /uPlot\.min-[A-Za-z0-9_-]+\.js/);
         assert.ok(spectrumCode.includes(uplotVendor));
 
@@ -352,20 +378,28 @@ describe("T03 Monitor 视图拆分（构建产物代码分割）", () => {
         const indexHtml = indexHtmlBuf.toString("utf8");
 
         const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
-        const monitorChunk = await findFirstAssetContaining(
+        const entryCode = await readText(path.join(assetsDir, entryAsset));
+        const entryDeps = getReferencedJsAssetsFromCode(entryCode);
+        const monitorChunkFromEntry = await findFirstReferencedAssetContaining(
             assetsDir,
+            entryDeps,
             "monitor.exportData",
         );
-        const spectrumChunk = await findFirstAssetContaining(
-            assetsDir,
-            "spectrum-analyzer-config",
+        const monitorCode = await readText(
+            path.join(assetsDir, monitorChunkFromEntry),
         );
-        assert.ok(monitorChunk, "cannot locate Monitor chunk by marker");
+        const spectrumChunk = await findFirstReferencedAssetContaining(
+            assetsDir,
+            getReferencedJsAssetsFromCode(monitorCode),
+            "monitor.spectrumAnalyzer.controls.settings",
+        );
+        assert.ok(monitorChunkFromEntry, "cannot locate Monitor chunk by marker");
         assert.ok(spectrumChunk, "cannot locate SpectrumAnalyzer chunk by marker");
 
         const entrySize = (await fs.stat(path.join(assetsDir, entryAsset))).size;
-        const monitorSize = (await fs.stat(path.join(assetsDir, monitorChunk)))
-            .size;
+        const monitorSize = (
+            await fs.stat(path.join(assetsDir, monitorChunkFromEntry))
+        ).size;
         const spectrumSize = (await fs.stat(path.join(assetsDir, spectrumChunk)))
             .size;
 

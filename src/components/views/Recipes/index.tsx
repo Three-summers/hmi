@@ -148,6 +148,7 @@ export default function RecipesView() {
             {
                 id: "newRecipe",
                 labelKey: "recipes.newRecipe",
+                requiresLogin: true,
                 onClick: () =>
                     info(
                         t("notification.newRecipe"),
@@ -157,6 +158,7 @@ export default function RecipesView() {
             {
                 id: "loadRecipe",
                 labelKey: "recipes.loadRecipe",
+                requiresLogin: true,
                 highlight: "processing",
                 onClick: () =>
                     success(
@@ -167,6 +169,7 @@ export default function RecipesView() {
             {
                 id: "editRecipe",
                 labelKey: "recipes.editRecipe",
+                requiresLogin: true,
                 onClick: () =>
                     info(
                         t("notification.editMode"),
@@ -176,6 +179,7 @@ export default function RecipesView() {
             {
                 id: "deleteRecipe",
                 labelKey: "recipes.deleteRecipe",
+                requiresLogin: true,
                 highlight: "warning",
                 onClick: () =>
                     showConfirm(

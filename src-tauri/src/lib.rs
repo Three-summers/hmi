@@ -1,6 +1,7 @@
 mod comm;
 mod commands;
 mod sensor;
+mod system;
 
 use tauri::Manager;
 use tauri_plugin_log::{Builder as LogBuilder, Target, TargetKind};
@@ -33,6 +34,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            commands::get_system_overview,
             commands::get_log_dir,
             commands::save_spectrum_screenshot,
             commands::get_serial_ports,

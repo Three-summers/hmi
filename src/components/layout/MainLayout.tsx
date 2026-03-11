@@ -16,11 +16,7 @@
  * @module MainLayout
  */
 
-import {
-    memo,
-    useCallback,
-    useEffect,
-} from "react";
+import { memo, useCallback, useEffect } from "react";
 import { useShallow } from "zustand/shallow";
 import { TitlePanel } from "./TitlePanel";
 import { InfoPanel } from "./InfoPanel";
@@ -29,7 +25,7 @@ import { CommandPanel } from "./CommandPanel";
 import { NotificationToast } from "./NotificationToast";
 import { ViewCommandProvider } from "./ViewCommandContext";
 import { SubViewCommandProvider } from "./SubViewCommandContext";
-import { useAlarmStore, useNavigationStore, useAppStore } from "@/stores";
+import { useNavigationStore, useAppStore } from "@/stores";
 import {
     useKeyboardShortcuts,
     useFrontendLogBridge,
@@ -87,51 +83,6 @@ export function MainLayout() {
 
     // 安装 HMI 缩放系统（rem + 动态根字体）
     useHMIScale();
-
-    // 初始化 Demo 告警数据（仅在首次加载且告警为空时）
-    useEffect(() => {
-        const seedDemoAlarmsIfEmpty = () => {
-            const { alarms, addAlarm } = useAlarmStore.getState();
-            // 如果已有告警数据，跳过初始化
-            if (alarms.length > 0) return;
-
-            // Demo 数据：仅在"告警历史为空"时注入一组示例告警，方便演示 UI 效果。
-            addAlarm({
-                severity: "alarm",
-                message: "Chamber pressure exceeds limit (>100 mTorr)",
-            });
-            addAlarm({
-                severity: "warning",
-                message: "Cooling water temperature high (42°C)",
-            });
-            addAlarm({
-                severity: "info",
-                message: "Recipe ETCH-001 completed successfully",
-            });
-            addAlarm({
-                severity: "warning",
-                message: "Gas flow deviation detected on MFC-3",
-            });
-            addAlarm({
-                severity: "alarm",
-                message: "RF power reflected >10% - check matching network",
-            });
-        };
-
-        // 持久化的告警需要等待 hydration 完成后才能读取到正确数据；
-        // 如果 hydration 已完成则直接注入 demo 告警，否则订阅 finish 事件。
-        if (useAlarmStore.persist.hasHydrated()) {
-            seedDemoAlarmsIfEmpty();
-            return;
-        }
-
-        // 订阅 hydration 完成事件，确保在持久化数据加载完成后再初始化
-        const unsubscribe = useAlarmStore.persist.onFinishHydration(() => {
-            seedDemoAlarmsIfEmpty();
-        });
-
-        return unsubscribe;
-    }, []);
 
     useEffect(() => {
         // 统一通过 data-theme 切换主题，保持 CSS 变量方案的可扩展性与低侵入性

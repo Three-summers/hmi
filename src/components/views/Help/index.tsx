@@ -88,6 +88,7 @@ export default function HelpView() {
             {
                 id: "refresh",
                 labelKey: "common.refresh",
+                requiresLogin: false,
                 onClick: () =>
                     info(
                         t("notification.helpRefreshed"),

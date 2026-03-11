@@ -61,6 +61,7 @@ export default function AlarmsView() {
             {
                 id: "acknowledgeAll",
                 labelKey: "alarm.acknowledgeAll",
+                requiresLogin: true,
                 highlight: unackedCount > 0 ? "attention" : undefined,
                 disabled: unackedCount === 0,
                 onClick: () => {
@@ -76,6 +77,7 @@ export default function AlarmsView() {
             {
                 id: "clearAll",
                 labelKey: "alarm.clearAll",
+                requiresLogin: true,
                 highlight: "warning",
                 onClick: () =>
                     showConfirm(

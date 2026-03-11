@@ -156,7 +156,8 @@
         "loading": "加载中...",
         "uptimeFormat": "{{days}}天 {{hours}}小时 {{mins}}分钟",
         "errors": {
-            "loadFailed": "系统信息加载失败"
+            "loadFailed": "系统信息加载失败",
+            "unavailableInBrowser": "浏览器环境不可用（请在 Tauri 中运行）"
         },
         "emergencyStop": "紧急停止",
         "emergencyStopConfirm": "这将立即停止所有操作。是否继续？"

@@ -1,5 +1,6 @@
 use crate::comm::{actor::CommPriority, proto, serial, tcp, CommState};
 use crate::sensor::SensorSimulator;
+use crate::system;
 use base64::{engine::general_purpose, Engine as _};
 use serde::Deserialize;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -8,6 +9,11 @@ use tauri::{AppHandle, Manager, State};
 use std::path::PathBuf;
 
 static HMIP_NEXT_SEQ: AtomicU32 = AtomicU32::new(1);
+
+#[tauri::command]
+pub fn get_system_overview() -> Result<system::SystemOverview, String> {
+    system::read_system_overview()
+}
 
 /// 获取 Log 目录路径
 #[tauri::command]

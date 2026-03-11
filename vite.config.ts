@@ -23,6 +23,7 @@ export default defineConfig({
   },
   // Build optimizations for Raspberry Pi
   build: {
+    emptyOutDir: true,
     target: "esnext",
     minify: "esbuild",
     rollupOptions: {

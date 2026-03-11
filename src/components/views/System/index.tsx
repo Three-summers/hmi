@@ -17,6 +17,8 @@ import { useTranslation } from "react-i18next";
 import { Tabs, StatusIndicator, Button } from "@/components/common";
 import type { CommandButtonConfig } from "@/types";
 import { useIsViewActive } from "@/components/layout/ViewContext";
+import { isTauri } from "@/platform/tauri";
+import { getSystemOverview, type SystemOverview } from "@/platform/system";
 import {
     useRegisterViewCommands,
     useViewCommandActions,
@@ -34,15 +36,7 @@ interface Subsystem {
     unit?: string;
 }
 
-interface SystemInfo {
-    uptime: number;
-    cpuUsage: number;
-    memoryUsage: number;
-    diskUsage: number;
-    temperature: number;
-}
-
-type SystemStatus = "loading" | "ready" | "error";
+type SystemStatus = "loading" | "ready" | "error" | "unavailable";
 
 const demoSubsystems: Subsystem[] = [
     {
@@ -99,14 +93,6 @@ const demoSubsystems: Subsystem[] = [
     },
 ];
 
-const INITIAL_SYSTEM_INFO: SystemInfo = {
-    uptime: 86400,
-    cpuUsage: 45,
-    memoryUsage: 62,
-    diskUsage: 35,
-    temperature: 48,
-};
-
 export default function SystemView() {
     const { t } = useTranslation();
     const isViewActive = useIsViewActive();
@@ -116,63 +102,50 @@ export default function SystemView() {
     const [activeTab, setActiveTab] = useState<"overview" | "subsystems">(
         "overview",
     );
-    const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+    const [systemInfo, setSystemInfo] = useState<SystemOverview | null>(null);
     const [systemStatus, setSystemStatus] = useState<SystemStatus>("loading");
     const [systemError, setSystemError] = useState<string | null>(null);
 
-    const refreshSystemInfo = useCallback(async (isInitial = false) => {
-        try {
-            if (isInitial) {
-                setSystemStatus("loading");
+    const refreshSystemInfo = useCallback(
+        async (isInitial = false): Promise<SystemStatus> => {
+            try {
+                if (isInitial) {
+                    setSystemStatus("loading");
+                }
+                setSystemError(null);
+
+                if (!isTauri()) {
+                    setSystemStatus("unavailable");
+                    setSystemInfo(null);
+                    return "unavailable";
+                }
+
+                const next = await getSystemOverview();
+                setSystemInfo(next);
+                setSystemStatus("ready");
+                return "ready";
+            } catch (err) {
+                console.error("Failed to load system info:", err);
+                const message = err instanceof Error ? err.message : String(err);
+                setSystemStatus("error");
+                setSystemError(message);
+                return "error";
             }
-            setSystemError(null);
-            await Promise.resolve();
-            setSystemInfo((prev) => {
-                const base = prev ?? INITIAL_SYSTEM_INFO;
-                return {
-                    ...base,
-                    cpuUsage: Math.min(
-                        100,
-                        Math.max(
-                            20,
-                            base.cpuUsage + (Math.random() - 0.5) * 10,
-                        ),
-                    ),
-                    memoryUsage: Math.min(
-                        100,
-                        Math.max(
-                            40,
-                            base.memoryUsage + (Math.random() - 0.5) * 5,
-                        ),
-                    ),
-                    temperature: Math.min(
-                        80,
-                        Math.max(
-                            35,
-                            base.temperature + (Math.random() - 0.5) * 2,
-                        ),
-                    ),
-                    uptime: base.uptime + 1,
-                };
-            });
-            setSystemStatus("ready");
-        } catch (err) {
-            console.error("Failed to load system info:", err);
-            const message =
-                err instanceof Error ? err.message : String(err);
-            setSystemStatus("error");
-            setSystemError(message);
-        }
-    }, []);
+        },
+        [t],
+    );
 
     const commands = useMemo<CommandButtonConfig[]>(
         () => [
             {
                 id: "refresh",
                 labelKey: "common.refresh",
+                requiresLogin: false,
                 disabled: systemStatus === "loading",
-                onClick: () => {
-                    void refreshSystemInfo(true);
+                onClick: async () => {
+                    const nextStatus = await refreshSystemInfo(true);
+                    if (nextStatus !== "ready") return;
+
                     info(
                         t("notification.refreshing"),
                         t("notification.systemDataRefreshed"),
@@ -182,6 +155,7 @@ export default function SystemView() {
             {
                 id: "start",
                 labelKey: "common.start",
+                requiresLogin: true,
                 highlight: "attention",
                 onClick: () =>
                     success(
@@ -192,6 +166,7 @@ export default function SystemView() {
             {
                 id: "stop",
                 labelKey: "common.stop",
+                requiresLogin: true,
                 highlight: "alarm",
                 onClick: () =>
                     showConfirm(
@@ -207,6 +182,7 @@ export default function SystemView() {
             {
                 id: "emergency",
                 labelKey: "system.emergencyStop",
+                requiresLogin: true,
                 highlight: "alarm",
                 onClick: () =>
                     showConfirm(
@@ -283,7 +259,48 @@ export default function SystemView() {
         void refreshSystemInfo(true);
     };
 
+    const formatMetricValue = (
+        value: number | null,
+        digits = 0,
+        suffix = "",
+    ) => {
+        if (typeof value !== "number" || !Number.isFinite(value)) return "--";
+        return `${value.toFixed(digits)}${suffix}`;
+    };
+
     const renderStatusPlaceholder = () => {
+        if (systemStatus === "unavailable") {
+            return (
+                <div className={sharedStyles.emptyState}>
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 12,
+                        }}
+                    >
+                        <StatusIndicator
+                            status="idle"
+                            label={t("system.errors.unavailableInBrowser")}
+                        />
+                        {systemError && (
+                            <div
+                                style={{
+                                    maxWidth: 560,
+                                    fontSize: 12,
+                                    color: "var(--text-secondary)",
+                                    textAlign: "center",
+                                }}
+                            >
+                                {systemError}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
         if (systemStatus !== "error") {
             return (
                 <div className={sharedStyles.emptyState}>
@@ -604,10 +621,11 @@ export default function SystemView() {
                                                         styles.resourceValue
                                                     }
                                                 >
-                                                    {systemInfo.temperature.toFixed(
+                                                    {formatMetricValue(
+                                                        systemInfo.temperature,
                                                         0,
+                                                        "°C",
                                                     )}
-                                                    °C
                                                 </span>
                                             </div>
                                             <div className={styles.resourceBar}>
@@ -616,14 +634,27 @@ export default function SystemView() {
                                                         styles.resourceFill
                                                     }
                                                     style={{
-                                                        width: `${(systemInfo.temperature / 80) * 100}%`,
+                                                        width:
+                                                            typeof systemInfo.temperature ===
+                                                                "number" &&
+                                                            Number.isFinite(
+                                                                systemInfo.temperature,
+                                                            )
+                                                                ? `${(systemInfo.temperature / 80) * 100}%`
+                                                                : "0%",
                                                     }}
                                                     data-level={
-                                                        systemInfo.temperature >
-                                                        70
+                                                        typeof systemInfo.temperature !==
+                                                            "number" ||
+                                                        !Number.isFinite(
+                                                            systemInfo.temperature,
+                                                        )
+                                                            ? "none"
+                                                            : systemInfo.temperature >
+                                                                  70
                                                             ? "high"
                                                             : systemInfo.temperature >
-                                                                55
+                                                                  55
                                                               ? "medium"
                                                               : "low"
                                                     }

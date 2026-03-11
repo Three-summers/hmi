@@ -39,6 +39,7 @@ function ProtectedCommandRegister({
             {
                 id: "authGuardAction",
                 labelKey: "test.authGuardAction",
+                requiresLogin: true,
                 ariaLabel: "AUTH_GUARD_ACTION",
                 onClick: onAction,
             },

@@ -46,6 +46,7 @@ export default function MonitorView() {
             {
                 id: "refresh",
                 labelKey: "common.refresh",
+                requiresLogin: false,
                 onClick: () =>
                     info(
                         t("notification.dataRefreshed"),
@@ -55,6 +56,7 @@ export default function MonitorView() {
             {
                 id: "pause",
                 labelKey: "common.pause",
+                requiresLogin: true,
                 onClick: () =>
                     warning(
                         t("notification.monitoringPaused"),
@@ -64,6 +66,7 @@ export default function MonitorView() {
             {
                 id: "export",
                 labelKey: "monitor.exportData",
+                requiresLogin: false,
                 onClick: () =>
                     success(
                         t("notification.exportComplete"),
@@ -115,12 +118,14 @@ export default function MonitorView() {
                 labelKey: spectrumAnalyzerPaused
                     ? "monitor.spectrumAnalyzer.controls.resume"
                     : "monitor.spectrumAnalyzer.controls.pause",
+                requiresLogin: true,
                 highlight: spectrumAnalyzerPaused ? "warning" : "none",
                 onClick: () => setSpectrumAnalyzerPaused(!spectrumAnalyzerPaused),
             },
             {
                 id: "spectrumMaxHold",
                 labelKey: "monitor.spectrumAnalyzer.controls.maxHold",
+                requiresLogin: false,
                 highlight: spectrumAnalyzerShowMaxHold ? "attention" : "none",
                 behavior: "toggle",
                 onClick: () =>
@@ -129,6 +134,7 @@ export default function MonitorView() {
             {
                 id: "spectrumAverage",
                 labelKey: "monitor.spectrumAnalyzer.controls.average",
+                requiresLogin: false,
                 highlight: spectrumAnalyzerShowAverage ? "attention" : "none",
                 behavior: "toggle",
                 onClick: () =>
@@ -137,6 +143,7 @@ export default function MonitorView() {
             {
                 id: "reset",
                 labelKey: "monitor.spectrumAnalyzer.controls.reset",
+                requiresLogin: false,
                 highlight: "warning",
                 onClick: () => {
                     resetSpectrumAnalyzerMaxHold();

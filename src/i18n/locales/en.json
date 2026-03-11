@@ -156,7 +156,8 @@
         "loading": "Loading...",
         "uptimeFormat": "{{days}}d {{hours}}h {{mins}}m",
         "errors": {
-            "loadFailed": "Failed to load system info"
+            "loadFailed": "Failed to load system info",
+            "unavailableInBrowser": "Unavailable in browser mode (run in Tauri)"
         },
         "emergencyStop": "Emergency Stop",
         "emergencyStopConfirm": "This will immediately halt all operations. Continue?"

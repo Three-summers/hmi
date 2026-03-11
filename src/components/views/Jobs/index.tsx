@@ -126,6 +126,7 @@ export default function JobsView() {
             {
                 id: "newJob",
                 labelKey: "jobs.newJob",
+                requiresLogin: true,
                 onClick: () =>
                     info(
                         t("notification.newJob"),
@@ -135,6 +136,7 @@ export default function JobsView() {
             {
                 id: "runJob",
                 labelKey: "jobs.runJob",
+                requiresLogin: true,
                 highlight: "processing",
                 onClick: () =>
                     success(
@@ -145,6 +147,7 @@ export default function JobsView() {
             {
                 id: "pauseJob",
                 labelKey: "common.pause",
+                requiresLogin: true,
                 onClick: () =>
                     warning(
                         t("notification.jobPaused"),
@@ -154,6 +157,7 @@ export default function JobsView() {
             {
                 id: "stopJob",
                 labelKey: "jobs.stopJob",
+                requiresLogin: true,
                 highlight: "alarm",
                 onClick: () =>
                     showConfirm(

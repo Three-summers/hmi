@@ -52,6 +52,7 @@ export default function FilesView() {
             {
                 id: "refresh",
                 labelKey: "common.refresh",
+                requiresLogin: false,
                 disabled: fileTree.treeLoading || preview.loading,
                 onClick: () => {
                     fileTree.retryTree();

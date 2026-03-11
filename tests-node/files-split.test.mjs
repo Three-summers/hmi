@@ -70,10 +70,19 @@ function getModulepreloadAssetsFromIndexHtml(indexHtml) {
     return assets;
 }
 
-async function findFirstAssetContaining(assetsDir, marker) {
-    const entries = await fs.readdir(assetsDir);
-    const jsFiles = entries.filter((name) => name.endsWith(".js"));
-    for (const name of jsFiles) {
+function getReferencedJsAssetsFromCode(code) {
+    return Array.from(
+        new Set(
+            [...code.matchAll(/\.\/([A-Za-z0-9._-]+\.js)/g)].map(
+                ([, assetName]) => assetName,
+            ),
+        ),
+    );
+}
+
+async function findFirstReferencedAssetContaining(assetsDir, assetNames, marker) {
+    for (const name of assetNames) {
+        if (!name.endsWith(".js")) continue;
         const content = await readText(path.join(assetsDir, name));
         if (content.includes(marker)) return name;
     }
@@ -405,15 +414,17 @@ describe("T02 Files 视图拆分（构建产物代码分割）", () => {
         const indexHtml = await getDistIndexHtml();
         const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
         const assetsDir = path.join(projectRoot, "dist", "assets");
+        const entryCode = await readText(path.join(assetsDir, entryAsset));
+        const entryDeps = getReferencedJsAssetsFromCode(entryCode);
 
-        const filesChunk = await findFirstAssetContaining(
+        const filesChunk = await findFirstReferencedAssetContaining(
             assetsDir,
+            entryDeps,
             "files.selectFile",
         );
         assert.ok(filesChunk, "cannot locate Files view chunk by marker");
         assert.notEqual(filesChunk, entryAsset);
 
-        const entryCode = await readText(path.join(assetsDir, entryAsset));
         assert.ok(!entryCode.includes("files.selectFile"));
         assert.ok(!entryCode.includes("files.title"));
 
@@ -426,14 +437,16 @@ describe("T02 Files 视图拆分（构建产物代码分割）", () => {
         const indexHtml = await getDistIndexHtml();
         const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
         const assetsDir = path.join(projectRoot, "dist", "assets");
+        const entryCode = await readText(path.join(assetsDir, entryAsset));
+        const entryDeps = getReferencedJsAssetsFromCode(entryCode);
 
-        const filesChunk = await findFirstAssetContaining(
+        const filesChunk = await findFirstReferencedAssetContaining(
             assetsDir,
+            entryDeps,
             "files.selectFile",
         );
         assert.ok(filesChunk, "cannot locate Files view chunk by marker");
 
-        const entryCode = await readText(path.join(assetsDir, entryAsset));
         assert.ok(
             entryCode.includes(filesChunk),
             `entry bundle should reference ${filesChunk}`,
@@ -447,18 +460,20 @@ describe("T02 Files 视图拆分（构建产物代码分割）", () => {
         const assetsDir = path.join(projectRoot, "dist", "assets");
         const indexHtml = await getDistIndexHtml();
         const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
+        const entryCode = await readText(path.join(assetsDir, entryAsset));
+        const entryDeps = getReferencedJsAssetsFromCode(entryCode);
 
-        const entries = await fs.readdir(assetsDir);
-        const uplotVendor = getFirstAssetByPrefix(entries, "uPlot.min-");
-        assert.ok(uplotVendor, "missing uPlot vendor chunk in dist/assets");
-
-        const filesChunk = await findFirstAssetContaining(
+        const filesChunk = await findFirstReferencedAssetContaining(
             assetsDir,
+            entryDeps,
             "files.selectFile",
         );
         assert.ok(filesChunk, "cannot locate Files view chunk by marker");
 
         const filesCode = await readText(path.join(assetsDir, filesChunk));
+        const filesDeps = getReferencedJsAssetsFromCode(filesCode);
+        const uplotVendor = getFirstAssetByPrefix(filesDeps, "uPlot.min-");
+        assert.ok(uplotVendor, "missing uPlot vendor dependency in Files chunk");
         assert.match(filesCode, /uPlot\.min-[A-Za-z0-9_-]+\.js/);
         assert.ok(filesCode.includes(uplotVendor));
 
@@ -474,9 +489,12 @@ describe("T02 Files 视图拆分（构建产物代码分割）", () => {
         const indexHtml = await getDistIndexHtml();
         const entryAsset = getEntryAssetFromIndexHtml(indexHtml);
         const assetsDir = path.join(projectRoot, "dist", "assets");
+        const entryCode = await readText(path.join(assetsDir, entryAsset));
+        const entryDeps = getReferencedJsAssetsFromCode(entryCode);
 
-        const filesChunk = await findFirstAssetContaining(
+        const filesChunk = await findFirstReferencedAssetContaining(
             assetsDir,
+            entryDeps,
             "files.selectFile",
         );
         assert.ok(filesChunk, "cannot locate Files view chunk by marker");

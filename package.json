@@ -4,15 +4,17 @@
   "description": "Industrial HMI based on SEMI E95 specification",
   "type": "module",
   "scripts": {
+    "clean:dist": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "dev": "vite",
     "dev:wsl": "DISPLAY=:0 MESA_D3D12_DEFAULT_ADAPTER_NAME=NVIDIA tauri dev",
-    "build": "tsc && vite build",
+    "build": "npm run clean:dist && tsc && vite build",
+    "lint": "tsc --noEmit && cargo check --manifest-path ./src-tauri/Cargo.toml",
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "test:node": "node --test --loader ./tests-node/loader.mjs tests-node/*.test.mjs",
-    "test:node:coverage": "NODE_V8_COVERAGE=coverage node --test --experimental-test-coverage --loader ./tests-node/loader.mjs tests-node/*.test.mjs",
+    "test:node": "npm run build && node --test --loader ./tests-node/loader.mjs tests-node/*.test.mjs",
+    "test:node:coverage": "npm run build && NODE_V8_COVERAGE=coverage node --test --experimental-test-coverage --loader ./tests-node/loader.mjs tests-node/*.test.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

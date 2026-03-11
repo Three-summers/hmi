@@ -82,11 +82,11 @@ export interface CommandButtonConfig {
     ariaLabel?: string;
     disabled?: boolean;
     /**
-     * 是否要求登录后才能执行命令（默认由 CommandPanel 视为 true）
+     * 是否要求登录后才能执行命令（默认由 CommandPanel 视为 false）
      *
      * @description
-     * - true/未设置：未登录时点击会被拦截并弹出登录对话框
-     * - false：允许未登录执行（用于只读或辅助类命令）
+     * - true：未登录时点击会被拦截并弹出登录对话框
+     * - false/未设置：允许未登录执行（用于只读、刷新、帮助、纯展示控制等命令）
      */
     requiresLogin?: boolean;
     highlight?: HighlightStatus;

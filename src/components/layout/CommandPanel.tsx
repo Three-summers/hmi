@@ -111,7 +111,7 @@ export function CommandPanel({ currentView }: CommandPanelProps) {
         (cmd: CommandButtonConfig) => {
             if (cmd.disabled) return;
 
-            const requiresLogin = cmd.requiresLogin ?? true;
+            const requiresLogin = cmd.requiresLogin ?? false;
             if (requiresLogin && !user) {
                 requestLoginDialog();
                 return;
