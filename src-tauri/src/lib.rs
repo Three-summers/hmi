@@ -1,5 +1,6 @@
 mod comm;
 mod commands;
+mod secs_rpc;
 mod sensor;
 mod system;
 
@@ -49,6 +50,15 @@ pub fn run() {
             commands::start_sensor_simulation,
             commands::stop_sensor_simulation,
             commands::frontend_log_batch,
+            commands::secs_rpc_get_library_info,
+            commands::secs_rpc_list_sessions,
+            commands::secs_rpc_get_session,
+            commands::secs_rpc_create_session,
+            commands::secs_rpc_start_session,
+            commands::secs_rpc_stop_session,
+            commands::secs_rpc_delete_session,
+            commands::secs_rpc_send,
+            commands::secs_rpc_request,
         ])
         .setup(|app| {
             // 初始化通信状态

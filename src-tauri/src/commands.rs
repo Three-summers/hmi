@@ -1,12 +1,13 @@
 use crate::comm::{actor::CommPriority, proto, serial, tcp, CommState};
+use crate::secs_rpc::{self, SecsRpcTarget};
 use crate::sensor::SensorSimulator;
 use crate::system;
 use base64::{engine::general_purpose, Engine as _};
 use serde::Deserialize;
-use std::sync::atomic::{AtomicU32, Ordering};
-use tokio::sync::mpsc::error::TrySendError;
-use tauri::{AppHandle, Manager, State};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU32, Ordering};
+use tauri::{AppHandle, Manager, State};
+use tokio::sync::mpsc::error::TrySendError;
 
 static HMIP_NEXT_SEQ: AtomicU32 = AtomicU32::new(1);
 
@@ -24,10 +25,7 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Log")
     } else {
         // 发布模式：使用资源目录同级的 Log（找不到父目录则退化到资源目录下）
-        let exe_dir = app
-            .path()
-            .resource_dir()
-            .map_err(|e| e.to_string())?;
+        let exe_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
         exe_dir
             .parent()
             .map(|p| p.join("Log"))
@@ -367,4 +365,152 @@ pub fn frontend_log_batch(entries: Vec<FrontendLogEntry>) {
             _ => log::info!(target: "frontend", "{} {}", prefix, entry.message),
         }
     }
+}
+
+#[tauri::command]
+pub async fn secs_rpc_get_library_info(
+    target: Option<SecsRpcTarget>,
+) -> Result<secs_rpc::v1::GetLibraryInfoResponse, String> {
+    let mut client = secs_rpc::v1::library_service_client::LibraryServiceClient::new(
+        secs_rpc::connect_channel(target.as_ref()).await?,
+    );
+
+    client
+        .get_library_info(secs_rpc::into_request(
+            secs_rpc::v1::GetLibraryInfoRequest::default(),
+            target.as_ref(),
+        ))
+        .await
+        .map(|response| response.into_inner())
+        .map_err(|status| secs_rpc::format_status_error("GetLibraryInfo", status))
+}
+
+#[tauri::command]
+pub async fn secs_rpc_list_sessions(
+    target: Option<SecsRpcTarget>,
+) -> Result<secs_rpc::v1::ListSessionsResponse, String> {
+    let mut client = secs_rpc::v1::session_service_client::SessionServiceClient::new(
+        secs_rpc::connect_channel(target.as_ref()).await?,
+    );
+
+    client
+        .list_sessions(secs_rpc::into_request(
+            secs_rpc::v1::ListSessionsRequest::default(),
+            target.as_ref(),
+        ))
+        .await
+        .map(|response| response.into_inner())
+        .map_err(|status| secs_rpc::format_status_error("ListSessions", status))
+}
+
+#[tauri::command]
+pub async fn secs_rpc_get_session(
+    target: Option<SecsRpcTarget>,
+    request: secs_rpc::v1::GetSessionRequest,
+) -> Result<secs_rpc::v1::GetSessionResponse, String> {
+    let mut client = secs_rpc::v1::session_service_client::SessionServiceClient::new(
+        secs_rpc::connect_channel(target.as_ref()).await?,
+    );
+
+    client
+        .get_session(secs_rpc::into_request(request, target.as_ref()))
+        .await
+        .map(|response| response.into_inner())
+        .map_err(|status| secs_rpc::format_status_error("GetSession", status))
+}
+
+#[tauri::command]
+pub async fn secs_rpc_create_session(
+    target: Option<SecsRpcTarget>,
+    request: secs_rpc::v1::CreateSessionRequest,
+) -> Result<secs_rpc::v1::CreateSessionResponse, String> {
+    let mut client = secs_rpc::v1::session_service_client::SessionServiceClient::new(
+        secs_rpc::connect_channel(target.as_ref()).await?,
+    );
+
+    client
+        .create_session(secs_rpc::into_request(request, target.as_ref()))
+        .await
+        .map(|response| response.into_inner())
+        .map_err(|status| secs_rpc::format_status_error("CreateSession", status))
+}
+
+#[tauri::command]
+pub async fn secs_rpc_start_session(
+    target: Option<SecsRpcTarget>,
+    request: secs_rpc::v1::StartSessionRequest,
+) -> Result<secs_rpc::v1::StartSessionResponse, String> {
+    let mut client = secs_rpc::v1::session_service_client::SessionServiceClient::new(
+        secs_rpc::connect_channel(target.as_ref()).await?,
+    );
+
+    client
+        .start_session(secs_rpc::into_request(request, target.as_ref()))
+        .await
+        .map(|response| response.into_inner())
+        .map_err(|status| secs_rpc::format_status_error("StartSession", status))
+}
+
+#[tauri::command]
+pub async fn secs_rpc_stop_session(
+    target: Option<SecsRpcTarget>,
+    request: secs_rpc::v1::StopSessionRequest,
+) -> Result<secs_rpc::v1::StopSessionResponse, String> {
+    let mut client = secs_rpc::v1::session_service_client::SessionServiceClient::new(
+        secs_rpc::connect_channel(target.as_ref()).await?,
+    );
+
+    client
+        .stop_session(secs_rpc::into_request(request, target.as_ref()))
+        .await
+        .map(|response| response.into_inner())
+        .map_err(|status| secs_rpc::format_status_error("StopSession", status))
+}
+
+#[tauri::command]
+pub async fn secs_rpc_delete_session(
+    target: Option<SecsRpcTarget>,
+    request: secs_rpc::v1::DeleteSessionRequest,
+) -> Result<secs_rpc::v1::DeleteSessionResponse, String> {
+    let mut client = secs_rpc::v1::session_service_client::SessionServiceClient::new(
+        secs_rpc::connect_channel(target.as_ref()).await?,
+    );
+
+    client
+        .delete_session(secs_rpc::into_request(request, target.as_ref()))
+        .await
+        .map(|response| response.into_inner())
+        .map_err(|status| secs_rpc::format_status_error("DeleteSession", status))
+}
+
+#[tauri::command]
+pub async fn secs_rpc_send(
+    target: Option<SecsRpcTarget>,
+    request: secs_rpc::v1::SendRequest,
+) -> Result<secs_rpc::v1::SendResponse, String> {
+    let mut client = secs_rpc::v1::messaging_service_client::MessagingServiceClient::new(
+        secs_rpc::connect_channel(target.as_ref()).await?,
+    );
+
+    client
+        .send(secs_rpc::into_request(request, target.as_ref()))
+        .await
+        .map(|response| response.into_inner())
+        .map_err(|status| secs_rpc::format_status_error("Send", status))
+}
+
+#[tauri::command]
+pub async fn secs_rpc_request(
+    target: Option<SecsRpcTarget>,
+    request: secs_rpc::v1::RequestRequest,
+) -> Result<secs_rpc::v1::RequestResponse, String> {
+    let mut client = secs_rpc::v1::messaging_service_client::MessagingServiceClient::new(
+        secs_rpc::connect_channel(target.as_ref()).await?,
+    );
+
+    client
+        .request(secs_rpc::into_request(request, target.as_ref()))
+        .await
+        .map(|response| response.into_inner())
+        .map_err(|status| secs_rpc::format_status_error("Request", status))
 }
