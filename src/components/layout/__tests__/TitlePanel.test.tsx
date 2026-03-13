@@ -37,7 +37,7 @@ describe("TitlePanel", () => {
 
     it("无未确认告警时显示系统运行提示", async () => {
         const { TitlePanel } = await import("../TitlePanel");
-        render(<TitlePanel currentView="monitor" />);
+        render(<TitlePanel currentView="recipes" />);
 
         expect(screen.getByText("system.running")).toBeInTheDocument();
     });
@@ -60,10 +60,9 @@ describe("TitlePanel", () => {
         });
 
         const { TitlePanel } = await import("../TitlePanel");
-        render(<TitlePanel currentView="monitor" />);
+        render(<TitlePanel currentView="recipes" />);
 
         expect(screen.getByText("boom")).toBeInTheDocument();
         expect(screen.getByText("TIME")).toBeInTheDocument();
     });
 });
-

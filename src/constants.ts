@@ -74,8 +74,6 @@ export const THEME_ORDER = [
 // 主导航视图 ID（用于列表渲染/遍历等，顺序与底部导航一致）
 export const VIEW_IDS = [
     "jobs",
-    "system",
-    "monitor",
     "recipes",
     "files",
     "setup",
@@ -89,11 +87,9 @@ export const SETUP_TAB_IDS = ["settings", "communication"] as const;
 /** Setup 页面 Tab ID 的联合类型 */
 export type SetupTabId = (typeof SETUP_TAB_IDS)[number];
 
-// 键盘快捷键：F1-F8 视图切换
+// 键盘快捷键：F1 / F4-F8 视图切换
 export const VIEW_HOTKEY_TO_VIEW_ID: Partial<Record<string, ViewId>> = {
     F1: "jobs",
-    F2: "system",
-    F3: "monitor",
     F4: "alarms",
     F5: "recipes",
     F6: "setup",

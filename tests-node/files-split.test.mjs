@@ -472,9 +472,9 @@ describe("T02 Files 视图拆分（构建产物代码分割）", () => {
 
         const filesCode = await readText(path.join(assetsDir, filesChunk));
         const filesDeps = getReferencedJsAssetsFromCode(filesCode);
-        const uplotVendor = getFirstAssetByPrefix(filesDeps, "uPlot.min-");
+        const uplotVendor = getFirstAssetByPrefix(filesDeps, "uPlot.");
         assert.ok(uplotVendor, "missing uPlot vendor dependency in Files chunk");
-        assert.match(filesCode, /uPlot\.min-[A-Za-z0-9_-]+\.js/);
+        assert.match(filesCode, /uPlot\.[A-Za-z0-9_-]+-[A-Za-z0-9_-]+\.js/);
         assert.ok(filesCode.includes(uplotVendor));
 
         // uPlot 不应被 index.html 首屏 preload（否则会破坏按需加载收益）

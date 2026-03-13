@@ -1,7 +1,6 @@
 export * from "./semi-e95";
 export * from "./comm";
 export * from "./files";
-export * from "./monitor";
 export * from "./hmip";
 
 /** 频谱分析仪配色方案 */

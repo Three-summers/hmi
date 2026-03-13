@@ -89,8 +89,6 @@ describe("CommandPanel Confirm（SEMI E95：可切页、按视图持久化）", 
             viewHistory: [],
             unfinishedTasks: {
                 jobs: false,
-                system: false,
-                monitor: false,
                 recipes: false,
                 files: false,
                 setup: false,
@@ -113,8 +111,8 @@ describe("CommandPanel Confirm（SEMI E95：可切页、按视图持久化）", 
         const jobsBtn = getNavButton("jobs");
         expect(jobsBtn).toHaveAttribute("data-highlight", "processing");
 
-        // 切换到 Monitor：对话框不显示，但 Jobs 仍保持“未完成任务”高亮
-        fireEvent.click(getNavButton("monitor") as Element);
+        // 切换到 Recipes：对话框不显示，但 Jobs 仍保持“未完成任务”高亮
+        fireEvent.click(getNavButton("recipes") as Element);
         expect(screen.queryByText("TITLE:jobs")).not.toBeInTheDocument();
         expect(useNavigationStore.getState().unfinishedTasks.jobs).toBe(true);
 
@@ -142,17 +140,17 @@ describe("CommandPanel Confirm（SEMI E95：可切页、按视图持久化）", 
         expect(screen.getByText("TITLE:jobs")).toBeInTheDocument();
         expect(useNavigationStore.getState().unfinishedTasks.jobs).toBe(true);
 
-        // 切换到 Monitor 并打开另一个对话框
-        fireEvent.click(getNavButton("monitor") as Element);
+        // 切换到 Recipes 并打开另一个对话框
+        fireEvent.click(getNavButton("recipes") as Element);
         fireEvent.click(screen.getByRole("button", { name: "打开确认对话框" }));
-        expect(screen.getByText("TITLE:monitor")).toBeInTheDocument();
-        expect(useNavigationStore.getState().unfinishedTasks.monitor).toBe(true);
+        expect(screen.getByText("TITLE:recipes")).toBeInTheDocument();
+        expect(useNavigationStore.getState().unfinishedTasks.recipes).toBe(true);
         expect(useNavigationStore.getState().unfinishedTasks.jobs).toBe(true);
 
-        // 切回 Jobs：应显示 Jobs 的对话框（Monitor 的对话框隐藏）
+        // 切回 Jobs：应显示 Jobs 的对话框（Recipes 的对话框隐藏）
         fireEvent.click(getNavButton("jobs") as Element);
         expect(screen.getByText("TITLE:jobs")).toBeInTheDocument();
-        expect(screen.queryByText("TITLE:monitor")).not.toBeInTheDocument();
+        expect(screen.queryByText("TITLE:recipes")).not.toBeInTheDocument();
     });
 
     it("未登录时点击命令会拦截执行并请求打开登录弹窗", () => {

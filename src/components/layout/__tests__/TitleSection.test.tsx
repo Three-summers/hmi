@@ -12,8 +12,7 @@ vi.mock("react-i18next", () => ({
 
 describe("TitleSection", () => {
     it("渲染当前视图标题", () => {
-        render(<TitleSection currentView="monitor" />);
-        expect(screen.getByText("nav.monitor")).toBeInTheDocument();
+        render(<TitleSection currentView="recipes" />);
+        expect(screen.getByText("nav.recipes")).toBeInTheDocument();
     });
 });
-

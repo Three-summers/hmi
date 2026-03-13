@@ -12,8 +12,6 @@ import type { ReactNode } from "react";
 /** 主导航视图 ID */
 export type ViewId =
     | "jobs"
-    | "system"
-    | "monitor"
     | "recipes"
     | "files"
     | "setup"

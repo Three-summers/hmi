@@ -63,6 +63,7 @@
 .navContainer {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: var(--sp-sm);
     width: 100%;
     position: relative;
@@ -179,11 +180,6 @@
     box-shadow:
         0 0 0 var(--border-width-2) rgba(34, 197, 94, 0.3),
         0 0 var(--space-4) var(--color-attention-glow);
-}
-
-/* 告警按钮：作为分隔点，右侧内容对齐 */
-.navButton[data-id="alarms"] {
-    margin-left: auto;
 }
 
 /* ═══ 图标与标签 ═══ */

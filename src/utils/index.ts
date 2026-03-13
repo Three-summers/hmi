@@ -1,7 +1,5 @@
 export type { RGBA } from "./colormap";
 export { amplitudeToColor } from "./colormap";
-export { captureSpectrumAnalyzer } from "./screenshot";
-
 export type { AuthCredentials } from "./auth";
 export {
     getStoredCredentials,
@@ -71,4 +69,3 @@ export function withAlpha(color: string, alpha: number, fallback: string): strin
         : 1;
     return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${safeAlpha})`;
 }
-

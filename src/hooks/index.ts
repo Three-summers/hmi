@@ -11,7 +11,6 @@ export { useChartData } from "./useChartData";
 export { useRetry } from "./useRetry";
 export { useErrorBoundary } from "./useErrorBoundary";
 export { useCommandHandler } from "./useCommandHandler";
-export { useSpectrumData } from "./useSpectrumData";
 export { useChartInit } from "./useChartInit";
 export { useStoreWhenActive } from "./useStoreWhenActive";
 export { useIntervalWhenActive } from "./useIntervalWhenActive";

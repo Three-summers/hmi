@@ -32,8 +32,6 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
         vi.doMock("@/hmi/viewRegistry", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: JobsView,
-                system: DummyView,
-                monitor: DummyView,
                 recipes: DummyView,
                 files: DummyView,
                 setup: SetupView,
@@ -80,8 +78,6 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
         vi.doMock("@/hmi/viewRegistry", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: JobsView,
-                system: DummyView,
-                monitor: DummyView,
                 recipes: DummyView,
                 files: DummyView,
                 setup: SetupView,
@@ -144,8 +140,6 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
         vi.doMock("@/hmi/viewRegistry", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: JobsView,
-                system: DummyView,
-                monitor: DummyView,
                 recipes: DummyView,
                 files: DummyView,
                 setup: SetupView,
@@ -202,8 +196,6 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
         vi.doMock("@/hmi/viewRegistry", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: JobsView,
-                system: DummyView,
-                monitor: DummyView,
                 recipes: DummyView,
                 files: DummyView,
                 setup: SetupView,
@@ -275,8 +267,6 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
         vi.doMock("@/hmi/viewRegistry", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: JobsView,
-                system: DummyView,
-                monitor: DummyView,
                 recipes: DummyView,
                 files: DummyView,
                 setup: SetupView,
@@ -380,8 +370,6 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
         vi.doMock("@/hmi/viewRegistry", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: JobsView,
-                system: DummyView,
-                monitor: DummyView,
                 recipes: DummyView,
                 files: DummyView,
                 setup: SetupView,
@@ -457,8 +445,6 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
         vi.doMock("@/hmi/viewRegistry", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: SuspendsView,
-                system: DummyView,
-                monitor: DummyView,
                 recipes: DummyView,
                 files: DummyView,
                 setup: DummyView,

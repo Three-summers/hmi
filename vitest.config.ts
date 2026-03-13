@@ -52,14 +52,7 @@ export default mergeConfig(
                     "src/hooks/useFileTree.ts",
                     "src/hooks/useFilePreview.ts",
                     "src/hooks/useChartData.ts",
-                    // T03：Monitor 视图拆分（逻辑 + 数据）
-                    "src/hooks/useSpectrumData.ts",
                     "src/hooks/useChartInit.ts",
-                    "src/components/views/Monitor/index.tsx",
-                    "src/components/views/Monitor/SpectrumAnalyzer.tsx",
-                    "src/components/views/Monitor/WaterfallChart.tsx",
-                    "src/components/views/Monitor/AlarmList.tsx",
-                    "src/components/views/Monitor/SpectrumChart.tsx",
                 ],
                 exclude: [
                     "**/*.d.ts",
