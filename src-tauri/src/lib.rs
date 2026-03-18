@@ -1,5 +1,6 @@
 mod comm;
 mod commands;
+mod craftsmanship;
 mod secs_rpc;
 mod sensor;
 mod system;
@@ -36,6 +37,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             commands::get_system_overview,
+            commands::craftsmanship_scan_workspace,
+            commands::craftsmanship_get_project_bundle,
+            commands::craftsmanship_get_recipe_bundle,
             commands::get_log_dir,
             commands::save_spectrum_screenshot,
             commands::get_serial_ports,

@@ -1,4 +1,5 @@
 use crate::comm::{actor::CommPriority, proto, serial, tcp, CommState};
+use crate::craftsmanship;
 use crate::secs_rpc::{self, SecsRpcTarget};
 use crate::sensor::SensorSimulator;
 use crate::system;
@@ -14,6 +15,33 @@ static HMIP_NEXT_SEQ: AtomicU32 = AtomicU32::new(1);
 #[tauri::command]
 pub fn get_system_overview() -> Result<system::SystemOverview, String> {
     system::read_system_overview()
+}
+
+/// 扫描工艺 workspace，读取系统目录与项目摘要。
+#[tauri::command]
+pub fn craftsmanship_scan_workspace(
+    workspace_root: String,
+) -> Result<craftsmanship::CraftsmanshipWorkspaceSummary, String> {
+    craftsmanship::scan_workspace(&workspace_root)
+}
+
+/// 读取单个项目的完整工艺资源包。
+#[tauri::command]
+pub fn craftsmanship_get_project_bundle(
+    workspace_root: String,
+    project_id: String,
+) -> Result<craftsmanship::CraftsmanshipProjectBundle, String> {
+    craftsmanship::get_project_bundle(&workspace_root, &project_id)
+}
+
+/// 读取单个工艺文件及其关联资源。
+#[tauri::command]
+pub fn craftsmanship_get_recipe_bundle(
+    workspace_root: String,
+    project_id: String,
+    recipe_id: String,
+) -> Result<craftsmanship::CraftsmanshipRecipeBundle, String> {
+    craftsmanship::get_recipe_bundle(&workspace_root, &project_id, &recipe_id)
 }
 
 /// 获取 Log 目录路径
