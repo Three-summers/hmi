@@ -72,4 +72,3 @@ pub fn list_ports() -> Result<Vec<String>, String> {
 
     Ok(ports.into_iter().map(|p| p.port_name).collect())
 }
-

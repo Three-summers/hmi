@@ -44,6 +44,72 @@ pub fn craftsmanship_get_recipe_bundle(
     craftsmanship::get_recipe_bundle(&workspace_root, &project_id, &recipe_id)
 }
 
+/// 加载一个 recipe 到运行时，并重置当前运行快照。
+#[tauri::command]
+pub async fn craftsmanship_runtime_load_recipe(
+    app: AppHandle,
+    state: State<'_, craftsmanship::RecipeRuntimeManager>,
+    workspace_root: String,
+    project_id: String,
+    recipe_id: String,
+) -> Result<craftsmanship::RecipeRuntimeSnapshot, String> {
+    state
+        .load_recipe(Some(&app), workspace_root, project_id, recipe_id)
+        .await
+}
+
+/// 启动已加载的 recipe runtime。
+#[tauri::command]
+pub async fn craftsmanship_runtime_start(
+    app: AppHandle,
+    state: State<'_, craftsmanship::RecipeRuntimeManager>,
+) -> Result<craftsmanship::RecipeRuntimeSnapshot, String> {
+    state.start(Some(app)).await
+}
+
+/// 请求停止当前 recipe runtime。
+#[tauri::command]
+pub async fn craftsmanship_runtime_stop(
+    app: AppHandle,
+    state: State<'_, craftsmanship::RecipeRuntimeManager>,
+    reason: Option<String>,
+) -> Result<craftsmanship::RecipeRuntimeSnapshot, String> {
+    state.stop(Some(&app), reason).await
+}
+
+/// 读取当前 recipe runtime 快照。
+#[tauri::command]
+pub async fn craftsmanship_runtime_get_status(
+    state: State<'_, craftsmanship::RecipeRuntimeManager>,
+) -> Result<craftsmanship::RecipeRuntimeSnapshot, String> {
+    Ok(state.get_status().await)
+}
+
+/// 向运行时写入逻辑信号值，用于等待条件与联锁判断。
+#[tauri::command]
+pub async fn craftsmanship_runtime_write_signal(
+    app: AppHandle,
+    state: State<'_, craftsmanship::RecipeRuntimeManager>,
+    signal_id: String,
+    value: serde_json::Value,
+) -> Result<craftsmanship::RecipeRuntimeSnapshot, String> {
+    state.write_signal(Some(&app), signal_id, value).await
+}
+
+/// 向运行时写入设备反馈值，用于 deviceFeedback 完成判定。
+#[tauri::command]
+pub async fn craftsmanship_runtime_write_device_feedback(
+    app: AppHandle,
+    state: State<'_, craftsmanship::RecipeRuntimeManager>,
+    device_id: String,
+    key: String,
+    value: serde_json::Value,
+) -> Result<craftsmanship::RecipeRuntimeSnapshot, String> {
+    state
+        .write_device_feedback(Some(&app), device_id, key, value)
+        .await
+}
+
 /// 获取 Log 目录路径
 #[tauri::command]
 pub fn get_log_dir(app: AppHandle) -> Result<String, String> {

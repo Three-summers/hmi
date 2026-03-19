@@ -40,6 +40,12 @@ pub fn run() {
             commands::craftsmanship_scan_workspace,
             commands::craftsmanship_get_project_bundle,
             commands::craftsmanship_get_recipe_bundle,
+            commands::craftsmanship_runtime_load_recipe,
+            commands::craftsmanship_runtime_start,
+            commands::craftsmanship_runtime_stop,
+            commands::craftsmanship_runtime_get_status,
+            commands::craftsmanship_runtime_write_signal,
+            commands::craftsmanship_runtime_write_device_feedback,
             commands::get_log_dir,
             commands::save_spectrum_screenshot,
             commands::get_serial_ports,
@@ -67,6 +73,8 @@ pub fn run() {
         .setup(|app| {
             // 初始化通信状态
             app.manage(comm::CommState::default());
+            // 初始化工艺运行时
+            app.manage(craftsmanship::RecipeRuntimeManager::default());
             // 初始化传感器模拟器
             app.manage(sensor::SensorSimulator::default());
             Ok(())

@@ -35,4 +35,3 @@ pub async fn open_stream(config: &TcpConfig) -> Result<TcpStream, String> {
     let _ = stream.set_nodelay(true);
     Ok(stream)
 }
-
