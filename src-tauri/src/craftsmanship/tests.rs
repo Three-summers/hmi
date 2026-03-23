@@ -758,6 +758,72 @@ fn get_project_bundle_should_validate_completion_signal_and_interlock_operator()
 }
 
 #[test]
+fn get_project_bundle_should_validate_device_feedback_completion_key_binding() {
+    let workspace = TestWorkspace::new();
+    workspace.write_json(
+        "system/actions/pump.start.json",
+        json!({
+            "id": "pump.start",
+            "name": "开泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "completion": {
+                "type": "deviceFeedback",
+                "key": "running",
+                "operator": "eq",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "system/device-types/pump.json",
+        json!({
+            "id": "pump",
+            "name": "泵",
+            "allowedActions": ["pump.start"]
+        }),
+    );
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/devices/pump_01.json",
+        json!({
+            "id": "pump_01",
+            "name": "前级泵",
+            "typeId": "pump",
+            "enabled": true,
+            "tags": {
+                "start": "device.pump01.start"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/pump-start.json",
+        json!({
+            "id": "pump-start",
+            "name": "启动前级泵",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "开泵",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_01",
+                    "parameters": {}
+                }
+            ]
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "device_feedback_key_not_defined"
+    ));
+}
+
+#[test]
 fn get_recipe_bundle_should_error_when_recipe_is_missing() {
     let workspace = build_workspace_fixture();
     let error =

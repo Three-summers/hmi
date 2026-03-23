@@ -21,6 +21,7 @@
 - `09-theme-scale-i18n.md`：主题/缩放/i18n 的实现方式与联动点
 - `10-testing-strategy.md`：单元测试与 mock 策略（Vitest/JSDOM/依赖注入）
 - `11-hmip-binary-protocol.md`：HMIP 二进制协议（帧格式/CRC/消息类型/事件流）
+- `12-craftsmanship-backend.md`：工艺流程后端（workspace 模型、diagnostics、runtime、当前边界）
 
 ## 约定：如何在文档里“对照源码”
 

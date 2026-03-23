@@ -83,14 +83,31 @@ pub(super) async fn run_recipe(
                             )
                             .await;
                     }
+                    Err(safe_stop_failure) if safe_stop_failure.code == "stop_requested" => {
+                        manager
+                            .finish_run(
+                                app.as_ref(),
+                                RecipeRuntimeStatus::Stopped,
+                                RecipeRuntimePhase::SafeStop,
+                                Some(format!(
+                                    "safe-stop interrupted: {}",
+                                    safe_stop_failure.message
+                                )),
+                                Some(failure),
+                            )
+                            .await;
+                    }
                     Err(safe_stop_failure) => {
                         manager
                             .finish_run(
                                 app.as_ref(),
                                 RecipeRuntimeStatus::Failed,
                                 RecipeRuntimePhase::SafeStop,
-                                Some("safe-stop failed".to_string()),
-                                Some(safe_stop_failure),
+                                Some(format!(
+                                    "safe-stop failed after `{}`: {} ({})",
+                                    failure.code, safe_stop_failure.message, safe_stop_failure.code
+                                )),
+                                Some(failure),
                             )
                             .await;
                     }
@@ -561,6 +578,7 @@ async fn execute_action_completion(
                 action.id, signal_label
             ))
         }
+        Some("immediate") | None => Ok(format!("action `{}` completed immediately", action.id)),
         Some(other) => Err(runtime_failure(
             "unsupported_completion_type",
             format!(
@@ -571,7 +589,6 @@ async fn execute_action_completion(
             Some(action.id.clone()),
             on_error,
         )),
-        None => Ok(format!("action `{}` completed immediately", action.id)),
     }
 }
 

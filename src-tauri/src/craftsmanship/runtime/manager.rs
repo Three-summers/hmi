@@ -209,7 +209,7 @@ impl RecipeRuntimeManager {
 
     pub async fn stop(
         &self,
-        app: Option<&AppHandle>,
+        _app: Option<&AppHandle>,
         reason: Option<String>,
     ) -> Result<RecipeRuntimeSnapshot, String> {
         {
@@ -223,19 +223,10 @@ impl RecipeRuntimeManager {
             state.snapshot.last_message = reason
                 .clone()
                 .or_else(|| Some("stop requested".to_string()));
-            let snapshot = state.snapshot.clone();
-
-            self.emit_event(
-                app,
-                RecipeRuntimeEventKind::Stopped,
-                snapshot,
-                None,
-                None,
-                reason
-                    .clone()
-                    .or_else(|| Some("stop requested".to_string())),
-            );
         }
+
+        // 尽快唤醒等待中的步骤，让 stop 请求不必额外等待轮询周期。
+        self.value_changed.notify_waiters();
 
         loop {
             let snapshot = self.get_status().await;

@@ -392,6 +392,32 @@ fn validate_action_device_binding(
             ));
         }
     }
+
+    if matches!(
+        action
+            .completion
+            .as_ref()
+            .and_then(|completion| completion.r#type.as_deref()),
+        Some("deviceFeedback")
+    ) {
+        if let Some(feedback_key) = action
+            .completion
+            .as_ref()
+            .and_then(|completion| completion.key.as_deref())
+        {
+            if !device.tags.contains_key(feedback_key) {
+                diagnostics.push(diagnostic_error(
+                    "device_feedback_key_not_defined",
+                    format!(
+                        "{context} `{entity_id}` uses action `{}` whose completion expects feedback key `{feedback_key}`, but device `{}` does not define it",
+                        action.id, device.id
+                    ),
+                    Some(source_path.to_string()),
+                    Some(entity_id.to_string()),
+                ));
+            }
+        }
+    }
 }
 
 fn validate_interlock_condition(

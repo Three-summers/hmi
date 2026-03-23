@@ -1075,3 +1075,281 @@ async fn runtime_should_complete_long_immediate_step_sequence() {
         .iter()
         .all(|step| step.status == RecipeRuntimeStepStatus::Completed));
 }
+
+#[tokio::test]
+async fn runtime_should_complete_explicit_immediate_completion_action() {
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "system/actions/common.noop.json",
+        json!({
+            "id": "common.noop",
+            "name": "空动作",
+            "targetMode": "none",
+            "parameters": [],
+            "completion": {
+                "type": "immediate"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/noop.json",
+        json!({
+            "id": "noop",
+            "name": "空动作工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "空动作",
+                    "actionId": "common.noop",
+                    "parameters": {},
+                    "timeoutMs": 100,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "noop".to_string(),
+        )
+        .await
+        .unwrap();
+    manager.start(None).await.unwrap();
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+    assert_eq!(
+        snapshot.recipe_steps[0].status,
+        RecipeRuntimeStepStatus::Completed
+    );
+}
+
+#[tokio::test]
+async fn runtime_should_report_stopped_when_stop_is_requested_during_safe_stop() {
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "system/actions/pump.stop.json",
+        json!({
+            "id": "pump.stop",
+            "name": "停泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "completion": {
+                "type": "deviceFeedback",
+                "key": "running",
+                "operator": "eq",
+                "value": false
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/safety/safe-stop.json",
+        json!({
+            "id": "safe-stop",
+            "name": "安全停机",
+            "steps": [
+                {
+                    "seq": 10,
+                    "actionId": "pump.stop",
+                    "deviceId": "pump_01"
+                }
+            ]
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/wait-pressure.json",
+        json!({
+            "id": "wait-pressure",
+            "name": "等待腔压",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "等待腔压到位",
+                    "actionId": "common.wait-signal",
+                    "parameters": {
+                        "signalId": "chamber_pressure",
+                        "operator": "lt",
+                        "value": 10
+                    },
+                    "timeoutMs": 60,
+                    "onError": "safe-stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "wait-pressure".to_string(),
+        )
+        .await
+        .unwrap();
+    manager.start(None).await.unwrap();
+
+    let started = std::time::Instant::now();
+    loop {
+        let snapshot = manager.get_status().await;
+        if snapshot.phase == RecipeRuntimePhase::SafeStop {
+            break;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "runtime did not enter safe-stop in time"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+
+    let snapshot = manager
+        .stop(None, Some("operator stop during safe-stop".to_string()))
+        .await
+        .unwrap();
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Stopped);
+    assert_eq!(snapshot.phase, RecipeRuntimePhase::SafeStop);
+    assert_eq!(
+        snapshot.safe_stop_steps[0].status,
+        RecipeRuntimeStepStatus::Stopped
+    );
+    assert_eq!(
+        snapshot
+            .last_error
+            .as_ref()
+            .map(|failure| failure.code.as_str()),
+        Some("step_timeout")
+    );
+}
+
+#[tokio::test]
+async fn runtime_should_preserve_original_failure_when_safe_stop_step_fails() {
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "system/actions/pump.stop.json",
+        json!({
+            "id": "pump.stop",
+            "name": "停泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "completion": {
+                "type": "deviceFeedback",
+                "key": "running",
+                "operator": "gt",
+                "value": 0
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/safety/safe-stop.json",
+        json!({
+            "id": "safe-stop",
+            "name": "安全停机",
+            "steps": [
+                {
+                    "seq": 10,
+                    "actionId": "pump.stop",
+                    "deviceId": "pump_01"
+                }
+            ]
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/wait-pressure.json",
+        json!({
+            "id": "wait-pressure",
+            "name": "等待腔压",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "等待腔压到位",
+                    "actionId": "common.wait-signal",
+                    "parameters": {
+                        "signalId": "chamber_pressure",
+                        "operator": "lt",
+                        "value": 10
+                    },
+                    "timeoutMs": 60,
+                    "onError": "safe-stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "wait-pressure".to_string(),
+        )
+        .await
+        .unwrap();
+    manager.start(None).await.unwrap();
+
+    let writer = {
+        let manager = manager.clone();
+        tokio::spawn(async move {
+            let started = std::time::Instant::now();
+            loop {
+                let snapshot = manager.get_status().await;
+                if snapshot.phase == RecipeRuntimePhase::SafeStop
+                    && snapshot.active_step_id.is_some()
+                {
+                    manager
+                        .write_device_feedback(
+                            None,
+                            "pump_01".to_string(),
+                            "running".to_string(),
+                            json!("bad"),
+                        )
+                        .await
+                        .unwrap();
+                    break;
+                }
+                assert!(
+                    started.elapsed() < Duration::from_secs(2),
+                    "runtime did not start safe-stop step in time"
+                );
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+    };
+
+    writer.await.unwrap();
+    let snapshot = wait_for_terminal_status(&manager).await;
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Failed);
+    assert_eq!(snapshot.phase, RecipeRuntimePhase::SafeStop);
+    assert_eq!(
+        snapshot.safe_stop_steps[0].status,
+        RecipeRuntimeStepStatus::Failed
+    );
+    assert_eq!(
+        snapshot
+            .last_error
+            .as_ref()
+            .map(|failure| failure.code.as_str()),
+        Some("step_timeout")
+    );
+    assert!(snapshot
+        .last_message
+        .as_deref()
+        .is_some_and(|message| message.contains("condition_compare_error")));
+}
