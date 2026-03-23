@@ -33,6 +33,27 @@ pub struct ActionCompletionDefinition {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct ActionDispatchDefinition {
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub msg_type: Option<u8>,
+    #[serde(default)]
+    pub flags: Option<u8>,
+    #[serde(default)]
+    pub priority: Option<String>,
+    #[serde(default)]
+    pub payload_mode: Option<String>,
+    #[serde(default)]
+    pub payload_hex: Option<String>,
+    #[serde(default)]
+    pub value: Option<bool>,
+    #[serde(flatten, default)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ActionParameterDefinition {
     pub key: String,
     pub name: String,
@@ -71,6 +92,8 @@ pub struct ActionDefinition {
     pub parameters: Vec<ActionParameterDefinition>,
     #[serde(default)]
     pub completion: Option<ActionCompletionDefinition>,
+    #[serde(default)]
+    pub dispatch: Option<ActionDispatchDefinition>,
     #[serde(default)]
     pub summary_template: Option<String>,
     #[serde(flatten, default)]
@@ -120,7 +143,26 @@ pub struct DeviceInstance {
     #[serde(default = "default_true")]
     pub enabled: bool,
     #[serde(default)]
+    pub transport: Option<DeviceTransportDefinition>,
+    #[serde(default)]
     pub tags: BTreeMap<String, String>,
+    #[serde(flatten, default)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceTransportDefinition {
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub channel: Option<u8>,
+    #[serde(default)]
+    pub pin: Option<u32>,
+    #[serde(default)]
+    pub active_low: Option<bool>,
+    #[serde(default)]
+    pub root_dir: Option<String>,
     #[serde(flatten, default)]
     pub extra: BTreeMap<String, Value>,
 }

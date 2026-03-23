@@ -649,7 +649,10 @@ async fn runtime_should_reject_duplicate_start_and_load_while_running() {
         .unwrap_err();
     assert!(duplicate_load_error.contains("stop it before loading another recipe"));
 
-    let snapshot = manager.stop(None, Some("duplicate guard".to_string())).await.unwrap();
+    let snapshot = manager
+        .stop(None, Some("duplicate guard".to_string()))
+        .await
+        .unwrap();
     assert_eq!(snapshot.status, RecipeRuntimeStatus::Stopped);
 }
 
@@ -811,7 +814,10 @@ async fn runtime_should_ignore_failed_step_and_continue() {
 
     let snapshot = wait_for_terminal_status(&manager).await;
     assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
-    assert_eq!(snapshot.recipe_steps[0].status, RecipeRuntimeStepStatus::Failed);
+    assert_eq!(
+        snapshot.recipe_steps[0].status,
+        RecipeRuntimeStepStatus::Failed
+    );
     assert_eq!(
         snapshot.recipe_steps[1].status,
         RecipeRuntimeStepStatus::Completed
@@ -1352,4 +1358,191 @@ async fn runtime_should_preserve_original_failure_when_safe_stop_step_fails() {
         .last_message
         .as_deref()
         .is_some_and(|message| message.contains("condition_compare_error")));
+}
+
+#[tokio::test]
+async fn runtime_should_fail_dispatched_action_when_app_handle_is_missing() {
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "system/actions/pump.start.json",
+        json!({
+            "id": "pump.start",
+            "name": "开泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "dispatch": {
+                "kind": "hmipFrame",
+                "msgType": 16,
+                "payloadHex": "0101"
+            },
+            "completion": {
+                "type": "deviceFeedback",
+                "key": "running",
+                "operator": "eq",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/devices/pump_01.json",
+        json!({
+            "id": "pump_01",
+            "name": "前级泵",
+            "typeId": "pump",
+            "enabled": true,
+            "transport": {
+                "kind": "tcp",
+                "channel": 1
+            },
+            "tags": {
+                "running": "device.pump_01.running"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/pump-start.json",
+        json!({
+            "id": "pump-start",
+            "name": "开泵工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "开泵",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_01",
+                    "timeoutMs": 200,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "pump-start".to_string(),
+        )
+        .await
+        .unwrap();
+    manager.start(None).await.unwrap();
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Failed);
+    assert_eq!(snapshot.phase, RecipeRuntimePhase::Recipe);
+    assert_eq!(
+        snapshot.recipe_steps[0].status,
+        RecipeRuntimeStepStatus::Failed
+    );
+    assert_eq!(
+        snapshot
+            .last_error
+            .as_ref()
+            .map(|failure| failure.code.as_str()),
+        Some("missing_app_handle")
+    );
+}
+
+#[tokio::test]
+async fn runtime_should_dispatch_gpio_action_to_configured_pin() {
+    let workspace = TestWorkspace::new();
+    let gpio_root = workspace.path().join("mock-gpio");
+    let gpio_dir = gpio_root.join("gpio17");
+    fs::create_dir_all(&gpio_dir).expect("failed to create gpio fixture directory");
+    fs::write(gpio_dir.join("value"), "0").expect("failed to write gpio value fixture");
+    fs::write(gpio_dir.join("direction"), "in").expect("failed to write gpio direction fixture");
+    fs::write(gpio_dir.join("active_low"), "0").expect("failed to write gpio active_low fixture");
+
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "system/actions/valve.open.json",
+        json!({
+            "id": "valve.open",
+            "name": "开阀",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["valve"],
+            "parameters": [],
+            "dispatch": {
+                "kind": "gpioWrite",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "system/device-types/valve.json",
+        json!({
+            "id": "valve",
+            "name": "阀",
+            "allowedActions": ["valve.open"]
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/devices/valve_01.json",
+        json!({
+            "id": "valve_01",
+            "name": "进气阀",
+            "typeId": "valve",
+            "enabled": true,
+            "transport": {
+                "kind": "gpio",
+                "pin": 17,
+                "activeLow": false,
+                "rootDir": gpio_root.to_string_lossy().to_string()
+            },
+            "tags": {}
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/valve-open.json",
+        json!({
+            "id": "valve-open",
+            "name": "开阀工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "打开进气阀",
+                    "actionId": "valve.open",
+                    "deviceId": "valve_01",
+                    "timeoutMs": 200,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "valve-open".to_string(),
+        )
+        .await
+        .unwrap();
+    manager.start(None).await.unwrap();
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+    assert_eq!(
+        snapshot.recipe_steps[0].status,
+        RecipeRuntimeStepStatus::Completed
+    );
+    assert_eq!(fs::read_to_string(gpio_dir.join("value")).unwrap(), "1");
+    assert_eq!(
+        fs::read_to_string(gpio_dir.join("direction")).unwrap(),
+        "out"
+    );
+    assert_eq!(
+        fs::read_to_string(gpio_dir.join("active_low")).unwrap(),
+        "0"
+    );
 }

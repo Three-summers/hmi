@@ -824,6 +824,196 @@ fn get_project_bundle_should_validate_device_feedback_completion_key_binding() {
 }
 
 #[test]
+fn get_project_bundle_should_validate_missing_transport_for_dispatched_action() {
+    let workspace = TestWorkspace::new();
+    workspace.write_json(
+        "system/actions/pump.start.json",
+        json!({
+            "id": "pump.start",
+            "name": "开泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "dispatch": {
+                "kind": "hmipFrame",
+                "msgType": 16,
+                "payloadHex": "0101"
+            }
+        }),
+    );
+    workspace.write_json(
+        "system/device-types/pump.json",
+        json!({
+            "id": "pump",
+            "name": "泵",
+            "allowedActions": ["pump.start"]
+        }),
+    );
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/devices/pump_01.json",
+        json!({
+            "id": "pump_01",
+            "name": "前级泵",
+            "typeId": "pump",
+            "enabled": true,
+            "tags": {
+                "running": "device.pump01.running"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/pump-start.json",
+        json!({
+            "id": "pump-start",
+            "name": "启动前级泵",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "开泵",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_01",
+                    "parameters": {}
+                }
+            ]
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "missing_device_transport"
+    ));
+}
+
+#[test]
+fn get_project_bundle_should_validate_invalid_dispatch_payload_hex() {
+    let workspace = TestWorkspace::new();
+    workspace.write_json(
+        "system/actions/pump.start.json",
+        json!({
+            "id": "pump.start",
+            "name": "开泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "dispatch": {
+                "kind": "hmipFrame",
+                "msgType": 16,
+                "payloadHex": "01ZZ"
+            }
+        }),
+    );
+    workspace.write_json(
+        "system/device-types/pump.json",
+        json!({
+            "id": "pump",
+            "name": "泵",
+            "allowedActions": ["pump.start"]
+        }),
+    );
+    write_project_definition(&workspace, "project-a", "project-a");
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "action_invalid_dispatch_payload_hex"
+    ));
+}
+
+#[test]
+fn get_project_bundle_should_validate_gpio_transport_pin_and_dispatch_transport_mismatch() {
+    let workspace = TestWorkspace::new();
+    workspace.write_json(
+        "system/actions/valve.open.json",
+        json!({
+            "id": "valve.open",
+            "name": "开阀",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["valve"],
+            "parameters": [],
+            "dispatch": {
+                "kind": "gpioWrite",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "system/device-types/valve.json",
+        json!({
+            "id": "valve",
+            "name": "阀",
+            "allowedActions": ["valve.open"]
+        }),
+    );
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/devices/valve_gpio_missing_pin.json",
+        json!({
+            "id": "valve_gpio_missing_pin",
+            "name": "GPIO 阀",
+            "typeId": "valve",
+            "enabled": true,
+            "transport": {
+                "kind": "gpio"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/devices/valve_tcp_wrong_transport.json",
+        json!({
+            "id": "valve_tcp_wrong_transport",
+            "name": "TCP 阀",
+            "typeId": "valve",
+            "enabled": true,
+            "transport": {
+                "kind": "tcp",
+                "channel": 1
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/valve-open.json",
+        json!({
+            "id": "valve-open",
+            "name": "开阀工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "GPIO 缺 pin",
+                    "actionId": "valve.open",
+                    "deviceId": "valve_gpio_missing_pin",
+                    "parameters": {}
+                },
+                {
+                    "id": "S020",
+                    "seq": 20,
+                    "name": "GPIO 配错 transport",
+                    "actionId": "valve.open",
+                    "deviceId": "valve_tcp_wrong_transport",
+                    "parameters": {}
+                }
+            ]
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "device_missing_transport_pin"
+    ));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "dispatch_transport_not_supported"
+    ));
+}
+
+#[test]
 fn get_recipe_bundle_should_error_when_recipe_is_missing() {
     let workspace = build_workspace_fixture();
     let error =

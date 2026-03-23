@@ -1,8 +1,11 @@
 # 12 · 工艺流程后端（craftsmanship）：工作区模型、静态校验与单实例运行时
 
+> 更新日期：2026-03-23
+> 执行者：Codex
+
 本章聚焦 `src-tauri/src/craftsmanship/` 这一整组 Rust 后端实现。它已经不是“纯设计稿”，而是一个可被 Tauri 命令直接调用的工艺内核：能扫描 workspace、装配项目 bundle、生成 diagnostics、加载 recipe、启动单实例运行时，并通过信号/设备反馈驱动步骤推进。
 
-同时也要先说清楚当前边界：**它还不是完整闭环产品**。后端核心已经落地，但前端 `Recipes` 视图仍是静态 demo 数据，发布层未实现，运行时也还没有真正下发设备控制命令。
+同时也要先说清楚当前边界：**它还不是完整闭环产品**。后端核心已经落地，运行时也已经具备最小真实动作下发链路，但前端 `Recipes` 视图仍是静态 demo 数据，运行记录与审计持久化也还没有接上。
 
 ## 1. 它在项目里的位置
 
@@ -50,7 +53,7 @@ Frontend today
 - 当前类型定义：`src-tauri/src/craftsmanship/types.rs`
 - 当前加载实现：`src-tauri/src/craftsmanship/loader.rs`
 
-`docs/craftsmanship_build.md` 给出的理念是“按目录组织工艺能力”，把工艺系统拆成系统定义层、项目资源层、工艺层，以及未来的发布层。当前 Rust 后端已经实现了前三层的大部分读取能力，但**发布层还没有进入代码实现**。
+`docs/craftsmanship_build.md` 给出的理念是“按目录组织工艺能力”。当前 Rust 后端聚焦系统定义层、项目资源层和工艺层，已经实现了这三层的大部分读取、校验和运行时装配能力。本文不再把发布/冻结层作为当前实现范围或缺口说明。
 
 字符画：当前后端实际识别的目录
 
@@ -387,13 +390,24 @@ run_recipe()
    - 从参数里取 `signalId/operator/value/stableTimeMs`
    - 等待 `signal_values` 满足条件
 
-3. 其他所有 action
-   - 不做“动作下发”
-   - 只看该 action 是否声明了 `completion`
-   - 若有 completion，就等待 completion 条件满足
-   - 若没有 completion，则立刻视为完成
+3. 其他 action
+   - 若 `action.dispatch` 已声明，就按 `dispatch.kind` 走真实动作下发
+   - 下发完成后，再按 `action.completion` 等待完成条件
+   - 若未声明 `dispatch`，则仍只执行 `completion` 等待
+   - 若 `completion` 也为空，则立刻视为完成
 
-这也是当前实现最关键的事实之一：**运行时现在已经会“推进步骤”，但还不会“真正执行设备命令”**。它更像一个“工艺判定与调度内核”，不是完整设备控制器。
+这里的关键边界是：`match action.id` 只保留给 `common.delay` 和 `common.wait-signal` 这两个内建语义，像 `pump.start`、`valve.open` 这类真实设备动作不再通过动作 ID 写死分支，而是统一走 `dispatch.kind`。
+
+当前已经落地的最小真实下发能力是：
+
+- `dispatch.kind = hmipFrame`
+- `device.transport.kind = tcp | serial`
+- `payloadMode` 目前只支持 `fixedHex`
+- `dispatch.kind = gpioWrite`
+- `device.transport.kind = gpio`
+- GPIO 路径默认写入 `/sys/class/gpio/gpioN/value`
+
+也就是说，运行时现在已经会“推进步骤 + 下发最小真实设备命令 + 等待完成反馈”，但它仍不是完整通用设备控制器。
 
 ### 5.6 completion 语义
 
@@ -408,6 +422,15 @@ run_recipe()
   - 直接等待 `signal_values[signal_id]` 满足比较条件
 
 如果 `action.completion` 为空，运行时返回“completed immediately”。
+
+在当前实现里，真实命令发送和步骤完成判定是两段链路：
+
+- `dispatch`
+  - 负责把动作真正送到现有通信通道
+- `completion`
+  - 负责把外部反馈收敛为“这一步已经完成”
+
+这两段故意分开，因此“命令如何发出”和“何时算执行完成”可以独立配置。
 
 ### 5.7 等待模型：Notify + 20ms 轮询兜底
 
@@ -569,15 +592,21 @@ recipe 主步骤在执行前会调用 `validate_interlocks()`：
 
 这很适合编辑器和工程配置场景，因为用户需要“看见所有问题”，而不是每次只被第一个错误中断。
 
-### 7.3 运行时和硬件通信故意解耦
+### 7.3 运行时把动作语义与通信链路做了分层
 
-当前 runtime 不直接依赖串口/TCP/SECS/GEM 等具体链路，而是通过 `write_signal()` / `write_device_feedback()` 接受外部世界写入值。
+当前 runtime 的分层方式是：
 
-好处是：
+- 内建语义动作仍由 `engine.rs` 直接解释
+- 真实设备动作统一走 `runtime/dispatch.rs`
+- 底层发送复用 `comm` 模块的现有发送能力
+- 完成反馈仍通过 `write_signal()` / `write_device_feedback()` 回流到 runtime
 
-- 运行时内核可单独测试
-- 后续可以从多种通信层喂值
-- UI、模拟器、测试夹具都能复用同一套执行引擎
+这样做的好处是：
+
+- 业务动作不会继续在 `match action.id` 里膨胀
+- 真实下发链路和完成判定链路保持清晰分层
+- runtime 内核仍可在不连真实设备时做大部分测试
+- 后续如果要扩 transport 或 dispatch，只需在专门层扩展
 
 ### 7.4 快照优先，而不是把 UI 逼成解释器
 
@@ -605,7 +634,7 @@ recipe 主步骤在执行前会调用 `validate_interlocks()`：
 
 这说明 safe-stop 在设计上不是“附带回调”，而是工艺状态机的一等公民。
 
-## 8. 当前尚未完成的部分
+## 8. 当前剩余缺口与实现边界
 
 这一节最重要，因为它决定了“当前系统是什么”以及“它还不是什么”。
 
@@ -621,59 +650,21 @@ recipe 主步骤在执行前会调用 `validate_interlocks()`：
 
 - 现在的工艺流程实现仍然是后端能力先行，UI 只是占位展示。
 
-### 8.2 发布层未实现
+### 8.2 真实动作下发已经打通，但范围仍然刻意收敛
 
 证据：
 
-- `docs/craftsmanship_build.md` 仍保留“发布层”概念
-- `src-tauri/src/craftsmanship/` 当前没有任何 release / publish 相关结构或加载逻辑
+- `runtime/dispatch.rs` 目前支持 `hmipFrame` 和 `gpioWrite`
+- `validation.rs` 当前接受 `tcp` / `serial` / `gpio` 三类 `device.transport.kind`
+- HMIP 的 `payloadMode` 目前只有 `fixedHex`
+- GPIO 目前是本机最小写入链路，不涉及更复杂的 IO 驱动抽象
+- 还没有参数到 payload 的模板展开，也没有 SECS 等其他协议分发
 
 结论：
 
-- 当前后端实现的是“系统层 + 项目层 + recipe 层”，不是“发布冻结版本管理”。
+- 当前链路已经够支撑“配置一个真实动作并发到现有 HMIP 通道”以及“把简单设备动作直接写到本机 GPIO”，但还不是完整通用协议分发层。
 
-### 8.3 `schemas/` 目前只被发现，没有真的参与 JSON Schema 校验
-
-证据：
-
-- `loader.rs` 只把 `system/schemas/*.json` 收集成路径列表
-- `validation.rs` 的校验全部是手写语义校验
-
-结论：
-
-- `schemas/` 现在更像“预留给未来编辑器/发布器使用的资源目录”，还不是实际生效的 schema 引擎。
-
-### 8.4 runtime 目前不会真正下发设备动作
-
-证据：
-
-- `engine.rs` 对 `common.delay`、`common.wait-signal` 之外的 action，不会调用任何通信模块
-- 默认路径只是等待 `action.completion`
-- `pump.stop` 这类没有 completion 的动作会被立即视为完成
-
-结论：
-
-- 当前引擎是“流程推进与条件判定器”，不是“设备命令执行器”。
-
-### 8.5 动作语义支持还很薄
-
-当前内建动作语义只有：
-
-- `common.delay`
-- `common.wait-signal`
-
-其余动作是否“有实际执行意义”，取决于：
-
-- 是否配置了 completion
-- 是否有外部系统及时写回 signal / feedback
-
-这意味着复杂动作模板、脚本动作、批量动作、并行动作、子流程调用等，都还不在当前实现范围内。
-
-### 8.6 联锁不是持续监控模型
-
-当前联锁只在 recipe step 开始前检查一次。步骤执行中、safe-stop 阶段、以及“动作完成后到下一步开始前”的窗口，并没有持续联锁守护。
-
-### 8.7 没有运行记录持久化
+### 8.3 没有运行记录持久化
 
 当前 snapshot、run_id、runtime_values 都在内存里：
 
@@ -688,7 +679,7 @@ recipe 主步骤在执行前会调用 `validate_interlocks()`：
 
 - 命令：`cargo test craftsmanship --manifest-path src-tauri/Cargo.toml`
 - 结果：通过
-- 汇总：27 个测试全部通过
+- 汇总：36 个测试全部通过
 
 这些测试已经覆盖到当前实现最关键的行为：
 
@@ -707,7 +698,10 @@ recipe 主步骤在执行前会调用 `validate_interlocks()`：
 - `ignore`
 - `safe-stop`
 - 高频 signal 写入
+- dispatch/transport 配置校验
+- HMIP 最小真实下发链路的失败路径
+- GPIO 最小真实下发链路的成功路径
 
 ## 10. 一句话总结
 
-当前的 craftsmanship 后端已经具备了“配置化工艺模型 + 静态诊断 + 单实例运行时 + Tauri IPC 接口”的完整后端骨架，但它仍处在 **backend-first** 阶段：前端未接入、发布层未落地、真实设备动作未打通，因此它更准确的定位是“工艺流程后端内核”，而不是“已经完成的工艺流程产品”。
+当前的 craftsmanship 后端已经具备了“配置化工艺模型 + 静态诊断 + 单实例运行时 + 最小真实动作下发 + Tauri IPC 接口”的后端骨架，但它仍处在 **backend-first** 阶段：前端未接入、运行记录未持久化、真实下发范围仍刻意收敛，因此它更准确的定位是“工艺流程后端内核”，而不是“已经完成的工艺流程产品”。

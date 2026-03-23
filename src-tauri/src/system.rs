@@ -142,10 +142,7 @@ mod linux {
             .map_err(|error| format!("Failed to execute df: {}", error))?;
 
         if !output.status.success() {
-            return Err(format!(
-                "df exited with status {}",
-                output.status
-            ));
+            return Err(format!("df exited with status {}", output.status));
         }
 
         let stdout = String::from_utf8(output.stdout)

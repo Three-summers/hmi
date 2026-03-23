@@ -67,6 +67,10 @@ pub(super) fn validate_system_bundle(
         if let Some(completion) = action.completion.as_ref() {
             validate_action_completion_definition(action, completion, &mut diagnostics);
         }
+
+        if let Some(dispatch) = action.dispatch.as_ref() {
+            validate_action_dispatch_definition(action, dispatch, &mut diagnostics);
+        }
     }
 
     for device_type in &system.device_types {
@@ -129,6 +133,10 @@ pub(super) fn validate_project_resources(
                 Some(device.source_path.clone()),
                 Some(device.id.clone()),
             ));
+        }
+
+        if let Some(transport) = device.transport.as_ref() {
+            validate_device_transport_definition(device, transport, &mut diagnostics);
         }
     }
 
@@ -343,6 +351,19 @@ fn validate_action_device_binding(
         _ => {}
     }
 
+    if action.dispatch.is_some() && device_id.is_none() {
+        diagnostics.push(diagnostic_error(
+            "missing_dispatch_device",
+            format!(
+                "{context} `{entity_id}` uses action `{}` with real dispatch, but `deviceId` is missing",
+                action.id
+            ),
+            Some(source_path.to_string()),
+            Some(entity_id.to_string()),
+        ));
+        return;
+    }
+
     let Some(device_id) = device_id else {
         return;
     };
@@ -417,6 +438,82 @@ fn validate_action_device_binding(
                 ));
             }
         }
+    }
+
+    if action.dispatch.is_some() && device.transport.is_none() {
+        diagnostics.push(diagnostic_error(
+            "missing_device_transport",
+            format!(
+                "{context} `{entity_id}` uses action `{}` with real dispatch, but device `{}` does not define transport",
+                action.id, device.id
+            ),
+            Some(source_path.to_string()),
+            Some(entity_id.to_string()),
+        ));
+    }
+
+    match action
+        .dispatch
+        .as_ref()
+        .and_then(|dispatch| dispatch.kind.as_deref())
+    {
+        Some("hmipFrame") => match device
+            .transport
+            .as_ref()
+            .and_then(|transport| transport.kind.as_deref())
+        {
+            Some("tcp") | Some("serial") => {}
+            Some(other) => diagnostics.push(diagnostic_error(
+                "dispatch_transport_not_supported",
+                format!(
+                    "{context} `{entity_id}` uses HMIP dispatch for action `{}`, but device `{}` transport `{other}` is unsupported",
+                    action.id, device.id
+                ),
+                Some(source_path.to_string()),
+                Some(entity_id.to_string()),
+            )),
+            None if action.dispatch.is_some() && device.transport.is_some() => {
+                diagnostics.push(diagnostic_error(
+                    "missing_device_transport_kind",
+                    format!(
+                        "{context} `{entity_id}` uses action `{}` with real dispatch, but device `{}` transport misses `kind`",
+                        action.id, device.id
+                    ),
+                    Some(source_path.to_string()),
+                    Some(entity_id.to_string()),
+                ))
+            }
+            None => {}
+        },
+        Some("gpioWrite") => match device
+            .transport
+            .as_ref()
+            .and_then(|transport| transport.kind.as_deref())
+        {
+            Some("gpio") => {}
+            Some(other) => diagnostics.push(diagnostic_error(
+                "dispatch_transport_not_supported",
+                format!(
+                    "{context} `{entity_id}` uses GPIO dispatch for action `{}`, but device `{}` transport `{other}` is unsupported",
+                    action.id, device.id
+                ),
+                Some(source_path.to_string()),
+                Some(entity_id.to_string()),
+            )),
+            None if action.dispatch.is_some() && device.transport.is_some() => {
+                diagnostics.push(diagnostic_error(
+                    "missing_device_transport_kind",
+                    format!(
+                        "{context} `{entity_id}` uses action `{}` with real dispatch, but device `{}` transport misses `kind`",
+                        action.id, device.id
+                    ),
+                    Some(source_path.to_string()),
+                    Some(entity_id.to_string()),
+                ))
+            }
+            None => {}
+        },
+        _ => {}
     }
 }
 
@@ -579,6 +676,175 @@ fn validate_action_completion_definition(
             ),
             Some(action.source_path.clone()),
             Some(action.id.clone()),
+        )),
+    }
+}
+
+fn validate_action_dispatch_definition(
+    action: &ActionDefinition,
+    dispatch: &ActionDispatchDefinition,
+    diagnostics: &mut Vec<CraftsmanshipDiagnostic>,
+) {
+    match dispatch.kind.as_deref() {
+        Some("hmipFrame") => {
+            if !matches!(action.target_mode.as_deref(), Some("required")) {
+                diagnostics.push(diagnostic_error(
+                    "action_dispatch_requires_device_target",
+                    format!(
+                        "action `{}` declares real dispatch but `targetMode` is not `required`",
+                        action.id
+                    ),
+                    Some(action.source_path.clone()),
+                    Some(action.id.clone()),
+                ));
+            }
+
+            if dispatch.msg_type.is_none() {
+                diagnostics.push(diagnostic_error(
+                    "action_missing_dispatch_msg_type",
+                    format!(
+                        "action `{}` declares HMIP dispatch but `msgType` is missing",
+                        action.id
+                    ),
+                    Some(action.source_path.clone()),
+                    Some(action.id.clone()),
+                ));
+            }
+
+            match dispatch.payload_mode.as_deref().unwrap_or("fixedHex") {
+                "fixedHex" => {
+                    if dispatch.payload_hex.as_deref().is_none() {
+                        diagnostics.push(diagnostic_error(
+                            "action_missing_dispatch_payload_hex",
+                            format!(
+                                "action `{}` declares HMIP dispatch with `fixedHex`, but `payloadHex` is missing",
+                                action.id
+                            ),
+                            Some(action.source_path.clone()),
+                            Some(action.id.clone()),
+                        ));
+                    } else if let Some(payload_hex) = dispatch.payload_hex.as_deref() {
+                        if !is_valid_hex_payload(payload_hex) {
+                            diagnostics.push(diagnostic_error(
+                                "action_invalid_dispatch_payload_hex",
+                                format!(
+                                    "action `{}` declares invalid `payloadHex` for HMIP dispatch",
+                                    action.id
+                                ),
+                                Some(action.source_path.clone()),
+                                Some(action.id.clone()),
+                            ));
+                        }
+                    }
+                }
+                other => diagnostics.push(diagnostic_error(
+                    "action_invalid_dispatch_payload_mode",
+                    format!(
+                        "action `{}` declares unsupported dispatch payload mode `{other}`",
+                        action.id
+                    ),
+                    Some(action.source_path.clone()),
+                    Some(action.id.clone()),
+                )),
+            }
+
+            if let Some(priority) = dispatch.priority.as_deref() {
+                if !matches!(priority, "high" | "normal") {
+                    diagnostics.push(diagnostic_error(
+                        "action_invalid_dispatch_priority",
+                        format!(
+                            "action `{}` declares unsupported dispatch priority `{priority}`",
+                            action.id
+                        ),
+                        Some(action.source_path.clone()),
+                        Some(action.id.clone()),
+                    ));
+                }
+            }
+        }
+        Some("gpioWrite") => {
+            if !matches!(action.target_mode.as_deref(), Some("required")) {
+                diagnostics.push(diagnostic_error(
+                    "action_dispatch_requires_device_target",
+                    format!(
+                        "action `{}` declares real dispatch but `targetMode` is not `required`",
+                        action.id
+                    ),
+                    Some(action.source_path.clone()),
+                    Some(action.id.clone()),
+                ));
+            }
+
+            if dispatch.value.is_none() {
+                diagnostics.push(diagnostic_error(
+                    "action_missing_gpio_dispatch_value",
+                    format!(
+                        "action `{}` declares GPIO dispatch but `value` is missing",
+                        action.id
+                    ),
+                    Some(action.source_path.clone()),
+                    Some(action.id.clone()),
+                ));
+            }
+        }
+        Some(other) => diagnostics.push(diagnostic_error(
+            "action_invalid_dispatch_kind",
+            format!(
+                "action `{}` declares unsupported dispatch kind `{other}`",
+                action.id
+            ),
+            Some(action.source_path.clone()),
+            Some(action.id.clone()),
+        )),
+        None => diagnostics.push(diagnostic_error(
+            "action_missing_dispatch_kind",
+            format!(
+                "action `{}` declares dispatch but `kind` is missing",
+                action.id
+            ),
+            Some(action.source_path.clone()),
+            Some(action.id.clone()),
+        )),
+    }
+}
+
+fn validate_device_transport_definition(
+    device: &DeviceInstance,
+    transport: &DeviceTransportDefinition,
+    diagnostics: &mut Vec<CraftsmanshipDiagnostic>,
+) {
+    match transport.kind.as_deref() {
+        Some("serial") | Some("tcp") => {}
+        Some("gpio") => {
+            if transport.pin.is_none() {
+                diagnostics.push(diagnostic_error(
+                    "device_missing_transport_pin",
+                    format!(
+                        "device `{}` declares GPIO transport but `pin` is missing",
+                        device.id
+                    ),
+                    Some(device.source_path.clone()),
+                    Some(device.id.clone()),
+                ));
+            }
+        }
+        Some(other) => diagnostics.push(diagnostic_error(
+            "device_invalid_transport_kind",
+            format!(
+                "device `{}` declares unsupported transport kind `{other}`",
+                device.id
+            ),
+            Some(device.source_path.clone()),
+            Some(device.id.clone()),
+        )),
+        None => diagnostics.push(diagnostic_error(
+            "device_missing_transport_kind",
+            format!(
+                "device `{}` declares transport but `kind` is missing",
+                device.id
+            ),
+            Some(device.source_path.clone()),
+            Some(device.id.clone()),
         )),
     }
 }
@@ -757,4 +1023,12 @@ fn is_valid_parameter_type(value: &str) -> bool {
 
 fn is_valid_compare_operator(value: &str) -> bool {
     matches!(value, "eq" | "ne" | "gt" | "ge" | "lt" | "le")
+}
+
+fn is_valid_hex_payload(value: &str) -> bool {
+    let compact = value
+        .chars()
+        .filter(|ch| !ch.is_whitespace())
+        .collect::<String>();
+    compact.len() % 2 == 0 && compact.chars().all(|ch| ch.is_ascii_hexdigit())
 }

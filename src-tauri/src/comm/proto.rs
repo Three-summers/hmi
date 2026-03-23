@@ -171,8 +171,7 @@ impl FrameDecoder {
             let flags = self.buf[6];
             let channel = self.buf[7];
             let seq = u32::from_le_bytes(self.buf[8..12].try_into().unwrap());
-            let payload_len =
-                u32::from_le_bytes(self.buf[12..16].try_into().unwrap());
+            let payload_len = u32::from_le_bytes(self.buf[12..16].try_into().unwrap());
 
             let has_crc = (flags & FLAG_CRC32) != 0;
             let header_len = if has_crc {
@@ -207,9 +206,7 @@ impl FrameDecoder {
             let payload = frame_bytes.slice(header_len..frame_len);
 
             let payload_crc32 = if has_crc {
-                Some(u32::from_le_bytes(
-                    frame_bytes[16..20].try_into().unwrap(),
-                ))
+                Some(u32::from_le_bytes(frame_bytes[16..20].try_into().unwrap()))
             } else {
                 None
             };
@@ -477,9 +474,7 @@ fn decode_request(payload: Bytes) -> Result<Request, MessageDecodeError> {
 
 fn decode_response(payload: Bytes) -> Result<Response, MessageDecodeError> {
     if payload.len() < 8 {
-        return Err(MessageDecodeError(
-            "RESPONSE payload too short".to_string(),
-        ));
+        return Err(MessageDecodeError("RESPONSE payload too short".to_string()));
     }
     let request_id = u32::from_le_bytes(payload[0..4].try_into().unwrap());
     let status = u16::from_le_bytes(payload[4..6].try_into().unwrap());

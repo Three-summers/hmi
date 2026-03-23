@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use tokio_serial::{
-    DataBits, Parity, SerialPortBuilderExt, SerialPortBuilder, SerialStream, StopBits,
+    DataBits, Parity, SerialPortBuilder, SerialPortBuilderExt, SerialStream, StopBits,
 };
 
 // 使用 serde 使其可以序列化和反序列化
@@ -67,8 +67,8 @@ pub fn open_stream(config: &SerialConfig) -> Result<SerialStream, String> {
 
 /// List available serial ports
 pub fn list_ports() -> Result<Vec<String>, String> {
-    let ports = tokio_serial::available_ports()
-        .map_err(|e| format!("Failed to list ports: {}", e))?;
+    let ports =
+        tokio_serial::available_ports().map_err(|e| format!("Failed to list ports: {}", e))?;
 
     Ok(ports.into_iter().map(|p| p.port_name).collect())
 }

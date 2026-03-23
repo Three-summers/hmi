@@ -24,12 +24,12 @@ pub struct SpectrumData {
 
 /// 波形参数结构
 struct WaveComponent {
-    base_frequency: f64,  // 基础中心频率 (Hz) - 不变
-    frequency: f64,       // 当前中心频率 (Hz)
-    amplitude: f64,       // 基础幅值 (dB)
-    bandwidth: f64,       // 带宽 (Hz)
-    drift_speed: f64,     // 漂移速度
-    phase: f64,           // 相位
+    base_frequency: f64, // 基础中心频率 (Hz) - 不变
+    frequency: f64,      // 当前中心频率 (Hz)
+    amplitude: f64,      // 基础幅值 (dB)
+    bandwidth: f64,      // 带宽 (Hz)
+    drift_speed: f64,    // 漂移速度
+    phase: f64,          // 相位
 }
 
 pub struct SensorSimulator {
@@ -73,9 +73,7 @@ impl SensorSimulator {
             let freq_step: f64 = max_freq / num_points as f64;
 
             // 生成频率数组
-            let frequencies: Vec<f64> = (0..num_points)
-                .map(|i| i as f64 * freq_step)
-                .collect();
+            let frequencies: Vec<f64> = (0..num_points).map(|i| i as f64 * freq_step).collect();
 
             // 定义多个波形分量（模拟真实频谱的多个峰值）
             let mut wave_components = vec![
@@ -162,7 +160,8 @@ impl SensorSimulator {
                     let drift = ((seed % 1000) as f64 / 1000.0 - 0.5) * 10.0;
                     let min_freq = component.base_frequency * 0.9;
                     let max_freq_val = component.base_frequency * 1.1;
-                    component.frequency = (component.frequency + drift).clamp(min_freq, max_freq_val);
+                    component.frequency =
+                        (component.frequency + drift).clamp(min_freq, max_freq_val);
                     seed = lcg_random(seed);
                     let amp_variation = ((seed % 1000) as f64 / 1000.0 - 0.5) * 0.3;
                     component.amplitude += amp_variation;
@@ -188,7 +187,8 @@ impl SensorSimulator {
                         // 只在峰值附近添加贡献
                         if gaussian > 0.001 {
                             // 时变调制
-                            let time_modulation = 1.0 + 0.2 * (time_counter * 2.0 + component.phase).sin();
+                            let time_modulation =
+                                1.0 + 0.2 * (time_counter * 2.0 + component.phase).sin();
 
                             // 计算该频率点的幅值：从底噪平滑过渡到峰值幅值
                             // gaussian = 1 时，幅值 = component.amplitude
@@ -280,5 +280,6 @@ fn smooth_spectrum(data: &[f64], window: usize) -> Vec<f64> {
 /// 线性同余随机数生成器 (LCG)
 #[inline]
 fn lcg_random(seed: u64) -> u64 {
-    seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407)
+    seed.wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407)
 }

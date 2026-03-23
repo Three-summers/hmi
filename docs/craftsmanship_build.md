@@ -1,16 +1,21 @@
 >[!note] about
 >**创建日期**： 2026-02-10 13:23
 >**详细日期**： 星期二 10日 二月 2026 13:23:02
+>**最近更新**： 2026-03-23
+>**执行者**： Codex
 
 
 ## **总体设计**
-整个项目采用 4 层文件模型：
+整个项目当前采用 3 层文件模型：
 - 系统定义层：定义系统支持什么动作、什么设备类型
 - 项目资源层：定义当前项目有哪些具体设备、信号、联锁
 - 工艺层：定义每个工艺文件的步骤内容
-- 发布层：定义工艺发布后的冻结结果
 
-如果你现在只想先做编辑器，也可以先只做前 3 层，发布层保留。
+当前实现已经接入最小真实动作链路：
+- 动作定义中的 `dispatch`
+- 设备实例中的 `transport`
+
+这条链路保持刻意精简，只覆盖当前已经落地的能力，不引入额外动作 DSL。
 
 -----------------------------------
 ### **一、目录结构**
@@ -52,8 +57,6 @@ workspace/
       device.schema.json
       signal.schema.json
       recipe.schema.json
-      template.schema.json
-      release.schema.json
 
   projects/
     project-a/
@@ -165,6 +168,11 @@ workspace/
   "targetMode": "required",
   "allowedDeviceTypes": ["pump"],
   "parameters": [],
+  "dispatch": {
+    "kind": "hmipFrame",
+    "msgType": 16,
+    "payloadHex": "0101"
+  },
   "completion": {
     "type": "deviceFeedback",
     "key": "running",
@@ -173,6 +181,22 @@ workspace/
     "stableTimeMs": 1000
   },
   "summaryTemplate": "{device.name} 开泵"
+}
+```
+GPIO 设备也可以使用更简单的写法：
+```json
+{
+  "id": "valve.open",
+  "name": "开阀",
+  "category": "valve",
+  "targetMode": "required",
+  "allowedDeviceTypes": ["valve"],
+  "parameters": [],
+  "dispatch": {
+    "kind": "gpioWrite",
+    "value": true
+  },
+  "summaryTemplate": "{device.name} 打开"
 }
 ```
 字段说明：
@@ -213,6 +237,11 @@ workspace/
   - 动作完成判定规则
   - 用于定义什么时候算“执行成功”
   - 可以为空，表示动作发出即认为完成
+
+- `dispatch`
+  - 真实动作发送定义
+  - 当前用于把动作下发到现有通信层
+  - 可以为空，表示这个动作没有真实下发链路，只保留完成判定或纯语义行为
 
 - `summaryTemplate`
   - 用于生成步骤摘要文本
@@ -303,6 +332,68 @@ workspace/
   - 连续稳定多长时间后才算完成
 
 
+**真实动作发送 `dispatch` 子结构**
+示例：
+```json
+{
+  "kind": "hmipFrame",
+  "msgType": 16,
+  "flags": 0,
+  "priority": "normal",
+  "payloadMode": "fixedHex",
+  "payloadHex": "0101"
+}
+```
+GPIO 示例：
+```json
+{
+  "kind": "gpioWrite",
+  "value": true
+}
+```
+字段说明：
+- `kind`
+  - 发送类型
+  - 当前支持 `hmipFrame`、`gpioWrite`
+
+- `msgType`
+  - HMIP 帧消息类型
+  - 仅 `hmipFrame` 使用
+
+- `flags`
+  - HMIP 帧标记位
+  - 仅 `hmipFrame` 使用
+  - 可选
+
+- `priority`
+  - 发送优先级
+  - 仅 `hmipFrame` 使用
+  - 当前建议值：`normal`、`high`
+
+- `payloadMode`
+  - 载荷组织方式
+  - 仅 `hmipFrame` 使用
+  - 当前只支持 `fixedHex`
+  - 不填时按 `fixedHex` 处理
+
+- `payloadHex`
+  - 十六进制载荷内容
+  - 仅 `hmipFrame` 使用
+  - 当 `payloadMode=fixedHex` 时必填
+
+- `value`
+  - GPIO 输出值
+  - 仅 `gpioWrite` 使用
+  - 当前使用布尔值：`true` 写入高电平，`false` 写入低电平
+  - 若设备 transport 配置了 `activeLow`，则按底层 GPIO 配置处理
+
+说明：
+- `common.delay`、`common.wait-signal` 这类内建动作仍由运行时直接解释，不依赖 `dispatch`
+- 业务动作是否真实下发，不再靠 `action.id` 写死分支，而是靠 `dispatch.kind`
+- 当前范围只覆盖最小真实链路，不包含参数模板展开、脚本动作或其他协议适配
+- 电磁阀这类本机 GPIO 设备不需要再伪装成 TCP/串口通道，直接使用 `gpioWrite + gpio`
+
+
 **2. 设备类型定义文件**
 位置：`system/device-types/*.json`
 作用：
@@ -376,15 +467,18 @@ workspace/
 示例：
 ```json
 {
-  "id": "pump_01",
-  "name": "前级泵",
-  "typeId": "pump",
+  "id": "valve_01",
+  "name": "进气阀",
+  "typeId": "valve",
   "enabled": true,
+  "transport": {
+    "kind": "gpio",
+    "pin": 17,
+    "activeLow": false
+  },
   "tags": {
-    "start": "device.pump01.start",
-    "stop": "device.pump01.stop",
-    "running": "device.pump01.running",
-    "fault": "device.pump01.fault"
+    "opened": "device.valve01.opened",
+    "fault": "device.valve01.fault"
   }
 }
 ```
@@ -405,21 +499,65 @@ workspace/
   - 是否启用
   - UI 通常只显示启用设备
 
+- `transport`
+  - 设备通信出口定义
+  - 用于把动作下发到现有通信连接
+
 - `tags`
-  - 设备相关的命令和反馈映射
-  - 键名建议和动作定义、完成规则中的键名统一
+  - 设备反馈键映射
+  - 键名建议和动作完成规则中的键名统一
+
+
+**设备实例 `transport` 的意义**
+这是“设备实例”和“现有通信通道”之间的绑定层。
+例如：
+- 设备 `pump_01` 声明 `transport.kind = tcp`
+- `transport.channel = 1` 表示发送时走当前 1 号通道
+- 设备 `valve_01` 声明 `transport.kind = gpio`
+- `transport.pin = 17` 表示发送时写本机 GPIO17
+- 运行时根据 `dispatch + transport` 完成真实动作下发
+
+建议字段：
+- `kind`
+  - 当前支持 `tcp`、`serial`、`gpio`
+
+- `channel`
+  - 现有通信通道编号
+  - `tcp`、`serial` 使用
+  - 可选，按项目实际通道规划填写
+
+- `pin`
+  - GPIO 引脚号
+  - `gpio` 使用
+  - 必填
+
+- `activeLow`
+  - GPIO 是否按低有效写入
+  - `gpio` 使用
+  - 可选，默认不启用
+
+- `rootDir`
+  - GPIO 根目录
+  - `gpio` 使用
+  - 可选，默认 `/sys/class/gpio`
 
 
 **设备实例 `tags` 的意义**
-这是“抽象动作”和“具体设备信号”之间的连接层。
+这是“运行时反馈键”和“具体 runtime key”之间的连接层。
 例如：
-- 动作 `pump.start` 只知道自己要发 `start`
-- 设备 `pump_01` 在 `tags.start` 中定义实际映射
-- 运行时通过 `deviceId + tag key` 找到真实对象
+- 动作 `pump.start` 的 `completion.key` 可以写成 `running`
+- 设备 `pump_01` 在 `tags.running` 中定义实际映射
+- 运行时通过 `deviceId + tag key` 找到真实反馈键
 
-建议 `tags` 至少分两类语义：
-- 命令类：`start`、`stop`、`open`、`close`
-- 状态类：`running`、`opened`、`fault`
+在当前实现中：
+- 真实动作发送依据 `dispatch + transport`
+- `tags` 主要服务于 `deviceFeedback` completion 和外部反馈写回
+
+建议 `tags` 聚焦可观察反馈键：
+- `running`
+- `opened`
+- `fault`
+- `ready`
 
 
 **5. 信号定义文件**
@@ -783,5 +921,3 @@ workspace/
 - `signals` 负责定义“可等待、可判断的过程信号”
 - `recipes` 负责定义“工艺步骤怎么排”
 - `safety` 负责定义“执行前后必须满足的安全规则”
-
-

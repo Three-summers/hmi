@@ -1,3 +1,4 @@
+use super::dispatch;
 use super::manager::{now_ms, LoadedRecipeRuntime, RecipeRuntimeManager, RuntimeRunControl};
 use super::types::{
     safe_stop_step_id, RecipeRuntimeFailure, RecipeRuntimePhase, RecipeRuntimeStatus,
@@ -162,7 +163,7 @@ async fn execute_recipe_steps(
             )
             .await;
 
-        let result = execute_recipe_step(manager, loaded, run_control, step).await;
+        let result = execute_recipe_step(manager, app, loaded, run_control, step).await;
         match result {
             Ok(message) => {
                 manager
@@ -232,7 +233,15 @@ async fn execute_safe_stop(
             )
             .await;
 
-        match execute_safe_stop_step(manager, loaded, run_control, step, safe_step_id.clone()).await
+        match execute_safe_stop_step(
+            manager,
+            app,
+            loaded,
+            run_control,
+            step,
+            safe_step_id.clone(),
+        )
+        .await
         {
             Ok(message) => {
                 manager
@@ -274,6 +283,7 @@ async fn execute_safe_stop(
 
 async fn execute_recipe_step(
     manager: &RecipeRuntimeManager,
+    app: Option<&AppHandle>,
     loaded: &LoadedRecipeRuntime,
     run_control: &RuntimeRunControl,
     step: &RecipeStep,
@@ -294,6 +304,22 @@ async fn execute_recipe_step(
     match action.id.as_str() {
         "common.delay" => execute_delay_step(manager, run_control, step).await,
         "common.wait-signal" => execute_wait_signal_step(manager, run_control, step).await,
+        _ if action.dispatch.is_some() => {
+            let dispatch_message =
+                dispatch::dispatch_recipe_action(app, loaded, step, action).await?;
+            let completion_message = execute_action_completion(
+                manager,
+                loaded,
+                run_control,
+                action,
+                step.device_id.as_deref(),
+                step.timeout_ms,
+                step.id.clone(),
+                step.on_error.clone(),
+            )
+            .await?;
+            Ok(format!("{dispatch_message}; {completion_message}"))
+        }
         _ => {
             execute_action_completion(
                 manager,
@@ -312,6 +338,7 @@ async fn execute_recipe_step(
 
 async fn execute_safe_stop_step(
     manager: &RecipeRuntimeManager,
+    app: Option<&AppHandle>,
     loaded: &LoadedRecipeRuntime,
     run_control: &RuntimeRunControl,
     step: &SafeStopStep,
@@ -329,6 +356,24 @@ async fn execute_safe_stop_step(
             Some("safe-stop".to_string()),
         )
     })?;
+
+    if action.dispatch.is_some() {
+        let dispatch_message =
+            dispatch::dispatch_safe_stop_action(app, loaded, step, step_id.as_str(), action)
+                .await?;
+        let completion_message = execute_action_completion(
+            manager,
+            loaded,
+            run_control,
+            action,
+            step.device_id.as_deref(),
+            None,
+            step_id,
+            Some("safe-stop".to_string()),
+        )
+        .await?;
+        return Ok(format!("{dispatch_message}; {completion_message}"));
+    }
 
     execute_action_completion(
         manager,
