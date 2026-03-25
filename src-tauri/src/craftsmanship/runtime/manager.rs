@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Runtime};
 use tokio::sync::{Mutex, Notify};
 
 pub const RECIPE_RUNTIME_EVENT_NAME: &str = "craftsmanship-runtime-event";
@@ -171,7 +171,7 @@ impl RecipeRuntimeManager {
             snapshot
         };
 
-        self.emit_event(
+        self.emit_event_with_app(
             app,
             RecipeRuntimeEventKind::Loaded,
             snapshot.clone(),
@@ -184,6 +184,13 @@ impl RecipeRuntimeManager {
     }
 
     pub async fn start(&self, app: Option<AppHandle>) -> Result<RecipeRuntimeSnapshot, String> {
+        self.start_with_app(app).await
+    }
+
+    pub async fn start_with_app<R: Runtime>(
+        &self,
+        app: Option<AppHandle<R>>,
+    ) -> Result<RecipeRuntimeSnapshot, String> {
         let (loaded, run_control, snapshot) = {
             let mut state = self.inner.lock().await;
             let Some(loaded) = state.loaded.clone() else {
@@ -214,7 +221,7 @@ impl RecipeRuntimeManager {
             (loaded, run_control, state.snapshot.clone())
         };
 
-        self.emit_event(
+        self.emit_event_with_app(
             app.as_ref(),
             RecipeRuntimeEventKind::Started,
             snapshot.clone(),
@@ -275,6 +282,15 @@ impl RecipeRuntimeManager {
         signal_id: String,
         value: Value,
     ) -> Result<RecipeRuntimeSnapshot, String> {
+        self.write_signal_with_app(app, signal_id, value).await
+    }
+
+    pub async fn write_signal_with_app<R: Runtime>(
+        &self,
+        app: Option<&AppHandle<R>>,
+        signal_id: String,
+        value: Value,
+    ) -> Result<RecipeRuntimeSnapshot, String> {
         let snapshot = {
             let mut state = self.inner.lock().await;
             let source = state
@@ -299,7 +315,7 @@ impl RecipeRuntimeManager {
         };
 
         self.value_changed.notify_waiters();
-        self.emit_event(
+        self.emit_event_with_app(
             app,
             RecipeRuntimeEventKind::SignalWritten,
             snapshot.clone(),
@@ -314,6 +330,17 @@ impl RecipeRuntimeManager {
     pub async fn write_device_feedback(
         &self,
         app: Option<&AppHandle>,
+        device_id: String,
+        key: String,
+        value: Value,
+    ) -> Result<RecipeRuntimeSnapshot, String> {
+        self.write_device_feedback_with_app(app, device_id, key, value)
+            .await
+    }
+
+    pub async fn write_device_feedback_with_app<R: Runtime>(
+        &self,
+        app: Option<&AppHandle<R>>,
         device_id: String,
         key: String,
         value: Value,
@@ -351,7 +378,7 @@ impl RecipeRuntimeManager {
         };
 
         self.value_changed.notify_waiters();
-        self.emit_event(
+        self.emit_event_with_app(
             app,
             RecipeRuntimeEventKind::DeviceFeedbackWritten,
             snapshot.clone(),
@@ -366,6 +393,18 @@ impl RecipeRuntimeManager {
     pub async fn apply_hmip_feedback(
         &self,
         app: Option<&AppHandle>,
+        connection_id: &str,
+        header: crate::comm::proto::FrameHeader,
+        message: Option<&crate::comm::proto::Message>,
+        raw_payload: &[u8],
+    ) -> Result<usize, String> {
+        self.apply_hmip_feedback_with_app(app, connection_id, header, message, raw_payload)
+            .await
+    }
+
+    pub async fn apply_hmip_feedback_with_app<R: Runtime>(
+        &self,
+        app: Option<&AppHandle<R>>,
         connection_id: &str,
         header: crate::comm::proto::FrameHeader,
         message: Option<&crate::comm::proto::Message>,
@@ -415,14 +454,14 @@ impl RecipeRuntimeManager {
         for pending in pending_writes {
             match pending {
                 PendingRuntimeWrite::Signal { signal_id, value } => {
-                    self.write_signal(app, signal_id, value).await?;
+                    self.write_signal_with_app(app, signal_id, value).await?;
                 }
                 PendingRuntimeWrite::DeviceFeedback {
                     device_id,
                     feedback_key,
                     value,
                 } => {
-                    self.write_device_feedback(app, device_id, feedback_key, value)
+                    self.write_device_feedback_with_app(app, device_id, feedback_key, value)
                         .await?;
                 }
             }
@@ -435,9 +474,9 @@ impl RecipeRuntimeManager {
         self.value_changed.clone()
     }
 
-    pub(super) async fn finish_run(
+    pub(super) async fn finish_run<R: Runtime>(
         &self,
-        app: Option<&AppHandle>,
+        app: Option<&AppHandle<R>>,
         status: RecipeRuntimeStatus,
         phase: RecipeRuntimePhase,
         message: Option<String>,
@@ -465,16 +504,16 @@ impl RecipeRuntimeManager {
             _ => RecipeRuntimeEventKind::Finished,
         };
 
-        self.emit_event(app, kind, snapshot, None, None, message);
+        self.emit_event_with_app(app, kind, snapshot, None, None, message);
 
         if let Some(run_control) = run_control {
             run_control.notify_stopped();
         }
     }
 
-    pub(super) async fn begin_step(
+    pub(super) async fn begin_step<R: Runtime>(
         &self,
-        app: Option<&AppHandle>,
+        app: Option<&AppHandle<R>>,
         phase: RecipeRuntimePhase,
         step_id: &str,
         message: Option<String>,
@@ -506,7 +545,7 @@ impl RecipeRuntimeManager {
             state.snapshot.clone()
         };
 
-        self.emit_event(
+        self.emit_event_with_app(
             app,
             RecipeRuntimeEventKind::StepChanged,
             snapshot,
@@ -516,9 +555,9 @@ impl RecipeRuntimeManager {
         );
     }
 
-    pub(super) async fn complete_step(
+    pub(super) async fn complete_step<R: Runtime>(
         &self,
-        app: Option<&AppHandle>,
+        app: Option<&AppHandle<R>>,
         phase: RecipeRuntimePhase,
         step_id: &str,
         message: Option<String>,
@@ -549,7 +588,7 @@ impl RecipeRuntimeManager {
             state.snapshot.clone()
         };
 
-        self.emit_event(
+        self.emit_event_with_app(
             app,
             RecipeRuntimeEventKind::StepChanged,
             snapshot,
@@ -559,9 +598,9 @@ impl RecipeRuntimeManager {
         );
     }
 
-    pub(super) async fn fail_step(
+    pub(super) async fn fail_step<R: Runtime>(
         &self,
-        app: Option<&AppHandle>,
+        app: Option<&AppHandle<R>>,
         phase: RecipeRuntimePhase,
         step_id: &str,
         message: Option<String>,
@@ -592,7 +631,7 @@ impl RecipeRuntimeManager {
             state.snapshot.clone()
         };
 
-        self.emit_event(
+        self.emit_event_with_app(
             app,
             RecipeRuntimeEventKind::StepChanged,
             snapshot,
@@ -602,9 +641,9 @@ impl RecipeRuntimeManager {
         );
     }
 
-    pub(super) async fn stop_step(
+    pub(super) async fn stop_step<R: Runtime>(
         &self,
-        app: Option<&AppHandle>,
+        app: Option<&AppHandle<R>>,
         phase: RecipeRuntimePhase,
         step_id: &str,
         message: Option<String>,
@@ -635,7 +674,7 @@ impl RecipeRuntimeManager {
             state.snapshot.clone()
         };
 
-        self.emit_event(
+        self.emit_event_with_app(
             app,
             RecipeRuntimeEventKind::StepChanged,
             snapshot,
@@ -645,9 +684,9 @@ impl RecipeRuntimeManager {
         );
     }
 
-    pub(super) async fn transition_to_safe_stop(
+    pub(super) async fn transition_to_safe_stop<R: Runtime>(
         &self,
-        app: Option<&AppHandle>,
+        app: Option<&AppHandle<R>>,
         failure: RecipeRuntimeFailure,
     ) {
         let snapshot = {
@@ -659,7 +698,7 @@ impl RecipeRuntimeManager {
             state.snapshot.clone()
         };
 
-        self.emit_event(
+        self.emit_event_with_app(
             app,
             RecipeRuntimeEventKind::StepChanged,
             snapshot,
@@ -684,9 +723,9 @@ impl RecipeRuntimeManager {
         state.snapshot.clone()
     }
 
-    fn emit_event(
+    fn emit_event_with_app<R: Runtime>(
         &self,
-        app: Option<&AppHandle>,
+        app: Option<&AppHandle<R>>,
         kind: RecipeRuntimeEventKind,
         snapshot: RecipeRuntimeSnapshot,
         updated_key: Option<String>,

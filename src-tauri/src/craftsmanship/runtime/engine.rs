@@ -6,11 +6,11 @@ use super::types::{
 use crate::craftsmanship::{ActionDefinition, InterlockCondition, RecipeStep, SafeStopStep};
 use serde_json::Value;
 use std::time::{Duration, Instant};
-use tauri::AppHandle;
+use tauri::{AppHandle, Runtime};
 
-pub(super) async fn run_recipe(
+pub(super) async fn run_recipe<R: Runtime>(
     manager: RecipeRuntimeManager,
-    app: Option<AppHandle>,
+    app: Option<AppHandle<R>>,
     loaded: LoadedRecipeRuntime,
     run_control: RuntimeRunControl,
 ) {
@@ -128,9 +128,9 @@ pub(super) async fn run_recipe(
     }
 }
 
-async fn execute_recipe_steps(
+async fn execute_recipe_steps<R: Runtime>(
     manager: &RecipeRuntimeManager,
-    app: Option<&AppHandle>,
+    app: Option<&AppHandle<R>>,
     loaded: &LoadedRecipeRuntime,
     run_control: &RuntimeRunControl,
     steps: &[RecipeStep],
@@ -205,9 +205,9 @@ async fn execute_recipe_steps(
     Ok(())
 }
 
-async fn execute_safe_stop(
+async fn execute_safe_stop<R: Runtime>(
     manager: &RecipeRuntimeManager,
-    app: Option<&AppHandle>,
+    app: Option<&AppHandle<R>>,
     loaded: &LoadedRecipeRuntime,
     run_control: &RuntimeRunControl,
 ) -> Result<(), RecipeRuntimeFailure> {
@@ -281,9 +281,9 @@ async fn execute_safe_stop(
     Ok(())
 }
 
-async fn execute_recipe_step(
+async fn execute_recipe_step<R: Runtime>(
     manager: &RecipeRuntimeManager,
-    app: Option<&AppHandle>,
+    app: Option<&AppHandle<R>>,
     loaded: &LoadedRecipeRuntime,
     run_control: &RuntimeRunControl,
     step: &RecipeStep,
@@ -336,9 +336,9 @@ async fn execute_recipe_step(
     }
 }
 
-async fn execute_safe_stop_step(
+async fn execute_safe_stop_step<R: Runtime>(
     manager: &RecipeRuntimeManager,
-    app: Option<&AppHandle>,
+    app: Option<&AppHandle<R>>,
     loaded: &LoadedRecipeRuntime,
     run_control: &RuntimeRunControl,
     step: &SafeStopStep,

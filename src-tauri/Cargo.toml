@@ -14,7 +14,7 @@ tauri-build = { version = "2", features = [] }
 tonic-prost-build = "0.14"
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["test"] }
 tauri-plugin-shell = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-log = "2"
@@ -31,6 +31,9 @@ prost = "0.14"
 tonic = { version = "0.14", features = ["transport"] }
 tonic-prost = "0.14"
 gpio-cdev = "0.6"
+
+[dev-dependencies]
+serialport = "4.7"
 
 [profile.release]
 panic = "abort"

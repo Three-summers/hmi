@@ -4,8 +4,10 @@ use bytes::Bytes;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tauri::{test::mock_app, Listener, Manager};
+use tokio::io::{duplex, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 struct TestWorkspace {
     root: PathBuf,
@@ -43,6 +45,131 @@ impl Drop for TestWorkspace {
     fn drop(&mut self) {
         let _ = fs::remove_dir_all(&self.root);
     }
+}
+
+fn e2e_transport_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+struct CommOverrideReset;
+
+impl Drop for CommOverrideReset {
+    fn drop(&mut self) {
+        crate::comm::set_tcp_stream_override(None);
+        crate::comm::set_serial_stream_override(None);
+    }
+}
+
+fn setup_runtime_app(manager: &RecipeRuntimeManager) -> tauri::App<tauri::test::MockRuntime> {
+    let app = mock_app();
+    assert!(app.manage(crate::comm::CommState::default()));
+    assert!(app.manage(manager.clone()));
+    app
+}
+
+async fn read_hmip_frame<S>(stream: &mut S) -> crate::comm::proto::Frame
+where
+    S: AsyncRead + Unpin,
+{
+    let mut decoder =
+        crate::comm::proto::FrameDecoder::new(crate::comm::proto::DecoderConfig::default());
+    let mut buf = [0u8; 512];
+
+    loop {
+        if let Some(frame) = decoder.next_frame().expect("failed to decode HMIP frame") {
+            return frame;
+        }
+
+        let size = tokio::time::timeout(Duration::from_secs(2), stream.read(&mut buf))
+            .await
+            .expect("timed out while waiting for HMIP frame")
+            .expect("failed to read HMIP frame bytes");
+        assert!(
+            size > 0,
+            "HMIP stream closed before a full frame was received"
+        );
+        decoder
+            .push(&buf[..size])
+            .expect("failed to push HMIP frame bytes into decoder");
+    }
+}
+
+async fn write_hmip_frame<S>(stream: &mut S, frame_bytes: &[u8])
+where
+    S: AsyncWrite + Unpin,
+{
+    tokio::time::timeout(Duration::from_secs(2), stream.write_all(frame_bytes))
+        .await
+        .expect("timed out while writing HMIP frame")
+        .expect("failed to write HMIP frame");
+    tokio::time::timeout(Duration::from_secs(2), stream.flush())
+        .await
+        .expect("timed out while flushing HMIP frame")
+        .expect("failed to flush HMIP frame");
+}
+
+fn read_hmip_frame_blocking<S>(stream: &mut S) -> crate::comm::proto::Frame
+where
+    S: std::io::Read,
+{
+    let mut decoder =
+        crate::comm::proto::FrameDecoder::new(crate::comm::proto::DecoderConfig::default());
+    let mut buf = [0u8; 512];
+    let started = std::time::Instant::now();
+
+    loop {
+        if let Some(frame) = decoder.next_frame().expect("failed to decode HMIP frame") {
+            return frame;
+        }
+
+        let size = match stream.read(&mut buf) {
+            Ok(size) if size > 0 => size,
+            Ok(_) => {
+                assert!(
+                    started.elapsed() < Duration::from_secs(2),
+                    "HMIP stream closed before a full frame was received"
+                );
+                continue;
+            }
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    std::io::ErrorKind::TimedOut
+                        | std::io::ErrorKind::WouldBlock
+                        | std::io::ErrorKind::BrokenPipe
+                ) =>
+            {
+                assert!(
+                    started.elapsed() < Duration::from_secs(2),
+                    "timed out while waiting for HMIP frame"
+                );
+                continue;
+            }
+            Err(error) if matches!(error.raw_os_error(), Some(5) | Some(32)) => {
+                assert!(
+                    started.elapsed() < Duration::from_secs(2),
+                    "timed out while waiting for HMIP frame after transient PTY error"
+                );
+                continue;
+            }
+            Err(error) => panic!("failed to read HMIP frame bytes: {error}"),
+        };
+
+        decoder
+            .push(&buf[..size])
+            .expect("failed to push HMIP frame bytes into decoder");
+    }
+}
+
+fn write_hmip_frame_blocking<S>(stream: &mut S, frame_bytes: &[u8])
+where
+    S: std::io::Write,
+{
+    stream
+        .write_all(frame_bytes)
+        .expect("failed to write HMIP frame");
+    stream.flush().expect("failed to flush HMIP frame");
 }
 
 fn write_system_bundle(workspace: &TestWorkspace) {
@@ -1579,6 +1706,971 @@ async fn runtime_should_dispatch_gpio_action_to_configured_pin() {
         fs::read_to_string(gpio_dir.join("active_low")).unwrap(),
         "0"
     );
+}
+
+#[tokio::test]
+async fn runtime_should_run_recipe_over_fake_tcp_transport_end_to_end() {
+    let _transport_guard = e2e_transport_lock()
+        .lock()
+        .expect("e2e transport lock poisoned");
+    let _override_reset = CommOverrideReset;
+
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "system/actions/pump.start.json",
+        json!({
+            "id": "pump.start",
+            "name": "开泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "dispatch": {
+                "kind": "hmipFrame",
+                "msgType": 16,
+                "payloadHex": "0101"
+            },
+            "completion": {
+                "type": "deviceFeedback",
+                "key": "running",
+                "operator": "eq",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/connections/main_tcp.json",
+        json!({
+            "id": "main-tcp",
+            "name": "主控 TCP",
+            "kind": "tcp",
+            "tcp": {
+                "host": "127.0.0.1",
+                "port": 15060,
+                "timeoutMs": 200
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/devices/pump_01.json",
+        json!({
+            "id": "pump_01",
+            "name": "前级泵",
+            "typeId": "pump",
+            "enabled": true,
+            "transport": {
+                "kind": "tcp",
+                "connectionId": "main-tcp",
+                "channel": 1
+            },
+            "tags": {
+                "running": "device.pump_01.running"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/chamber_pressure.json",
+        json!({
+            "id": "tcp-pressure-feedback",
+            "name": "TCP 腔压反馈",
+            "match": {
+                "connectionId": "main-tcp",
+                "channel": 1,
+                "summaryKind": "event",
+                "eventId": 32
+            },
+            "target": {
+                "signalId": "chamber_pressure",
+                "value": 3
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/pump_running.json",
+        json!({
+            "id": "tcp-running-feedback",
+            "name": "TCP 运行反馈",
+            "match": {
+                "connectionId": "main-tcp",
+                "channel": 1,
+                "summaryKind": "response",
+                "status": 0
+            },
+            "target": {
+                "deviceId": "pump_01",
+                "feedbackKey": "running",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/tcp-e2e.json",
+        json!({
+            "id": "tcp-e2e",
+            "name": "TCP 端到端工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "开泵",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_01",
+                    "timeoutMs": 500,
+                    "onError": "stop"
+                },
+                {
+                    "id": "S020",
+                    "seq": 20,
+                    "name": "等待腔压到位",
+                    "actionId": "common.wait-signal",
+                    "parameters": {
+                        "signalId": "chamber_pressure",
+                        "operator": "lt",
+                        "value": 5
+                    },
+                    "timeoutMs": 500,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    let app = setup_runtime_app(&manager);
+    let (actor_stream, mut device_stream) = duplex(4096);
+    let stream_slot = Arc::new(Mutex::new(Some(actor_stream)));
+    crate::comm::set_tcp_stream_override(Some(Arc::new({
+        let stream_slot = stream_slot.clone();
+        move |config| {
+            assert_eq!(config.host, "127.0.0.1");
+            assert_eq!(config.port, 15060);
+            let stream = stream_slot
+                .lock()
+                .expect("tcp stream slot mutex poisoned")
+                .take()
+                .ok_or_else(|| "tcp override stream already consumed".to_string())?;
+            Ok(Box::new(stream))
+        }
+    })));
+
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "tcp-e2e".to_string(),
+        )
+        .await
+        .unwrap();
+    manager
+        .start_with_app(Some(app.handle().clone()))
+        .await
+        .unwrap();
+
+    let device_task = tokio::spawn(async move {
+        let frame = read_hmip_frame(&mut device_stream).await;
+        assert_eq!(frame.header.msg_type, 16);
+        assert_eq!(frame.header.channel, 1);
+        assert!(frame.header.seq > 0);
+        assert_eq!(frame.payload.as_ref(), &[0x01, 0x01]);
+
+        let event_payload = crate::comm::proto::encode_event(&crate::comm::proto::Event {
+            event_id: 32,
+            timestamp_ms: 1234,
+            body: Bytes::new(),
+        });
+        let event_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::EVENT,
+            flags: 0,
+            channel: 1,
+            seq: 700,
+            payload: &event_payload,
+        });
+        write_hmip_frame(&mut device_stream, &event_frame).await;
+
+        let response_payload = crate::comm::proto::encode_response(&crate::comm::proto::Response {
+            request_id: 99,
+            status: 0,
+            body: Bytes::new(),
+        });
+        let response_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 1,
+                seq: 701,
+                payload: &response_payload,
+            });
+        write_hmip_frame(&mut device_stream, &response_frame).await;
+    });
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    device_task.await.unwrap();
+
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+    assert_eq!(
+        snapshot.recipe_steps[0].status,
+        RecipeRuntimeStepStatus::Completed
+    );
+    assert_eq!(
+        snapshot.recipe_steps[1].status,
+        RecipeRuntimeStepStatus::Completed
+    );
+    assert_eq!(
+        snapshot.runtime_values.get("device.pump_01.running"),
+        Some(&json!(true))
+    );
+    assert_eq!(
+        snapshot.signal_values.get("chamber_pressure"),
+        Some(&json!(3))
+    );
+
+    let comm_state = app.state::<crate::comm::CommState>();
+    crate::comm::disconnect_connection(&comm_state, "main-tcp")
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn runtime_should_run_recipe_over_fake_serial_transport_end_to_end() {
+    let _transport_guard = e2e_transport_lock()
+        .lock()
+        .expect("e2e transport lock poisoned");
+    let _override_reset = CommOverrideReset;
+
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "system/actions/pump.start.json",
+        json!({
+            "id": "pump.start",
+            "name": "开泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "dispatch": {
+                "kind": "hmipFrame",
+                "msgType": 17,
+                "payloadHex": "0202"
+            },
+            "completion": {
+                "type": "deviceFeedback",
+                "key": "running",
+                "operator": "eq",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/connections/main_serial.json",
+        json!({
+            "id": "main-serial",
+            "name": "主控串口",
+            "kind": "serial",
+            "serial": {
+                "port": "/dev/ttyFAKE0",
+                "baudRate": 115200,
+                "dataBits": 8,
+                "stopBits": 1,
+                "parity": "none"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/devices/pump_01.json",
+        json!({
+            "id": "pump_01",
+            "name": "前级泵",
+            "typeId": "pump",
+            "enabled": true,
+            "transport": {
+                "kind": "serial",
+                "connectionId": "main-serial",
+                "channel": 2
+            },
+            "tags": {
+                "running": "device.pump_01.running"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/chamber_pressure_serial.json",
+        json!({
+            "id": "serial-pressure-feedback",
+            "name": "串口腔压反馈",
+            "match": {
+                "connectionId": "main-serial",
+                "channel": 2,
+                "summaryKind": "event",
+                "eventId": 48
+            },
+            "target": {
+                "signalId": "chamber_pressure",
+                "value": 2
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/pump_running_serial.json",
+        json!({
+            "id": "serial-running-feedback",
+            "name": "串口运行反馈",
+            "match": {
+                "connectionId": "main-serial",
+                "channel": 2,
+                "summaryKind": "response",
+                "status": 0
+            },
+            "target": {
+                "deviceId": "pump_01",
+                "feedbackKey": "running",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/serial-e2e.json",
+        json!({
+            "id": "serial-e2e",
+            "name": "串口端到端工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "开泵",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_01",
+                    "timeoutMs": 500,
+                    "onError": "stop"
+                },
+                {
+                    "id": "S020",
+                    "seq": 20,
+                    "name": "等待腔压到位",
+                    "actionId": "common.wait-signal",
+                    "parameters": {
+                        "signalId": "chamber_pressure",
+                        "operator": "lt",
+                        "value": 5
+                    },
+                    "timeoutMs": 500,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    let app = setup_runtime_app(&manager);
+    let (actor_stream, mut device_stream) = duplex(4096);
+    let stream_slot = Arc::new(Mutex::new(Some(actor_stream)));
+    crate::comm::set_serial_stream_override(Some(Arc::new({
+        let stream_slot = stream_slot.clone();
+        move |config| {
+            assert_eq!(config.port, "/dev/ttyFAKE0");
+            assert_eq!(config.baud_rate, 115200);
+            let stream = stream_slot
+                .lock()
+                .expect("serial stream slot mutex poisoned")
+                .take()
+                .ok_or_else(|| "serial override stream already consumed".to_string())?;
+            Ok(Box::new(stream))
+        }
+    })));
+
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "serial-e2e".to_string(),
+        )
+        .await
+        .unwrap();
+    manager
+        .start_with_app(Some(app.handle().clone()))
+        .await
+        .unwrap();
+
+    let device_task = tokio::spawn(async move {
+        let frame = read_hmip_frame(&mut device_stream).await;
+        assert_eq!(frame.header.msg_type, 17);
+        assert_eq!(frame.header.channel, 2);
+        assert!(frame.header.seq > 0);
+        assert_eq!(frame.payload.as_ref(), &[0x02, 0x02]);
+
+        let event_payload = crate::comm::proto::encode_event(&crate::comm::proto::Event {
+            event_id: 48,
+            timestamp_ms: 5678,
+            body: Bytes::new(),
+        });
+        let event_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::EVENT,
+            flags: 0,
+            channel: 2,
+            seq: 800,
+            payload: &event_payload,
+        });
+        write_hmip_frame(&mut device_stream, &event_frame).await;
+
+        let response_payload = crate::comm::proto::encode_response(&crate::comm::proto::Response {
+            request_id: 7,
+            status: 0,
+            body: Bytes::new(),
+        });
+        let response_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 2,
+                seq: 801,
+                payload: &response_payload,
+            });
+        write_hmip_frame(&mut device_stream, &response_frame).await;
+    });
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    device_task.await.unwrap();
+
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+    assert_eq!(
+        snapshot.recipe_steps[0].status,
+        RecipeRuntimeStepStatus::Completed
+    );
+    assert_eq!(
+        snapshot.recipe_steps[1].status,
+        RecipeRuntimeStepStatus::Completed
+    );
+    assert_eq!(
+        snapshot.runtime_values.get("device.pump_01.running"),
+        Some(&json!(true))
+    );
+    assert_eq!(
+        snapshot.signal_values.get("chamber_pressure"),
+        Some(&json!(2))
+    );
+
+    let comm_state = app.state::<crate::comm::CommState>();
+    crate::comm::disconnect_connection(&comm_state, "main-serial")
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires local tcp host resources"]
+async fn runtime_should_run_recipe_over_real_tcp_transport_end_to_end() {
+    let _transport_guard = e2e_transport_lock()
+        .lock()
+        .expect("e2e transport lock poisoned");
+
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("failed to bind tcp listener");
+    let port = listener
+        .local_addr()
+        .expect("failed to read tcp listener local address")
+        .port();
+
+    workspace.write_json(
+        "system/actions/pump.start.json",
+        json!({
+            "id": "pump.start",
+            "name": "开泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "dispatch": {
+                "kind": "hmipFrame",
+                "msgType": 18,
+                "payloadHex": "0303"
+            },
+            "completion": {
+                "type": "deviceFeedback",
+                "key": "running",
+                "operator": "eq",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/connections/main_tcp_real.json",
+        json!({
+            "id": "main-tcp-real",
+            "name": "真实 TCP 主控",
+            "kind": "tcp",
+            "tcp": {
+                "host": "127.0.0.1",
+                "port": port,
+                "timeoutMs": 500
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/devices/pump_01.json",
+        json!({
+            "id": "pump_01",
+            "name": "前级泵",
+            "typeId": "pump",
+            "enabled": true,
+            "transport": {
+                "kind": "tcp",
+                "connectionId": "main-tcp-real",
+                "channel": 3
+            },
+            "tags": {
+                "running": "device.pump_01.running"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/chamber_pressure_real_tcp.json",
+        json!({
+            "id": "real-tcp-pressure-feedback",
+            "name": "真实 TCP 腔压反馈",
+            "match": {
+                "connectionId": "main-tcp-real",
+                "channel": 3,
+                "summaryKind": "event",
+                "eventId": 64
+            },
+            "target": {
+                "signalId": "chamber_pressure",
+                "value": 4
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/pump_running_real_tcp.json",
+        json!({
+            "id": "real-tcp-running-feedback",
+            "name": "真实 TCP 运行反馈",
+            "match": {
+                "connectionId": "main-tcp-real",
+                "channel": 3,
+                "summaryKind": "response",
+                "status": 0
+            },
+            "target": {
+                "deviceId": "pump_01",
+                "feedbackKey": "running",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/real-tcp-e2e.json",
+        json!({
+            "id": "real-tcp-e2e",
+            "name": "真实 TCP 端到端工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "开泵",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_01",
+                    "timeoutMs": 1000,
+                    "onError": "stop"
+                },
+                {
+                    "id": "S020",
+                    "seq": 20,
+                    "name": "等待腔压到位",
+                    "actionId": "common.wait-signal",
+                    "parameters": {
+                        "signalId": "chamber_pressure",
+                        "operator": "lt",
+                        "value": 5
+                    },
+                    "timeoutMs": 1000,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    let app = setup_runtime_app(&manager);
+    let device_task = tokio::spawn(async move {
+        let (mut device_stream, _) =
+            tokio::time::timeout(Duration::from_secs(3), listener.accept())
+                .await
+                .expect("timed out while waiting for runtime tcp connection")
+                .expect("failed to accept runtime tcp connection");
+
+        let frame = read_hmip_frame(&mut device_stream).await;
+        assert_eq!(frame.header.msg_type, 18);
+        assert_eq!(frame.header.channel, 3);
+        assert!(frame.header.seq > 0);
+        assert_eq!(frame.payload.as_ref(), &[0x03, 0x03]);
+
+        let event_payload = crate::comm::proto::encode_event(&crate::comm::proto::Event {
+            event_id: 64,
+            timestamp_ms: 2468,
+            body: Bytes::new(),
+        });
+        let event_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::EVENT,
+            flags: 0,
+            channel: 3,
+            seq: 900,
+            payload: &event_payload,
+        });
+        write_hmip_frame(&mut device_stream, &event_frame).await;
+
+        let response_payload = crate::comm::proto::encode_response(&crate::comm::proto::Response {
+            request_id: 11,
+            status: 0,
+            body: Bytes::new(),
+        });
+        let response_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 3,
+                seq: 901,
+                payload: &response_payload,
+            });
+        write_hmip_frame(&mut device_stream, &response_frame).await;
+    });
+
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "real-tcp-e2e".to_string(),
+        )
+        .await
+        .unwrap();
+    manager
+        .start_with_app(Some(app.handle().clone()))
+        .await
+        .unwrap();
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    device_task.await.unwrap();
+
+    assert_eq!(
+        snapshot.status,
+        RecipeRuntimeStatus::Completed,
+        "runtime did not complete over real tcp: last_error={:?}, last_message={:?}, active_step_id={:?}",
+        snapshot.last_error,
+        snapshot.last_message,
+        snapshot.active_step_id
+    );
+    assert_eq!(
+        snapshot.recipe_steps[0].status,
+        RecipeRuntimeStepStatus::Completed
+    );
+    assert_eq!(
+        snapshot.recipe_steps[1].status,
+        RecipeRuntimeStepStatus::Completed
+    );
+    assert_eq!(
+        snapshot.runtime_values.get("device.pump_01.running"),
+        Some(&json!(true))
+    );
+    assert_eq!(
+        snapshot.signal_values.get("chamber_pressure"),
+        Some(&json!(4))
+    );
+
+    let comm_state = app.state::<crate::comm::CommState>();
+    crate::comm::disconnect_connection(&comm_state, "main-tcp-real")
+        .await
+        .unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+#[ignore = "requires local tty host resources"]
+async fn runtime_should_run_recipe_over_real_serial_transport_end_to_end() {
+    use serialport::SerialPort;
+
+    let _transport_guard = e2e_transport_lock()
+        .lock()
+        .expect("e2e transport lock poisoned");
+
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+
+    let (master_port, mut slave_port) =
+        serialport::TTYPort::pair().expect("failed to create pseudo terminal pair");
+    slave_port
+        .set_exclusive(false)
+        .expect("failed to disable slave pty exclusive lock");
+    let slave_path = slave_port
+        .name()
+        .expect("pseudo terminal slave path should exist");
+    drop(slave_port);
+
+    workspace.write_json(
+        "system/actions/pump.start.json",
+        json!({
+            "id": "pump.start",
+            "name": "开泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "dispatch": {
+                "kind": "hmipFrame",
+                "msgType": 19,
+                "payloadHex": "0404"
+            },
+            "completion": {
+                "type": "deviceFeedback",
+                "key": "running",
+                "operator": "eq",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/connections/main_serial_real.json",
+        json!({
+            "id": "main-serial-real",
+            "name": "真实串口主控",
+            "kind": "serial",
+            "serial": {
+                "port": slave_path,
+                "baudRate": 115200,
+                "dataBits": 8,
+                "stopBits": 1,
+                "parity": "none"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/devices/pump_01.json",
+        json!({
+            "id": "pump_01",
+            "name": "前级泵",
+            "typeId": "pump",
+            "enabled": true,
+            "transport": {
+                "kind": "serial",
+                "connectionId": "main-serial-real",
+                "channel": 4
+            },
+            "tags": {
+                "running": "device.pump_01.running"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/chamber_pressure_real_serial.json",
+        json!({
+            "id": "real-serial-pressure-feedback",
+            "name": "真实串口腔压反馈",
+            "match": {
+                "connectionId": "main-serial-real",
+                "channel": 4,
+                "summaryKind": "event",
+                "eventId": 80
+            },
+            "target": {
+                "signalId": "chamber_pressure",
+                "value": 1
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/pump_running_real_serial.json",
+        json!({
+            "id": "real-serial-running-feedback",
+            "name": "真实串口运行反馈",
+            "match": {
+                "connectionId": "main-serial-real",
+                "channel": 4,
+                "summaryKind": "response",
+                "status": 0
+            },
+            "target": {
+                "deviceId": "pump_01",
+                "feedbackKey": "running",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/real-serial-e2e.json",
+        json!({
+            "id": "real-serial-e2e",
+            "name": "真实串口端到端工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "开泵",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_01",
+                    "timeoutMs": 1000,
+                    "onError": "stop"
+                },
+                {
+                    "id": "S020",
+                    "seq": 20,
+                    "name": "等待腔压到位",
+                    "actionId": "common.wait-signal",
+                    "parameters": {
+                        "signalId": "chamber_pressure",
+                        "operator": "lt",
+                        "value": 5
+                    },
+                    "timeoutMs": 1000,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    let app = setup_runtime_app(&manager);
+    let comm_events = Arc::new(Mutex::new(Vec::<String>::new()));
+    let hmip_events = Arc::new(Mutex::new(Vec::<String>::new()));
+    let runtime_events = Arc::new(Mutex::new(Vec::<String>::new()));
+    let comm_listener = app.listen_any("comm-event", {
+        let comm_events = comm_events.clone();
+        move |event| {
+            comm_events
+                .lock()
+                .expect("comm event collector mutex poisoned")
+                .push(event.payload().to_string());
+        }
+    });
+    let hmip_listener = app.listen_any("hmip-event", {
+        let hmip_events = hmip_events.clone();
+        move |event| {
+            hmip_events
+                .lock()
+                .expect("hmip event collector mutex poisoned")
+                .push(event.payload().to_string());
+        }
+    });
+    let runtime_listener = app.listen_any(super::manager::RECIPE_RUNTIME_EVENT_NAME, {
+        let runtime_events = runtime_events.clone();
+        move |event| {
+            runtime_events
+                .lock()
+                .expect("runtime event collector mutex poisoned")
+                .push(event.payload().to_string());
+        }
+    });
+    let device_task = tokio::task::spawn_blocking(move || {
+        let mut device_stream = master_port;
+        device_stream
+            .set_timeout(Duration::from_millis(200))
+            .expect("failed to set master pty timeout");
+
+        let frame = read_hmip_frame_blocking(&mut device_stream);
+        assert_eq!(frame.header.msg_type, 19);
+        assert_eq!(frame.header.channel, 4);
+        assert!(frame.header.seq > 0);
+        assert_eq!(frame.payload.as_ref(), &[0x04, 0x04]);
+
+        let event_payload = crate::comm::proto::encode_event(&crate::comm::proto::Event {
+            event_id: 80,
+            timestamp_ms: 9753,
+            body: Bytes::new(),
+        });
+        let event_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::EVENT,
+            flags: 0,
+            channel: 4,
+            seq: 950,
+            payload: &event_payload,
+        });
+        write_hmip_frame_blocking(&mut device_stream, &event_frame);
+
+        let response_payload = crate::comm::proto::encode_response(&crate::comm::proto::Response {
+            request_id: 12,
+            status: 0,
+            body: Bytes::new(),
+        });
+        let response_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 4,
+                seq: 951,
+                payload: &response_payload,
+            });
+        write_hmip_frame_blocking(&mut device_stream, &response_frame);
+        std::thread::sleep(Duration::from_millis(300));
+    });
+
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "real-serial-e2e".to_string(),
+        )
+        .await
+        .unwrap();
+    manager
+        .start_with_app(Some(app.handle().clone()))
+        .await
+        .unwrap();
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    device_task.await.unwrap();
+    app.unlisten(comm_listener);
+    app.unlisten(hmip_listener);
+    app.unlisten(runtime_listener);
+    let comm_events = comm_events
+        .lock()
+        .expect("comm event collector mutex poisoned")
+        .clone();
+    let hmip_events = hmip_events
+        .lock()
+        .expect("hmip event collector mutex poisoned")
+        .clone();
+    let runtime_events = runtime_events
+        .lock()
+        .expect("runtime event collector mutex poisoned")
+        .clone();
+
+    assert_eq!(
+        snapshot.status,
+        RecipeRuntimeStatus::Completed,
+        "runtime did not complete over real serial: last_error={:?}, last_message={:?}, active_step_id={:?}, comm_events={:?}, hmip_events={:?}, runtime_events={:?}",
+        snapshot.last_error,
+        snapshot.last_message,
+        snapshot.active_step_id,
+        comm_events,
+        hmip_events,
+        runtime_events
+    );
+    assert_eq!(
+        snapshot.recipe_steps[0].status,
+        RecipeRuntimeStepStatus::Completed
+    );
+    assert_eq!(
+        snapshot.recipe_steps[1].status,
+        RecipeRuntimeStepStatus::Completed
+    );
+    assert_eq!(
+        snapshot.runtime_values.get("device.pump_01.running"),
+        Some(&json!(true))
+    );
+    assert_eq!(
+        snapshot.signal_values.get("chamber_pressure"),
+        Some(&json!(1))
+    );
+
+    let comm_state = app.state::<crate::comm::CommState>();
+    crate::comm::disconnect_connection(&comm_state, "main-serial-real")
+        .await
+        .unwrap();
 }
 
 #[tokio::test]

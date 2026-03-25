@@ -7,12 +7,23 @@ use actor::CommPriority;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
-use tauri::AppHandle;
+use tauri::{AppHandle, Runtime};
+#[cfg(test)]
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::{mpsc, Mutex};
 
 pub const DEFAULT_SERIAL_CONNECTION_ID: &str = "__default_serial__";
 pub const DEFAULT_TCP_CONNECTION_ID: &str = "__default_tcp__";
+
+#[cfg(test)]
+pub(crate) trait TestIoStream: AsyncRead + AsyncWrite + Send + Unpin {}
+
+#[cfg(test)]
+impl<T> TestIoStream for T where T: AsyncRead + AsyncWrite + Send + Unpin {}
+
+#[cfg(test)]
+pub(crate) type BoxedTestIoStream = Box<dyn TestIoStream>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommConnectionKind {
@@ -54,6 +65,44 @@ pub struct CommState {
 }
 
 static HMIP_NEXT_SEQ: AtomicU32 = AtomicU32::new(1);
+
+#[cfg(test)]
+type TcpStreamOverride =
+    Arc<dyn Fn(&tcp::TcpConfig) -> Result<BoxedTestIoStream, String> + Send + Sync>;
+
+#[cfg(test)]
+type SerialStreamOverride =
+    Arc<dyn Fn(&serial::SerialConfig) -> Result<BoxedTestIoStream, String> + Send + Sync>;
+
+#[cfg(test)]
+fn tcp_stream_override() -> &'static std::sync::Mutex<Option<TcpStreamOverride>> {
+    static OVERRIDE: std::sync::OnceLock<std::sync::Mutex<Option<TcpStreamOverride>>> =
+        std::sync::OnceLock::new();
+    OVERRIDE.get_or_init(|| std::sync::Mutex::new(None))
+}
+
+#[cfg(test)]
+fn serial_stream_override() -> &'static std::sync::Mutex<Option<SerialStreamOverride>> {
+    static OVERRIDE: std::sync::OnceLock<std::sync::Mutex<Option<SerialStreamOverride>>> =
+        std::sync::OnceLock::new();
+    OVERRIDE.get_or_init(|| std::sync::Mutex::new(None))
+}
+
+#[cfg(test)]
+pub(crate) fn set_tcp_stream_override(override_fn: Option<TcpStreamOverride>) {
+    let mut guard = tcp_stream_override()
+        .lock()
+        .expect("tcp stream override mutex poisoned");
+    *guard = override_fn;
+}
+
+#[cfg(test)]
+pub(crate) fn set_serial_stream_override(override_fn: Option<SerialStreamOverride>) {
+    let mut guard = serial_stream_override()
+        .lock()
+        .expect("serial stream override mutex poisoned");
+    *guard = override_fn;
+}
 
 #[derive(Debug, Clone)]
 pub struct HmipOutboundFrame {
@@ -143,9 +192,9 @@ async fn plan_connection_update(
     Ok(EnsureConnectionAction::Replace(old_actor))
 }
 
-pub async fn ensure_tcp_connection(
+pub async fn ensure_tcp_connection<R: Runtime>(
     state: &CommState,
-    app: &AppHandle,
+    app: &AppHandle<R>,
     connection_id: &str,
     config: tcp::TcpConfig,
 ) -> Result<(), String> {
@@ -154,6 +203,30 @@ pub async fn ensure_tcp_connection(
         EnsureConnectionAction::Reuse => return Ok(()),
         EnsureConnectionAction::Replace(old_actor) => old_actor.shutdown().await,
         EnsureConnectionAction::Connect => {}
+    }
+
+    #[cfg(test)]
+    let tcp_override = {
+        tcp_stream_override()
+            .lock()
+            .expect("tcp stream override mutex poisoned")
+            .clone()
+    };
+    #[cfg(test)]
+    if let Some(override_fn) = tcp_override {
+        let stream = override_fn(&config)?;
+        let actor = actor::CommActorHandle::spawn_test_actor(
+            app.clone(),
+            "tcp",
+            connection_id.to_string(),
+            stream,
+        );
+        if let Some(old_actor) =
+            insert_connection(state, connection_id.to_string(), managed_config, actor).await
+        {
+            old_actor.shutdown().await;
+        }
+        return Ok(());
     }
 
     let stream = tcp::open_stream(&config).await?;
@@ -166,9 +239,9 @@ pub async fn ensure_tcp_connection(
     Ok(())
 }
 
-pub async fn ensure_serial_connection(
+pub async fn ensure_serial_connection<R: Runtime>(
     state: &CommState,
-    app: &AppHandle,
+    app: &AppHandle<R>,
     connection_id: &str,
     config: serial::SerialConfig,
 ) -> Result<(), String> {
@@ -177,6 +250,30 @@ pub async fn ensure_serial_connection(
         EnsureConnectionAction::Reuse => return Ok(()),
         EnsureConnectionAction::Replace(old_actor) => old_actor.shutdown().await,
         EnsureConnectionAction::Connect => {}
+    }
+
+    #[cfg(test)]
+    let serial_override = {
+        serial_stream_override()
+            .lock()
+            .expect("serial stream override mutex poisoned")
+            .clone()
+    };
+    #[cfg(test)]
+    if let Some(override_fn) = serial_override {
+        let stream = override_fn(&config)?;
+        let actor = actor::CommActorHandle::spawn_test_actor(
+            app.clone(),
+            "serial",
+            connection_id.to_string(),
+            stream,
+        );
+        if let Some(old_actor) =
+            insert_connection(state, connection_id.to_string(), managed_config, actor).await
+        {
+            old_actor.shutdown().await;
+        }
+        return Ok(());
     }
 
     let stream = serial::open_stream(&config)?;
@@ -189,13 +286,38 @@ pub async fn ensure_serial_connection(
     Ok(())
 }
 
-pub async fn connect_tcp(
+pub async fn connect_tcp<R: Runtime>(
     state: &CommState,
-    app: &AppHandle,
+    app: &AppHandle<R>,
     connection_id: &str,
     config: tcp::TcpConfig,
 ) -> Result<(), String> {
     let managed_config = ManagedConnectionConfig::Tcp(config.clone());
+
+    #[cfg(test)]
+    let tcp_override = {
+        tcp_stream_override()
+            .lock()
+            .expect("tcp stream override mutex poisoned")
+            .clone()
+    };
+    #[cfg(test)]
+    if let Some(override_fn) = tcp_override {
+        let stream = override_fn(&config)?;
+        let actor = actor::CommActorHandle::spawn_test_actor(
+            app.clone(),
+            "tcp",
+            connection_id.to_string(),
+            stream,
+        );
+        if let Some(old_actor) =
+            insert_connection(state, connection_id.to_string(), managed_config, actor).await
+        {
+            old_actor.shutdown().await;
+        }
+        return Ok(());
+    }
+
     let stream = tcp::open_stream(&config).await?;
     let actor = actor::spawn_tcp_actor(app.clone(), connection_id.to_string(), config, stream);
     if let Some(old_actor) =
@@ -206,13 +328,38 @@ pub async fn connect_tcp(
     Ok(())
 }
 
-pub async fn connect_serial(
+pub async fn connect_serial<R: Runtime>(
     state: &CommState,
-    app: &AppHandle,
+    app: &AppHandle<R>,
     connection_id: &str,
     config: serial::SerialConfig,
 ) -> Result<(), String> {
     let managed_config = ManagedConnectionConfig::Serial(config.clone());
+
+    #[cfg(test)]
+    let serial_override = {
+        serial_stream_override()
+            .lock()
+            .expect("serial stream override mutex poisoned")
+            .clone()
+    };
+    #[cfg(test)]
+    if let Some(override_fn) = serial_override {
+        let stream = override_fn(&config)?;
+        let actor = actor::CommActorHandle::spawn_test_actor(
+            app.clone(),
+            "serial",
+            connection_id.to_string(),
+            stream,
+        );
+        if let Some(old_actor) =
+            insert_connection(state, connection_id.to_string(), managed_config, actor).await
+        {
+            old_actor.shutdown().await;
+        }
+        return Ok(());
+    }
+
     let stream = serial::open_stream(&config)?;
     let actor = actor::spawn_serial_actor(app.clone(), connection_id.to_string(), config, stream);
     if let Some(old_actor) =
@@ -316,6 +463,10 @@ pub async fn send_serial_hmip_frame(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tauri::test::mock_app;
+    use tokio::io::AsyncReadExt;
+    use tokio::net::TcpListener;
+    use tokio::time::{timeout, Duration};
 
     fn dummy_actor() -> actor::CommActorHandle {
         actor::CommActorHandle::new_test_handle()
@@ -335,6 +486,16 @@ mod tests {
                 actor: dummy_actor(),
             },
         );
+    }
+
+    fn serial_test_config(port: &str) -> serial::SerialConfig {
+        serial::SerialConfig {
+            port: port.to_string(),
+            baud_rate: 9600,
+            data_bits: 8,
+            stop_bits: 1,
+            parity: "none".to_string(),
+        }
     }
 
     #[tokio::test]
@@ -432,5 +593,171 @@ mod tests {
 
         assert!(err.contains("different transport kind"));
         disconnect_connection(&state, "main").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn connect_tcp_should_send_bytes_to_real_socket() {
+        let app = mock_app();
+        let state = CommState::default();
+        let listener = match TcpListener::bind("127.0.0.1:0").await {
+            Ok(listener) => listener,
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                eprintln!("skip tcp socket integration test: {error}");
+                return;
+            }
+            Err(error) => panic!("failed to bind tcp listener: {error}"),
+        };
+        let port = listener.local_addr().unwrap().port();
+        let expected = b"PING 01\r\n".to_vec();
+        let server_expected_len = expected.len();
+
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut received = vec![0u8; server_expected_len];
+            socket.read_exact(&mut received).await.unwrap();
+            received
+        });
+
+        connect_tcp(
+            &state,
+            app.handle(),
+            "tcp-real",
+            tcp::TcpConfig {
+                host: "127.0.0.1".to_string(),
+                port,
+                timeout_ms: 1000,
+            },
+        )
+        .await
+        .unwrap();
+
+        send_tcp_data_bytes(&state, "tcp-real", expected.clone(), CommPriority::High)
+            .await
+            .unwrap();
+
+        let received = timeout(Duration::from_secs(2), server)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(received, expected);
+
+        disconnect_connection(&state, "tcp-real").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn send_tcp_hmip_frame_should_write_encoded_frame_to_real_socket() {
+        let app = mock_app();
+        let state = CommState::default();
+        let listener = match TcpListener::bind("127.0.0.1:0").await {
+            Ok(listener) => listener,
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                eprintln!("skip tcp hmip socket integration test: {error}");
+                return;
+            }
+            Err(error) => panic!("failed to bind tcp listener: {error}"),
+        };
+        let port = listener.local_addr().unwrap().port();
+        let payload = b"{\"cmd\":\"start\"}".to_vec();
+        let expected = proto::encode_frame(proto::EncodeFrameParams {
+            msg_type: 0x21,
+            flags: 0x80,
+            channel: 3,
+            seq: 42,
+            payload: &payload,
+        });
+        let expected_len = expected.len();
+
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut received = vec![0u8; expected_len];
+            socket.read_exact(&mut received).await.unwrap();
+            received
+        });
+
+        connect_tcp(
+            &state,
+            app.handle(),
+            "tcp-hmip",
+            tcp::TcpConfig {
+                host: "127.0.0.1".to_string(),
+                port,
+                timeout_ms: 1000,
+            },
+        )
+        .await
+        .unwrap();
+
+        let seq = send_tcp_hmip_frame(
+            &state,
+            "tcp-hmip",
+            HmipOutboundFrame {
+                msg_type: 0x21,
+                flags: 0x80,
+                channel: 3,
+                seq: Some(42),
+                payload,
+                priority: CommPriority::Normal,
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(seq, 42);
+        let received = timeout(Duration::from_secs(2), server)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(received, expected);
+
+        disconnect_connection(&state, "tcp-hmip").await.unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn send_serial_data_bytes_should_write_to_paired_serial_stream() {
+        let app = mock_app();
+        let state = CommState::default();
+        let (mut peer, actor_stream) = match tokio_serial::SerialStream::pair() {
+            Ok(pair) => pair,
+            Err(error) => {
+                let message = error.to_string();
+                if message.contains("Permission denied")
+                    || message.contains("Operation not permitted")
+                {
+                    eprintln!("skip serial PTY integration test: {message}");
+                    return;
+                }
+                panic!("failed to create serial PTY pair: {message}");
+            }
+        };
+        let config = serial_test_config("__paired_serial__");
+        let actor = actor::spawn_serial_actor(
+            app.handle().clone(),
+            "serial-real".to_string(),
+            config.clone(),
+            actor_stream,
+        );
+
+        insert_connection(
+            &state,
+            "serial-real".to_string(),
+            ManagedConnectionConfig::Serial(config),
+            actor,
+        )
+        .await;
+
+        let expected = b"SERIAL-HELLO".to_vec();
+        send_serial_data_bytes(&state, "serial-real", expected.clone(), CommPriority::High)
+            .await
+            .unwrap();
+
+        let mut received = vec![0u8; expected.len()];
+        timeout(Duration::from_secs(2), peer.read_exact(&mut received))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(received, expected);
+
+        disconnect_connection(&state, "serial-real").await.unwrap();
     }
 }

@@ -8,7 +8,7 @@ use crate::craftsmanship::{
 use gpio_cdev::{Chip, LineHandle, LineRequestFlags};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Runtime};
 
 const DEFAULT_GPIO_CHIP_PATH: &str = "/dev/gpiochip0";
 const GPIO_CONSUMER_LABEL: &str = "hmi-gpio-write";
@@ -41,8 +41,8 @@ pub(super) fn set_gpio_write_override(override_fn: Option<GpioWriteOverride>) {
     *guard = override_fn;
 }
 
-pub(super) async fn dispatch_recipe_action(
-    app: Option<&AppHandle>,
+pub(super) async fn dispatch_recipe_action<R: Runtime>(
+    app: Option<&AppHandle<R>>,
     loaded: &LoadedRecipeRuntime,
     step: &RecipeStep,
     action: &ActionDefinition,
@@ -59,8 +59,8 @@ pub(super) async fn dispatch_recipe_action(
     .await
 }
 
-pub(super) async fn dispatch_safe_stop_action(
-    app: Option<&AppHandle>,
+pub(super) async fn dispatch_safe_stop_action<R: Runtime>(
+    app: Option<&AppHandle<R>>,
     loaded: &LoadedRecipeRuntime,
     step: &SafeStopStep,
     step_id: &str,
@@ -78,8 +78,8 @@ pub(super) async fn dispatch_safe_stop_action(
     .await
 }
 
-async fn dispatch_action(
-    app: Option<&AppHandle>,
+async fn dispatch_action<R: Runtime>(
+    app: Option<&AppHandle<R>>,
     loaded: &LoadedRecipeRuntime,
     action: &ActionDefinition,
     device_id: Option<&str>,
@@ -131,8 +131,8 @@ async fn dispatch_action(
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn dispatch_hmip_frame(
-    app: Option<&AppHandle>,
+async fn dispatch_hmip_frame<R: Runtime>(
+    app: Option<&AppHandle<R>>,
     loaded: &LoadedRecipeRuntime,
     action: &ActionDefinition,
     dispatch: &ActionDispatchDefinition,

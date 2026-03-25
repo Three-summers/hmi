@@ -2,7 +2,7 @@ use crate::comm::{proto, serial, tcp};
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::{mpsc, oneshot};
 
@@ -179,6 +179,68 @@ impl CommActorHandle {
             join,
         }
     }
+
+    pub(crate) fn spawn_test_actor<R: Runtime>(
+        app: AppHandle<R>,
+        transport: &'static str,
+        connection_id: String,
+        initial_stream: crate::comm::BoxedTestIoStream,
+    ) -> Self {
+        let (tx_high, mut rx_high) = mpsc::channel::<Vec<u8>>(64);
+        let (tx_normal, mut rx_normal) = mpsc::channel::<Vec<u8>>(256);
+        let (shutdown_tx, mut shutdown_rx) = oneshot::channel::<()>();
+
+        let join = tauri::async_runtime::spawn(async move {
+            if !emit_event(
+                &app,
+                &CommEvent::Connected {
+                    transport: transport.to_string(),
+                    connection_id: connection_id.clone(),
+                    timestamp_ms: now_ms(),
+                },
+            ) {
+                return;
+            }
+
+            if let ConnectionExit::IoError(message) = run_io_loop(
+                &app,
+                transport,
+                &connection_id,
+                initial_stream,
+                &mut rx_high,
+                &mut rx_normal,
+                &mut shutdown_rx,
+            )
+            .await
+            {
+                let _ = emit_event(
+                    &app,
+                    &CommEvent::Error {
+                        transport: transport.to_string(),
+                        connection_id: connection_id.clone(),
+                        message,
+                        timestamp_ms: now_ms(),
+                    },
+                );
+            }
+
+            let _ = emit_event(
+                &app,
+                &CommEvent::Disconnected {
+                    transport: transport.to_string(),
+                    connection_id,
+                    timestamp_ms: now_ms(),
+                },
+            );
+        });
+
+        Self {
+            tx_high,
+            tx_normal,
+            shutdown_tx,
+            join,
+        }
+    }
 }
 
 fn now_ms() -> u64 {
@@ -219,7 +281,7 @@ fn maybe_utf8_preview(bytes: &[u8]) -> Option<String> {
     Some(preview)
 }
 
-fn emit_event(app: &AppHandle, event: &CommEvent) -> bool {
+fn emit_event<R: Runtime>(app: &AppHandle<R>, event: &CommEvent) -> bool {
     match app.emit(COMM_EVENT_NAME, event) {
         Ok(_) => true,
         Err(err) => {
@@ -229,7 +291,7 @@ fn emit_event(app: &AppHandle, event: &CommEvent) -> bool {
     }
 }
 
-fn emit_hmip_event(app: &AppHandle, event: &HmipEvent) -> bool {
+fn emit_hmip_event<R: Runtime>(app: &AppHandle<R>, event: &HmipEvent) -> bool {
     match app.emit(HMIP_EVENT_NAME, event) {
         Ok(_) => true,
         Err(err) => {
@@ -239,8 +301,8 @@ fn emit_hmip_event(app: &AppHandle, event: &HmipEvent) -> bool {
     }
 }
 
-async fn bridge_hmip_message(
-    app: &AppHandle,
+async fn bridge_hmip_message<R: Runtime>(
+    app: &AppHandle<R>,
     connection_id: &str,
     header: proto::FrameHeader,
     message: Option<&proto::Message>,
@@ -248,7 +310,7 @@ async fn bridge_hmip_message(
 ) {
     let manager = app.state::<crate::craftsmanship::RecipeRuntimeManager>();
     if let Err(error) = manager
-        .apply_hmip_feedback(Some(app), connection_id, header, message, raw_payload)
+        .apply_hmip_feedback_with_app(Some(app), connection_id, header, message, raw_payload)
         .await
     {
         log::warn!(
@@ -277,8 +339,8 @@ enum ConnectionExit {
     IoError(String),
 }
 
-async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
-    app: &AppHandle,
+async fn run_io_loop<R: Runtime, S: AsyncRead + AsyncWrite + Unpin>(
+    app: &AppHandle<R>,
     transport: &str,
     connection_id: &str,
     stream: S,
@@ -348,6 +410,12 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
             read_res = reader.read(&mut buf) => {
                 match read_res {
                     Ok(0) => {
+                        if transport == "serial" {
+                            // 串口链路上 0 字节读取并不等价于对端关闭，
+                            // 在 PTY/部分驱动下可能只是一次空读，不能直接触发断线重连。
+                            tokio::time::sleep(Duration::from_millis(10)).await;
+                            continue;
+                        }
                         return ConnectionExit::IoError("Remote closed".to_string());
                     }
                     Ok(n) => {
@@ -505,8 +573,8 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
     }
 }
 
-pub fn spawn_serial_actor(
-    app: AppHandle,
+pub fn spawn_serial_actor<R: Runtime>(
+    app: AppHandle<R>,
     connection_id: String,
     config: serial::SerialConfig,
     initial_stream: tokio_serial::SerialStream,
@@ -634,8 +702,8 @@ pub fn spawn_serial_actor(
     }
 }
 
-pub fn spawn_tcp_actor(
-    app: AppHandle,
+pub fn spawn_tcp_actor<R: Runtime>(
+    app: AppHandle<R>,
     connection_id: String,
     config: tcp::TcpConfig,
     initial_stream: tokio::net::TcpStream,
@@ -761,5 +829,133 @@ pub fn spawn_tcp_actor(
         tx_normal,
         shutdown_tx,
         join,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::Value;
+    use std::pin::Pin;
+    use std::sync::{Arc, Mutex};
+    use std::task::{Context, Poll};
+    use tauri::{test::mock_app, Listener};
+    use tokio::io::{duplex, AsyncWriteExt, ReadBuf};
+
+    struct ZeroThenReadStream {
+        emitted_zero: bool,
+        inner: tokio::io::DuplexStream,
+    }
+
+    impl ZeroThenReadStream {
+        fn new(inner: tokio::io::DuplexStream) -> Self {
+            Self {
+                emitted_zero: false,
+                inner,
+            }
+        }
+    }
+
+    impl tokio::io::AsyncRead for ZeroThenReadStream {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &mut ReadBuf<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            if !self.emitted_zero {
+                self.emitted_zero = true;
+                return Poll::Ready(Ok(()));
+            }
+
+            Pin::new(&mut self.inner).poll_read(cx, buf)
+        }
+    }
+
+    impl tokio::io::AsyncWrite for ZeroThenReadStream {
+        fn poll_write(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<std::io::Result<usize>> {
+            Pin::new(&mut self.inner).poll_write(cx, buf)
+        }
+
+        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<()>> {
+            Pin::new(&mut self.inner).poll_flush(cx)
+        }
+
+        fn poll_shutdown(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+        ) -> Poll<std::io::Result<()>> {
+            Pin::new(&mut self.inner).poll_shutdown(cx)
+        }
+    }
+
+    #[tokio::test]
+    async fn serial_actor_should_ignore_zero_byte_reads_before_receiving_data() {
+        let app = mock_app();
+        let comm_events = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let listener = app.listen_any(COMM_EVENT_NAME, {
+            let comm_events = comm_events.clone();
+            move |event| {
+                let payload: Value =
+                    serde_json::from_str(event.payload()).expect("comm event payload must be json");
+                comm_events
+                    .lock()
+                    .expect("comm event collector mutex poisoned")
+                    .push(payload);
+            }
+        });
+
+        let (mut peer, actor_stream) = duplex(256);
+        let actor = CommActorHandle::spawn_test_actor(
+            app.handle().clone(),
+            "serial",
+            "serial-zero-read".to_string(),
+            Box::new(ZeroThenReadStream::new(actor_stream)),
+        );
+
+        peer.write_all(b"SERIAL-RX").await.unwrap();
+
+        tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                let has_rx = comm_events
+                    .lock()
+                    .expect("comm event collector mutex poisoned")
+                    .iter()
+                    .any(|event| event.get("type") == Some(&Value::String("rx".to_string())));
+                if has_rx {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("timed out while waiting for serial rx event");
+
+        let events_before_shutdown = comm_events
+            .lock()
+            .expect("comm event collector mutex poisoned")
+            .clone();
+
+        assert!(events_before_shutdown
+            .iter()
+            .any(|event| event.get("type") == Some(&Value::String("connected".to_string()))));
+        assert!(events_before_shutdown
+            .iter()
+            .any(|event| event.get("type") == Some(&Value::String("rx".to_string()))));
+        assert!(!events_before_shutdown
+            .iter()
+            .any(|event| event.get("type") == Some(&Value::String("error".to_string()))));
+        assert!(!events_before_shutdown
+            .iter()
+            .any(|event| event.get("type") == Some(&Value::String("disconnected".to_string()))));
+        assert!(!events_before_shutdown
+            .iter()
+            .any(|event| event.get("type") == Some(&Value::String("reconnecting".to_string()))));
+
+        app.unlisten(listener);
+        actor.shutdown().await;
     }
 }
