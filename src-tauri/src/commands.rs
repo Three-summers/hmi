@@ -1,7 +1,6 @@
 use crate::comm::{actor::CommPriority, serial, tcp, CommState, HmipOutboundFrame};
 use crate::craftsmanship;
 use crate::secs_rpc::{self, SecsRpcTarget};
-use crate::sensor::SensorSimulator;
 use crate::system;
 use base64::{engine::general_purpose, Engine as _};
 use serde::Deserialize;
@@ -337,23 +336,6 @@ pub async fn send_serial_hmip_frame(
         },
     )
     .await
-}
-
-/// 启动传感器数据模拟
-#[tauri::command]
-pub fn start_sensor_simulation(
-    app: AppHandle,
-    state: State<'_, SensorSimulator>,
-) -> Result<(), String> {
-    state.start(app);
-    Ok(())
-}
-
-/// 停止传感器数据模拟
-#[tauri::command]
-pub fn stop_sensor_simulation(state: State<'_, SensorSimulator>) -> Result<(), String> {
-    state.stop();
-    Ok(())
 }
 
 /// 前端日志批量转发：用于把 WebView 内的 console/错误等信息输出到终端，便于调试。

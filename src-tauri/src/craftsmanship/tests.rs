@@ -882,6 +882,210 @@ fn get_project_bundle_should_validate_completion_signal_and_interlock_operator()
 }
 
 #[test]
+fn get_project_bundle_should_reject_duplicate_runtime_resource_identifiers() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/devices/pump_01_a.json",
+        json!({
+            "id": "pump_01",
+            "name": "前级泵A",
+            "typeId": "pump",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/devices/pump_01_b.json",
+        json!({
+            "id": "pump_01",
+            "name": "前级泵B",
+            "typeId": "pump",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/signals/chamber_pressure_a.json",
+        json!({
+            "id": "chamber_pressure",
+            "name": "腔压A",
+            "dataType": "number",
+            "source": "signal.shared",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/signals/chamber_pressure_b.json",
+        json!({
+            "id": "chamber_pressure",
+            "name": "腔压B",
+            "dataType": "number",
+            "source": "signal.unique",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/signals/door_closed.json",
+        json!({
+            "id": "door_closed",
+            "name": "门关闭",
+            "dataType": "boolean",
+            "source": "signal.shared",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/pumpdown_a.json",
+        json!({
+            "id": "pumpdown",
+            "name": "抽真空A",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "开泵",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_01",
+                    "parameters": {}
+                }
+            ]
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/pumpdown_b.json",
+        json!({
+            "id": "pumpdown",
+            "name": "抽真空B",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "开泵1",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_01",
+                    "parameters": {}
+                },
+                {
+                    "id": "S010",
+                    "seq": 20,
+                    "name": "开泵2",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_01",
+                    "parameters": {}
+                }
+            ]
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(has_diagnostic(&bundle.diagnostics, "duplicate_device_id"));
+    assert!(has_diagnostic(&bundle.diagnostics, "duplicate_signal_id"));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "duplicate_signal_source"
+    ));
+    assert!(has_diagnostic(&bundle.diagnostics, "duplicate_recipe_id"));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "duplicate_recipe_step_id"
+    ));
+}
+
+#[test]
+fn get_project_bundle_should_validate_interlock_condition_shape() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/signals/chamber_pressure.json",
+        json!({
+            "id": "chamber_pressure",
+            "name": "腔体压力",
+            "dataType": "number",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/safety/interlocks.json",
+        json!({
+            "rules": [
+                {
+                    "id": "missing-leaf-fields",
+                    "name": "缺少叶子字段",
+                    "actionIds": ["pump.start"],
+                    "condition": {
+                        "signalId": "chamber_pressure"
+                    }
+                },
+                {
+                    "id": "empty-condition",
+                    "name": "空条件",
+                    "actionIds": ["pump.start"],
+                    "condition": {}
+                },
+                {
+                    "id": "invalid-logic",
+                    "name": "错误逻辑",
+                    "actionIds": ["pump.start"],
+                    "condition": {
+                        "logic": "xor",
+                        "items": [
+                            {
+                                "signalId": "chamber_pressure",
+                                "operator": "eq",
+                                "value": 1
+                            }
+                        ]
+                    }
+                },
+                {
+                    "id": "mixed-group",
+                    "name": "组合节点混用叶子字段",
+                    "actionIds": ["pump.start"],
+                    "condition": {
+                        "logic": "and",
+                        "signalId": "chamber_pressure",
+                        "operator": "eq",
+                        "value": 1,
+                        "items": [
+                            {
+                                "signalId": "chamber_pressure",
+                                "operator": "eq",
+                                "value": 1
+                            }
+                        ]
+                    }
+                }
+            ]
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "interlock_missing_operator"
+    ));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "interlock_missing_value"
+    ));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "interlock_empty_condition"
+    ));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "interlock_invalid_logic"
+    ));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "interlock_group_mixes_leaf_fields"
+    ));
+}
+
+#[test]
 fn get_project_bundle_should_validate_device_feedback_completion_key_binding() {
     let workspace = TestWorkspace::new();
     workspace.write_json(

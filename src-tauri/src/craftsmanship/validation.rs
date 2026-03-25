@@ -128,7 +128,11 @@ pub(super) fn validate_project_resources(
         .collect::<HashSet<_>>();
     let mut used_action_ids = HashSet::new();
     let mut seen_connection_ids = HashSet::new();
+    let mut seen_device_ids = HashSet::new();
     let mut seen_feedback_mapping_ids = HashSet::new();
+    let mut seen_signal_ids = HashSet::new();
+    let mut seen_signal_sources = HashSet::new();
+    let mut seen_recipe_ids = HashSet::new();
 
     for connection in connections {
         if !seen_connection_ids.insert(connection.id.as_str()) {
@@ -147,6 +151,18 @@ pub(super) fn validate_project_resources(
     }
 
     for device in devices {
+        if !seen_device_ids.insert(device.id.as_str()) {
+            diagnostics.push(diagnostic_error(
+                "duplicate_device_id",
+                format!(
+                    "project `{}` defines duplicate device `{}`",
+                    project.id, device.id
+                ),
+                Some(device.source_path.clone()),
+                Some(device.id.clone()),
+            ));
+        }
+
         if !device_type_map.contains_key(device.type_id.as_str()) {
             diagnostics.push(diagnostic_error(
                 "device_unknown_type",
@@ -166,6 +182,34 @@ pub(super) fn validate_project_resources(
                 &connection_map,
                 &mut diagnostics,
             );
+        }
+    }
+
+    for signal in signals {
+        if !seen_signal_ids.insert(signal.id.as_str()) {
+            diagnostics.push(diagnostic_error(
+                "duplicate_signal_id",
+                format!(
+                    "project `{}` defines duplicate signal `{}`",
+                    project.id, signal.id
+                ),
+                Some(signal.source_path.clone()),
+                Some(signal.id.clone()),
+            ));
+        }
+
+        if let Some(source) = signal.source.as_deref().filter(|source| !source.is_empty()) {
+            if !seen_signal_sources.insert(source) {
+                diagnostics.push(diagnostic_error(
+                    "duplicate_signal_source",
+                    format!(
+                        "project `{}` defines duplicate signal source `{source}`",
+                        project.id
+                    ),
+                    Some(signal.source_path.clone()),
+                    Some(signal.id.clone()),
+                ));
+            }
         }
     }
 
@@ -235,7 +279,32 @@ pub(super) fn validate_project_resources(
     }
 
     for recipe in recipes {
+        if !seen_recipe_ids.insert(recipe.id.as_str()) {
+            diagnostics.push(diagnostic_error(
+                "duplicate_recipe_id",
+                format!(
+                    "project `{}` defines duplicate recipe `{}`",
+                    project.id, recipe.id
+                ),
+                Some(recipe.source_path.clone()),
+                Some(recipe.id.clone()),
+            ));
+        }
+
+        let mut seen_step_ids = HashSet::new();
         for step in &recipe.steps {
+            if !seen_step_ids.insert(step.id.as_str()) {
+                diagnostics.push(diagnostic_error(
+                    "duplicate_recipe_step_id",
+                    format!(
+                        "recipe `{}` defines duplicate step `{}`",
+                        recipe.id, step.id
+                    ),
+                    Some(recipe.source_path.clone()),
+                    Some(step.id.clone()),
+                ));
+            }
+
             used_action_ids.insert(step.action_id.as_str());
             validate_recipe_step(
                 &action_map,
@@ -575,8 +644,67 @@ fn validate_interlock_condition(
     rule_id: &str,
     diagnostics: &mut Vec<CraftsmanshipDiagnostic>,
 ) {
-    if let Some(operator) = condition.operator.as_deref() {
-        if !is_valid_compare_operator(operator) {
+    if !condition.items.is_empty() {
+        if let Some(logic) = condition.logic.as_deref() {
+            if !matches!(logic, "and" | "or") {
+                diagnostics.push(diagnostic_error(
+                    "interlock_invalid_logic",
+                    format!("interlock rule `{rule_id}` uses unsupported logic `{logic}`"),
+                    Some(source_path.to_string()),
+                    Some(rule_id.to_string()),
+                ));
+            }
+        }
+
+        if condition.signal_id.is_some()
+            || condition.operator.is_some()
+            || condition.value.is_some()
+        {
+            diagnostics.push(diagnostic_error(
+                "interlock_group_mixes_leaf_fields",
+                format!(
+                    "interlock rule `{rule_id}` condition group cannot mix `items` with `signalId`, `operator`, or `value`"
+                ),
+                Some(source_path.to_string()),
+                Some(rule_id.to_string()),
+            ));
+        }
+
+        for item in &condition.items {
+            validate_interlock_condition(item, signal_ids, source_path, rule_id, diagnostics);
+        }
+
+        return;
+    }
+
+    if condition.signal_id.is_none() && condition.operator.is_none() && condition.value.is_none() {
+        diagnostics.push(diagnostic_error(
+            "interlock_empty_condition",
+            format!("interlock rule `{rule_id}` defines an empty condition"),
+            Some(source_path.to_string()),
+            Some(rule_id.to_string()),
+        ));
+        return;
+    }
+
+    match condition.signal_id.as_deref() {
+        Some("") | None => diagnostics.push(diagnostic_error(
+            "interlock_missing_signal",
+            format!("interlock rule `{rule_id}` leaf condition is missing `signalId`"),
+            Some(source_path.to_string()),
+            Some(rule_id.to_string()),
+        )),
+        Some(signal_id) if !signal_ids.contains(signal_id) => diagnostics.push(diagnostic_error(
+            "interlock_unknown_signal",
+            format!("interlock rule `{rule_id}` references unknown signal `{signal_id}`"),
+            Some(source_path.to_string()),
+            Some(rule_id.to_string()),
+        )),
+        _ => {}
+    }
+
+    match condition.operator.as_deref() {
+        Some(operator) if !is_valid_compare_operator(operator) => {
             diagnostics.push(diagnostic_error(
                 "interlock_invalid_operator",
                 format!("interlock rule `{rule_id}` uses unsupported operator `{operator}`"),
@@ -584,21 +712,22 @@ fn validate_interlock_condition(
                 Some(rule_id.to_string()),
             ));
         }
+        Some(_) => {}
+        None => diagnostics.push(diagnostic_error(
+            "interlock_missing_operator",
+            format!("interlock rule `{rule_id}` leaf condition is missing `operator`"),
+            Some(source_path.to_string()),
+            Some(rule_id.to_string()),
+        )),
     }
 
-    if let Some(signal_id) = condition.signal_id.as_deref() {
-        if !signal_ids.contains(signal_id) {
-            diagnostics.push(diagnostic_error(
-                "interlock_unknown_signal",
-                format!("interlock rule `{rule_id}` references unknown signal `{signal_id}`"),
-                Some(source_path.to_string()),
-                Some(rule_id.to_string()),
-            ));
-        }
-    }
-
-    for item in &condition.items {
-        validate_interlock_condition(item, signal_ids, source_path, rule_id, diagnostics);
+    if condition.value.is_none() {
+        diagnostics.push(diagnostic_error(
+            "interlock_missing_value",
+            format!("interlock rule `{rule_id}` leaf condition is missing `value`"),
+            Some(source_path.to_string()),
+            Some(rule_id.to_string()),
+        ));
     }
 }
 

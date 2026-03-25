@@ -2,7 +2,6 @@ mod comm;
 mod commands;
 mod craftsmanship;
 mod secs_rpc;
-mod sensor;
 mod system;
 
 use tauri::Manager;
@@ -57,8 +56,6 @@ pub fn run() {
             commands::send_tcp_data,
             commands::send_tcp_hmip_frame,
             commands::send_serial_hmip_frame,
-            commands::start_sensor_simulation,
-            commands::stop_sensor_simulation,
             commands::frontend_log_batch,
             commands::secs_rpc_get_library_info,
             commands::secs_rpc_list_sessions,
@@ -75,8 +72,6 @@ pub fn run() {
             app.manage(comm::CommState::default());
             // 初始化工艺运行时
             app.manage(craftsmanship::RecipeRuntimeManager::default());
-            // 初始化传感器模拟器
-            app.manage(sensor::SensorSimulator::default());
             Ok(())
         })
         .run(tauri::generate_context!())
