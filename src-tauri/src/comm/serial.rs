@@ -5,7 +5,7 @@ use tokio_serial::{
 };
 
 // 使用 serde 使其可以序列化和反序列化
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct SerialConfig {
     pub port: String,
     pub baud_rate: u32,

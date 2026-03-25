@@ -1,6 +1,6 @@
-# 12 · 工艺流程后端（craftsmanship）：工作区模型、静态校验与单实例运行时
+# 12 · 工艺流程后端（craftsmanship）：工作区模型、静态校验、多连接分发与单实例运行时
 
-> 更新日期：2026-03-23
+> 更新日期：2026-03-24
 > 执行者：Codex
 
 本章聚焦 `src-tauri/src/craftsmanship/` 这一整组 Rust 后端实现。它已经不是“纯设计稿”，而是一个可被 Tauri 命令直接调用的工艺内核：能扫描 workspace、装配项目 bundle、生成 diagnostics、加载 recipe、启动单实例运行时，并通过信号/设备反馈驱动步骤推进。
@@ -401,7 +401,9 @@ run_recipe()
 当前已经落地的最小真实下发能力是：
 
 - `dispatch.kind = hmipFrame`
+- `project.connections[*].kind = tcp | serial`
 - `device.transport.kind = tcp | serial`
+- `device.transport.connectionId = <connection-id>`
 - `payloadMode` 目前只支持 `fixedHex`
 - `dispatch.kind = gpioWrite`
 - `device.transport.kind = gpio`
@@ -431,6 +433,32 @@ run_recipe()
   - 负责把外部反馈收敛为“这一步已经完成”
 
 这两段故意分开，因此“命令如何发出”和“何时算执行完成”可以独立配置。
+
+### 5.6A 多连接真实发送链路
+
+现在 HMIP 真实发送已经不是“全局单 TCP / 单串口句柄”模式，而是：
+
+- project 资源里定义多条 `connections/*.json`
+- device 通过 `transport.connectionId` 选择具体连接
+- `runtime/dispatch.rs` 在第一次发送前按连接配置自动建连
+- `comm` 层按 `connectionId -> actor handle` 管理多条 TCP/串口连接
+
+字符画：
+
+```txt
+action.dispatch
+  + device.transport(connectionId, channel)
+  + project.connections[connectionId]
+    └─ runtime/dispatch.rs
+         ├─ ensure tcp/serial connection
+         └─ send HMIP frame via connectionId
+```
+
+这意味着：
+
+- 多个设备可以复用同一条连接，只区分 `channel`
+- 也可以挂到不同 TCP/串口连接
+- GPIO 设备仍然不走 connection，继续本地写 `/sys/class/gpio`
 
 ### 5.7 等待模型：Notify + 20ms 轮询兜底
 
@@ -512,6 +540,36 @@ recipe 主步骤在执行前会调用 `validate_interlocks()`：
   - 面向设备/底层反馈键
 
 这套双视图设计让“设备反馈”和“工艺信号”既可解耦，又能相互映射。
+
+### 5.10 接收桥接：HMIP 消息如何自动回写 runtime
+
+这里是这次补齐后的关键闭环：
+
+- `comm/actor.rs` 现在是“每条连接一个 actor”
+- 每个 actor 负责自己的读循环、HMIP 解码和重连
+- actor 在解出 HMIP 消息后，除了继续发前端 `hmip-event`，还会调用 `RecipeRuntimeManager::apply_hmip_feedback()`
+- `apply_hmip_feedback()` 根据当前已加载 recipe 的 `feedback-mappings` 做匹配
+- 匹配成功后，统一调用：
+  - `write_signal()`
+  - `write_device_feedback()`
+
+字符画：
+
+```txt
+tcp/serial connection actor
+  └─ decode HMIP message
+      ├─ emit hmip-event (给前端调试)
+      └─ apply_hmip_feedback()
+           └─ feedback-mappings match
+                ├─ write_signal(...)
+                └─ write_device_feedback(...)
+                     └─ completion waiters 被唤醒
+```
+
+这层设计的重要点有两个：
+
+- 每条连接必须有自己的接收 actor，因为 TCP/串口本来就是独立字节流
+- 但“消息怎么回写到工艺运行时”只有一套统一桥接逻辑，不会按连接复制业务代码
 
 ## 6. IPC 与事件：后端已经准备好，前端尚未接上
 
@@ -598,13 +656,14 @@ recipe 主步骤在执行前会调用 `validate_interlocks()`：
 
 - 内建语义动作仍由 `engine.rs` 直接解释
 - 真实设备动作统一走 `runtime/dispatch.rs`
-- 底层发送复用 `comm` 模块的现有发送能力
-- 完成反馈仍通过 `write_signal()` / `write_device_feedback()` 回流到 runtime
+- 底层发送复用 `comm` 模块的多连接发送能力
+- 接收反馈通过 `apply_hmip_feedback()` 统一桥接，再回流到 `write_signal()` / `write_device_feedback()`
 
 这样做的好处是：
 
 - 业务动作不会继续在 `match action.id` 里膨胀
 - 真实下发链路和完成判定链路保持清晰分层
+- 多连接只在 `connectionId` 层扩展，不污染动作语义层
 - runtime 内核仍可在不连真实设备时做大部分测试
 - 后续如果要扩 transport 或 dispatch，只需在专门层扩展
 
@@ -656,13 +715,16 @@ recipe 主步骤在执行前会调用 `validate_interlocks()`：
 
 - `runtime/dispatch.rs` 目前支持 `hmipFrame` 和 `gpioWrite`
 - `validation.rs` 当前接受 `tcp` / `serial` / `gpio` 三类 `device.transport.kind`
+- `project.connections` 已支持多条 TCP / 串口连接
+- `comm` 层已经按 `connectionId` 管理多连接
+- `feedback-mappings` 已经把接收消息自动回写到 runtime signal / device feedback
 - HMIP 的 `payloadMode` 目前只有 `fixedHex`
 - GPIO 目前是本机最小写入链路，不涉及更复杂的 IO 驱动抽象
 - 还没有参数到 payload 的模板展开，也没有 SECS 等其他协议分发
 
 结论：
 
-- 当前链路已经够支撑“配置一个真实动作并发到现有 HMIP 通道”以及“把简单设备动作直接写到本机 GPIO”，但还不是完整通用协议分发层。
+- 当前链路已经够支撑“按 connectionId 把真实动作发到多条 HMIP 连接”以及“把接收消息自动写回 runtime 驱动步骤完成”，同时也支持“把简单设备动作直接写到本机 GPIO”，但它还不是完整通用协议分发层。
 
 ### 8.3 没有运行记录持久化
 
@@ -679,7 +741,7 @@ recipe 主步骤在执行前会调用 `validate_interlocks()`：
 
 - 命令：`cargo test craftsmanship --manifest-path src-tauri/Cargo.toml`
 - 结果：通过
-- 汇总：36 个测试全部通过
+- 汇总：39 个测试全部通过
 
 这些测试已经覆盖到当前实现最关键的行为：
 
@@ -699,9 +761,635 @@ recipe 主步骤在执行前会调用 `validate_interlocks()`：
 - `safe-stop`
 - 高频 signal 写入
 - dispatch/transport 配置校验
+- connection / feedback-mapping 加载与校验
 - HMIP 最小真实下发链路的失败路径
 - GPIO 最小真实下发链路的成功路径
+- HMIP 接收消息自动回写 signal / device feedback 并驱动 completion 闭环
 
 ## 10. 一句话总结
 
 当前的 craftsmanship 后端已经具备了“配置化工艺模型 + 静态诊断 + 单实例运行时 + 最小真实动作下发 + Tauri IPC 接口”的后端骨架，但它仍处在 **backend-first** 阶段：前端未接入、运行记录未持久化、真实下发范围仍刻意收敛，因此它更准确的定位是“工艺流程后端内核”，而不是“已经完成的工艺流程产品”。
+
+## 附录 A · 后端工艺流程程序框图（ASCII）
+
+下面这组字符图只描述**当前已经落地的后端实现**，不额外展开未实现的未来设计。
+
+### A.1 总体模块图
+
+```txt
++--------------------------------------------------------------------------------------+
+|                                   Tauri Backend                                      |
+|                                                                                      |
+|  +--------------------+         +--------------------------+                         |
+|  | commands.rs        |         | lib.rs                   |                         |
+|  |--------------------|         |--------------------------|                         |
+|  | craftsmanship_*    |<------->| app.manage(...)          |                         |
+|  | connect_tcp        |         | - CommState              |                         |
+|  | connect_serial     |         | - RecipeRuntimeManager   |                         |
+|  | send_*             |         |                          |                         |
+|  +---------+----------+         +--------------------------+                         |
+|            |                                                                         |
+|            v                                                                         |
+|  +--------------------------------------------------------------------------------+  |
+|  | craftsmanship/                                                                 |  |
+|  |                                                                                |  |
+|  |  +----------------+   +------------------+   +------------------------------+  |  |
+|  |  | loader.rs      |-->| validation.rs    |-->| Craftsmanship*Bundle         |  |  |
+|  |  |----------------|   |------------------|   |------------------------------|  |  |
+|  |  | scan_workspace |   | system校验       |   | SystemBundle                 |  |  |
+|  |  | get_project... |   | project校验      |   | ProjectBundle                |  |  |
+|  |  | get_recipe...  |   | connection校验   |   | RecipeBundle                 |  |  |
+|  |  +----------------+   | mapping校验      |   +------------------------------+  |  |
+|  |                       +------------------+                                      |  |
+|  |                                                                                |  |
+|  |  +--------------------------------------------------------------------------+  |  |
+|  |  | runtime/                                                                 |  |  |
+|  |  |                                                                          |  |  |
+|  |  |  +---------------------+     +------------------+    +----------------+  |  |  |
+|  |  |  | manager.rs          |<--->| engine.rs        |<-->| dispatch.rs    |  |  |  |
+|  |  |  |---------------------|     |------------------|    |----------------|  |  |  |
+|  |  |  | load/start/stop     |     | step执行         |    | hmipFrame      |  |  |  |
+|  |  |  | snapshot维护        |     | interlock检查    |    | gpioWrite      |  |  |  |
+|  |  |  | write_signal        |     | completion等待   |    | auto connect   |  |  |  |
+|  |  |  | write_device_fb     |     | safe-stop        |    | send by connId |  |  |  |
+|  |  |  | apply_hmip_feedback |     +------------------+    +----------------+  |  |  |
+|  |  |  +---------------------+                                              |  |  |  |
+|  |  +--------------------------------------------------------------------------+  |  |
+|  +--------------------------------------------------------------------------------+  |
+|            |                                                                         |
+|            v                                                                         |
+|  +--------------------------------------------------------------------------------+  |
+|  | comm/                                                                          |  |
+|  |                                                                                |  |
+|  |  +--------------------+    +---------------------+    +--------------------+  |  |
+|  |  | mod.rs             |    | actor.rs            |    | proto.rs           |  |  |
+|  |  |--------------------|    |---------------------|    |--------------------|  |  |
+|  |  | CommState          |    | per-connection actor |    | HMIP encode/decode |  |  |
+|  |  | connId -> handle   |    | read/write loop      |    | FrameDecoder       |  |  |
+|  |  | ensure/connect/... |    | reconnect            |    | Message parsing    |  |  |
+|  |  +----------+---------+    | emit comm-event      |    +--------------------+  |  |
+|  |             |              | emit hmip-event      |                            |  |
+|  |             |              | bridge to runtime    |                            |  |
+|  |             |              +----------+-----------+                            |  |
+|  |             |                         |                                        |  |
+|  |             v                         v                                        |  |
+|  |        +---------+               +---------+                                   |  |
+|  |        | tcp.rs  |               |serial.rs|                                   |  |
+|  |        +---------+               +---------+                                   |  |
+|  +--------------------------------------------------------------------------------+  |
++--------------------------------------------------------------------------------------+
+```
+
+### A.2 工艺配置装载图
+
+```txt
+workspace/
+├─ system/
+│  ├─ actions/*.json
+│  ├─ device-types/*.json
+│  └─ schemas/*.json
+└─ projects/<project-id>/
+   ├─ project.json
+   ├─ connections/*.json
+   ├─ devices/*.json
+   ├─ feedback-mappings/*.json
+   ├─ signals/*.json
+   ├─ safety/interlocks.json
+   ├─ safety/safe-stop.json
+   └─ recipes/*.json
+
+
+                     get_project_bundle / get_recipe_bundle
+                                      |
+                                      v
++------------------+      +----------------------+      +----------------------+
+| system/actions   |----->| loader.rs            |----->| ActionDefinition     |
+| system/types     |      |----------------------|      | DeviceTypeDefinition |
++------------------+      | read_json_collection |      +----------------------+
+                          | read_optional_*      |
++------------------+      | sort recipe/safeStop |
+| project.json     |----->| build bundle         |----->+----------------------+
+| connections      |      +----------+-----------+      | ProjectDefinition    |
+| devices          |                 |                  | ConnectionDefinition |
+| feedbackMappings |                 v                  | DeviceInstance       |
+| signals          |      +----------------------+      | FeedbackMappingDef   |
+| interlocks       |----->| validation.rs        |----->| SignalDefinition     |
+| safe-stop        |      |----------------------|      | InterlockFile        |
+| recipes          |      | diagnostics          |      | SafeStopDefinition   |
++------------------+      | - action校验         |      | RecipeDefinition     |
+                          | - transport校验      |      +----------------------+
+                          | - connection校验     |
+                          | - feedback校验       |
+                          +----------------------+
+```
+
+### A.3 运行时主状态机图
+
+```txt
+craftsmanship_runtime_load_recipe
+         |
+         v
++---------------------------+
+| RecipeRuntimeManager      |
+| load_recipe()             |
+|---------------------------|
+| 1. 调 loader/get_bundle   |
+| 2. 构建 LoadedRecipeRuntime|
+| 3. 生成初始 snapshot      |
+| 4. status = Loaded        |
++-------------+-------------+
+              |
+              v
+craftsmanship_runtime_start
+              |
+              v
++---------------------------+
+| start()                   |
+|---------------------------|
+| 1. 拒绝未 load            |
+| 2. 拒绝重复 start         |
+| 3. diagnostics 有 error?  |
+|    -> 拒绝启动            |
+| 4. next_run_id += 1       |
+| 5. snapshot.reset_for_run |
+| 6. spawn(engine::run...)  |
++-------------+-------------+
+              |
+              v
++---------------------------+
+| engine::run_recipe        |
+|---------------------------|
+| execute_recipe_steps()    |
+|   -> success  : Completed |
+|   -> stop     : Stopped   |
+|   -> fail     : Failed    |
+|   -> safe-stop: SafeStop  |
++---------------------------+
+```
+
+### A.4 `LoadedRecipeRuntime` 内部结构图
+
+```txt
++------------------------------------------------------------------+
+| LoadedRecipeRuntime                                               |
+|------------------------------------------------------------------|
+| bundle                : CraftsmanshipRecipeBundle                |
+| actions               : HashMap<action_id, ActionDefinition>     |
+| connections           : HashMap<conn_id, ConnectionDefinition>   |
+| devices               : HashMap<device_id, DeviceInstance>       |
+| feedback_mappings     : Vec<FeedbackMappingDefinition>           |
+| signals               : HashMap<signal_id, SignalDefinition>     |
+| signal_sources        : HashMap<runtime_key, signal_id>          |
++------------------------------------------------------------------+
+
+说明：
+- `actions`           给 engine/dispatch 查动作定义
+- `connections`       给 dispatch 自动建连和发送
+- `devices`           给 step.deviceId 查 transport/tags
+- `feedback_mappings` 给接收桥接自动回写 runtime
+- `signal_sources`    用于 runtime_values <-> signal_values 互相映射
+```
+
+### A.5 步骤执行主链路图
+
+```txt
+engine::run_recipe
+   |
+   v
+for step in recipe.steps by seq
+   |
+   +--> begin_step()
+   |
+   +--> validate_interlocks(step.action_id)
+   |      |
+   |      +--> 不通过 -> step fail -> onError 分支
+   |
+   +--> 找 action = loaded.actions[step.action_id]
+   |
+   +--> match action.id
+   |      |
+   |      +--> "common.delay"
+   |      |      |
+   |      |      +--> execute_delay_step()
+   |      |
+   |      +--> "common.wait-signal"
+   |      |      |
+   |      |      +--> execute_wait_signal_step()
+   |      |
+   |      +--> 其他 action
+   |             |
+   |             +--> action.dispatch.is_some() ?
+   |                    |
+   |                    +--> yes -> dispatch::dispatch_recipe_action()
+   |                    |             |
+   |                    |             +--> execute_action_completion()
+   |                    |
+   |                    +--> no  -> execute_action_completion()
+   |
+   +--> complete_step()
+   |
+   +--> 下一步
+```
+
+### A.6 内建语义与真实动作分层图
+
+```txt
+                    +-------------------------------+
+                    | step.action_id                |
+                    +---------------+---------------+
+                                    |
+                     +--------------+--------------+
+                     |                             |
+                     v                             v
+         +-----------------------+      +--------------------------+
+         | 内建语义              |      | 真实设备动作             |
+         |-----------------------|      |--------------------------|
+         | common.delay          |      | 例如 pump.start         |
+         | common.wait-signal    |      | 例如 valve.open         |
+         +-----------+-----------+      +------------+-------------+
+                     |                               |
+                     v                               v
+              engine.rs 直接解释              dispatch.kind 决定如何发
+                                              completion 决定何时完成
+```
+
+### A.7 真实动作发送链路图
+
+```txt
+RecipeStep
+  |
+  |  step.deviceId
+  v
+DeviceInstance
+  |
+  |  transport.kind / transport.connectionId / transport.channel / pin
+  v
+ActionDefinition
+  |
+  |  dispatch.kind / msgType / payloadHex / value
+  v
+dispatch.rs
+  |
+  +--> dispatch.kind == "hmipFrame" ?
+  |      |
+  |      +--> yes
+  |            |
+  |            +--> 取 device.transport.connectionId
+  |            +--> 取 project.connections[connectionId]
+  |            +--> build_hmip_payload()
+  |            +--> ensure_tcp_connection() / ensure_serial_connection()
+  |            +--> send_*_hmip_frame(by connectionId)
+  |
+  +--> dispatch.kind == "gpioWrite" ?
+         |
+         +--> yes
+               |
+               +--> 取 device.transport.pin
+               +--> 写 /sys/class/gpio/gpioN/value
+```
+
+### A.8 多连接通信子系统图
+
+```txt
++-------------------------------------------------------------+
+| CommState                                                   |
+|-------------------------------------------------------------|
+| connections : HashMap<connection_id, ManagedConnection>     |
++-----------------------------+-------------------------------+
+                              |
+      +-----------------------+-----------------------+
+      |                                               |
+      v                                               v
++-------------------------+                 +-------------------------+
+| connection_id = main-tcp|                 | connection_id = plc-01  |
+| kind = Tcp              |                 | kind = Serial           |
+| actor handle            |                 | actor handle            |
++-------------------------+                 +-------------------------+
+
+每条连接独立：
+- 独立句柄
+- 独立读写队列
+- 独立重连
+- 独立 HMIP 解码器
+- 独立 comm-event / hmip-event 来源
+```
+
+### A.9 actor 内部单连接读写循环图
+
+```txt
+spawn_tcp_actor / spawn_serial_actor
+            |
+            v
++------------------------------------------------------------------+
+| run_io_loop(connection_id, transport, stream)                    |
+|------------------------------------------------------------------|
+| loop {                                                           |
+|   select! {                                                      |
+|     shutdown_rx             -> exit                              |
+|     high_rx.recv()          -> writer.write_all(data)            |
+|                                 -> emit CommEvent::Tx            |
+|     normal_rx.recv()        -> writer.write_all(data)            |
+|                                 -> emit CommEvent::Tx            |
+|     reader.read(buf)        -> emit CommEvent::Rx                |
+|                              -> hmip_decoder.push(bytes)         |
+|                              -> next_frame()                     |
+|                                 -> decode_message(frame)         |
+|                                 -> emit HmipEvent                |
+|                                 -> bridge_hmip_message()         |
+|   }                                                              |
+| }                                                                |
++------------------------------------------------------------------+
+
+异常路径：
+- write fail / read fail / remote closed
+  -> emit Error
+  -> emit Reconnecting
+  -> backoff retry
+```
+
+### A.10 HMIP 接收桥接到工艺运行时图
+
+```txt
+TCP/Serial bytes
+    |
+    v
+proto::FrameDecoder
+    |
+    v
+proto::Frame
+    |
+    v
+proto::decode_message(frame)
+    |
+    +--> HmipEvent 发给前端调试
+    |
+    +--> RecipeRuntimeManager::apply_hmip_feedback(
+            connection_id,
+            header,
+            decoded_message,
+            raw_payload
+        )
+```
+
+### A.11 `apply_hmip_feedback()` 匹配图
+
+```txt
+apply_hmip_feedback(connection_id, header, message, raw_payload)
+    |
+    v
+for mapping in loaded.feedback_mappings
+    |
+    +--> mapping.enabled ?
+    |
+    +--> matcher.connectionId == connection_id ?
+    |
+    +--> matcher.channel == header.channel ?        (可选)
+    |
+    +--> matcher.msgType == header.msg_type ?       (可选)
+    |
+    +--> matcher.summaryKind 匹配 ?                 (可选)
+    |       可匹配：
+    |       - hello
+    |       - helloAck
+    |       - heartbeat
+    |       - request
+    |       - response
+    |       - event
+    |       - error
+    |       - raw
+    |
+    +--> matcher.requestId/status/eventId/errorCode ? (可选)
+    |
+    +--> 命中
+           |
+           +--> target.value ? 固定值
+           |
+           +--> target.valueFrom ? 从消息提取
+           |       支持：
+           |       - channel
+           |       - seq
+           |       - msgType
+           |       - flags
+           |       - summary.requestId
+           |       - summary.status
+           |       - summary.eventId
+           |       - summary.errorCode
+           |       - summary.bodyBase64
+           |       - summary.bodyHex
+           |       - summary.payloadBase64
+           |       - summary.payloadHex
+           |
+           +--> target.signalId ?
+           |       |
+           |       +--> write_signal(signal_id, value)
+           |
+           +--> target.deviceId + feedbackKey ?
+                   |
+                   +--> write_device_feedback(device_id, key, value)
+```
+
+### A.12 `write_signal()` / `write_device_feedback()` 双视图回写图
+
+```txt
+write_signal(signal_id, value)
+   |
+   +--> snapshot.signal_values[signal_id] = value
+   |
+   +--> signal.source 存在 ?
+           |
+           +--> snapshot.runtime_values[source] = value
+   |
+   +--> notify_waiters()
+
+
+write_device_feedback(device_id, key, value)
+   |
+   +--> runtime_key = device.tags[key]
+   |
+   +--> snapshot.runtime_values[runtime_key] = value
+   |
+   +--> loaded.signal_sources[runtime_key] 存在 ?
+           |
+           +--> snapshot.signal_values[signal_id] = value
+   |
+   +--> notify_waiters()
+```
+
+### A.13 completion 判定图
+
+```txt
+execute_action_completion(action, step, ...)
+    |
+    +--> completion.type == deviceFeedback
+    |      |
+    |      +--> device.tags[completion.key] -> runtime_key
+    |      +--> wait_for_condition(
+    |              snapshot.runtime_values[runtime_key]
+    |              operator completion.operator
+    |              expected completion.value
+    |              stableTimeMs
+    |          )
+    |
+    +--> completion.type == signalCompare
+    |      |
+    |      +--> wait_for_condition(
+    |              snapshot.signal_values[signal_id]
+    |              operator completion.operator
+    |              expected completion.value
+    |              stableTimeMs
+    |          )
+    |
+    +--> completion.type == immediate / None
+           |
+           +--> 立即完成
+```
+
+### A.14 `wait_for_condition()` 唤醒机制图
+
+```txt
+wait_for_condition(...)
+   |
+   v
+loop
+   |
+   +--> stop_requested ?       -> fail / stop
+   |
+   +--> timeout reached ?      -> timeout failure
+   |
+   +--> predicate(snapshot) ?
+   |      |
+   |      +--> false -> 等待
+   |      |
+   |      +--> true
+   |             |
+   |             +--> stableTimeMs == 0 ? -> success
+   |             |
+   |             +--> 连续满足稳定时间 ? -> success
+   |
+   +--> wait:
+          |
+          +--> value_changed.notified()
+          |
+          +--> 20ms sleep 兜底
+
+谁会触发 notify：
+- write_signal()
+- write_device_feedback()
+- stop()
+```
+
+### A.15 联锁与 safe-stop 分支图
+
+```txt
+execute step
+   |
+   +--> validate_interlocks(step.action_id)
+   |      |
+   |      +--> block -> step failed
+   |
+   +--> step execute failed ?
+          |
+          +--> onError = "ignore"
+          |      |
+          |      +--> fail_step() -> continue next step
+          |
+          +--> onError = "stop"
+          |      |
+          |      +--> finish_run(Failed)
+          |
+          +--> onError = "safe-stop"
+                 |
+                 +--> transition_to_safe_stop()
+                 +--> execute safe_stop.steps by seq
+                 +--> 最终 finish_run(Failed/Stopped/Completed-safe-stop结束)
+```
+
+### A.16 后端命令入口图
+
+```txt
+Frontend invoke
+   |
+   +--> craftsmanship_scan_workspace
+   +--> craftsmanship_get_project_bundle
+   +--> craftsmanship_get_recipe_bundle
+   +--> craftsmanship_runtime_load_recipe
+   +--> craftsmanship_runtime_start
+   +--> craftsmanship_runtime_stop
+   +--> craftsmanship_runtime_get_status
+   +--> craftsmanship_runtime_write_signal
+   +--> craftsmanship_runtime_write_device_feedback
+   |
+   +--> connect_tcp(connection_id?)
+   +--> disconnect_tcp(connection_id?)
+   +--> send_tcp_data(connection_id?)
+   +--> send_tcp_hmip_frame(connection_id?)
+   |
+   +--> connect_serial(connection_id?)
+   +--> disconnect_serial(connection_id?)
+   +--> send_serial_data(connection_id?)
+   +--> send_serial_hmip_frame(connection_id?)
+```
+
+### A.17 当前后端完整闭环总图
+
+```txt
+             配置层
+   system/actions/device-types
+   projects/connections/devices/
+   feedback-mappings/signals/recipes
+                 |
+                 v
+        loader.rs + validation.rs
+                 |
+                 v
+        CraftsmanshipRecipeBundle
+                 |
+                 v
+      RecipeRuntimeManager.load_recipe
+                 |
+                 v
+      RecipeRuntimeManager.start
+                 |
+                 v
+            engine::run_recipe
+                 |
+     +-----------+------------+
+     |                        |
+     v                        v
+内建语义                 真实设备动作
+delay / wait-signal       dispatch.rs
+                              |
+                              +--> hmipFrame
+                              |      |
+                              |      +--> connectionId
+                              |      +--> auto connect
+                              |      +--> send HMIP
+                              |
+                              +--> gpioWrite
+                                     |
+                                     +--> write gpio
+                 |
+                 v
+       execute_action_completion
+                 |
+                 v
+          wait_for_condition
+                 ^
+                 |
+     +-----------+------------------------------------+
+     |                                                |
+     |                                     actor.rs per connection
+     |                                          |
+     |                                 TCP/Serial read loop
+     |                                          |
+     |                                   HMIP decode
+     |                                          |
+     |                              apply_hmip_feedback()
+     |                                          |
+     |                    +---------------------+--------------------+
+     |                    |                                          |
+     v                    v                                          v
+write_signal()   write_device_feedback()                     hmip-event to UI
+     |                    |
+     +--------- notify_waiters ---------+
+```

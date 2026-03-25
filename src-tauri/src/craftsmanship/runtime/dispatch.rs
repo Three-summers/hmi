@@ -2,10 +2,44 @@ use super::manager::{now_ms, LoadedRecipeRuntime};
 use super::types::RecipeRuntimeFailure;
 use crate::comm::actor::CommPriority;
 use crate::comm::{self, HmipOutboundFrame};
-use crate::craftsmanship::{ActionDefinition, ActionDispatchDefinition, RecipeStep, SafeStopStep};
-use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use crate::craftsmanship::{
+    ActionDefinition, ActionDispatchDefinition, ConnectionDefinition, RecipeStep, SafeStopStep,
+};
+use gpio_cdev::{Chip, LineHandle, LineRequestFlags};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{AppHandle, Manager};
+
+const DEFAULT_GPIO_CHIP_PATH: &str = "/dev/gpiochip0";
+const GPIO_CONSUMER_LABEL: &str = "hmi-gpio-write";
+
+#[derive(Clone)]
+struct ManagedGpioHandle {
+    active_low: bool,
+    handle: Arc<Mutex<LineHandle>>,
+}
+
+fn gpio_output_handles() -> &'static Mutex<HashMap<String, ManagedGpioHandle>> {
+    static HANDLES: OnceLock<Mutex<HashMap<String, ManagedGpioHandle>>> = OnceLock::new();
+    HANDLES.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+#[cfg(test)]
+type GpioWriteOverride = Arc<dyn Fn(&str, u32, bool, bool) -> Result<(), String> + Send + Sync>;
+
+#[cfg(test)]
+fn gpio_write_override() -> &'static Mutex<Option<GpioWriteOverride>> {
+    static OVERRIDE: OnceLock<Mutex<Option<GpioWriteOverride>>> = OnceLock::new();
+    OVERRIDE.get_or_init(|| Mutex::new(None))
+}
+
+#[cfg(test)]
+pub(super) fn set_gpio_write_override(override_fn: Option<GpioWriteOverride>) {
+    let mut guard = gpio_write_override()
+        .lock()
+        .expect("gpio override mutex poisoned");
+    *guard = override_fn;
+}
 
 pub(super) async fn dispatch_recipe_action(
     app: Option<&AppHandle>,
@@ -152,6 +186,30 @@ async fn dispatch_hmip_frame(
             on_error.clone(),
         )
     })?;
+    let connection_id = transport.connection_id.as_deref().ok_or_else(|| {
+        dispatch_failure(
+            "missing_device_transport_connection",
+            format!(
+                "device `{}` transport misses `connectionId` for HMIP dispatch",
+                device.id
+            ),
+            step_id,
+            action_id,
+            on_error.clone(),
+        )
+    })?;
+    let connection = loaded.connections.get(connection_id).ok_or_else(|| {
+        dispatch_failure(
+            "connection_not_found",
+            format!(
+                "device `{}` references unknown connection `{connection_id}` during dispatch",
+                device.id
+            ),
+            step_id,
+            action_id,
+            on_error.clone(),
+        )
+    })?;
 
     let payload = build_hmip_payload(action, dispatch, step_id, action_id, on_error.clone())?;
     let frame = HmipOutboundFrame {
@@ -184,15 +242,45 @@ async fn dispatch_hmip_frame(
     };
 
     let state = app.state::<crate::comm::CommState>();
-    let seq = match transport.kind.as_deref() {
-        Some("tcp") => comm::send_tcp_hmip_frame(&state, frame).await,
-        Some("serial") => comm::send_serial_hmip_frame(&state, frame).await,
+    let seq = match connection.kind.as_deref() {
+        Some("tcp") => {
+            let config =
+                build_tcp_connection_config(connection, step_id, action_id, on_error.clone())?;
+            comm::ensure_tcp_connection(&state, app, connection_id, config)
+                .await
+                .map_err(|message| {
+                    dispatch_failure(
+                        "dispatch_connect_failed",
+                        format!("failed to connect action `{}`: {message}", action.id),
+                        step_id,
+                        action_id,
+                        on_error.clone(),
+                    )
+                })?;
+            comm::send_tcp_hmip_frame(&state, connection_id, frame).await
+        }
+        Some("serial") => {
+            let config =
+                build_serial_connection_config(connection, step_id, action_id, on_error.clone())?;
+            comm::ensure_serial_connection(&state, app, connection_id, config)
+                .await
+                .map_err(|message| {
+                    dispatch_failure(
+                        "dispatch_connect_failed",
+                        format!("failed to connect action `{}`: {message}", action.id),
+                        step_id,
+                        action_id,
+                        on_error.clone(),
+                    )
+                })?;
+            comm::send_serial_hmip_frame(&state, connection_id, frame).await
+        }
         Some(other) => {
             return Err(dispatch_failure(
-                "unsupported_device_transport",
+                "unsupported_connection_kind",
                 format!(
-                    "device `{}` uses unsupported transport kind `{other}` for HMIP dispatch",
-                    device.id
+                    "connection `{}` uses unsupported kind `{other}` for HMIP dispatch",
+                    connection.id
                 ),
                 step_id,
                 action_id,
@@ -201,8 +289,8 @@ async fn dispatch_hmip_frame(
         }
         None => {
             return Err(dispatch_failure(
-                "missing_device_transport_kind",
-                format!("device `{}` transport misses `kind`", device.id),
+                "missing_connection_kind",
+                format!("connection `{}` misses `kind`", connection.id),
                 step_id,
                 action_id,
                 on_error,
@@ -220,9 +308,10 @@ async fn dispatch_hmip_frame(
     })?;
 
     Ok(format!(
-        "action `{}` dispatched via {} (seq={seq})",
+        "action `{}` dispatched via {} connection `{}` (seq={seq})",
         action.id,
-        transport.kind.as_deref().unwrap_or("unknown")
+        connection.kind.as_deref().unwrap_or("unknown"),
+        connection_id
     ))
 }
 
@@ -314,7 +403,7 @@ async fn dispatch_gpio_write(
     })?;
 
     write_gpio_value(
-        transport.root_dir.as_deref(),
+        transport.chip_path.as_deref(),
         pin,
         transport.active_low,
         value,
@@ -413,90 +502,191 @@ fn parse_dispatch_priority(value: Option<&str>) -> Option<CommPriority> {
     }
 }
 
+fn build_tcp_connection_config(
+    connection: &ConnectionDefinition,
+    step_id: Option<&str>,
+    action_id: Option<&str>,
+    on_error: Option<String>,
+) -> Result<crate::comm::tcp::TcpConfig, RecipeRuntimeFailure> {
+    let tcp = connection.tcp.as_ref().ok_or_else(|| {
+        dispatch_failure(
+            "missing_connection_tcp_config",
+            format!("connection `{}` misses TCP config", connection.id),
+            step_id,
+            action_id,
+            on_error.clone(),
+        )
+    })?;
+
+    let defaults = crate::comm::tcp::TcpConfig::default();
+    let host = tcp
+        .host
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            dispatch_failure(
+                "missing_connection_tcp_host",
+                format!("connection `{}` misses TCP `host`", connection.id),
+                step_id,
+                action_id,
+                on_error.clone(),
+            )
+        })?;
+    let port = tcp.port.ok_or_else(|| {
+        dispatch_failure(
+            "missing_connection_tcp_port",
+            format!("connection `{}` misses TCP `port`", connection.id),
+            step_id,
+            action_id,
+            on_error.clone(),
+        )
+    })?;
+
+    Ok(crate::comm::tcp::TcpConfig {
+        host: host.to_string(),
+        port,
+        timeout_ms: tcp.timeout_ms.unwrap_or(defaults.timeout_ms),
+    })
+}
+
+fn build_serial_connection_config(
+    connection: &ConnectionDefinition,
+    step_id: Option<&str>,
+    action_id: Option<&str>,
+    on_error: Option<String>,
+) -> Result<crate::comm::serial::SerialConfig, RecipeRuntimeFailure> {
+    let serial = connection.serial.as_ref().ok_or_else(|| {
+        dispatch_failure(
+            "missing_connection_serial_config",
+            format!("connection `{}` misses serial config", connection.id),
+            step_id,
+            action_id,
+            on_error.clone(),
+        )
+    })?;
+
+    let defaults = crate::comm::serial::SerialConfig::default();
+    let port = serial
+        .port
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            dispatch_failure(
+                "missing_connection_serial_port",
+                format!("connection `{}` misses serial `port`", connection.id),
+                step_id,
+                action_id,
+                on_error.clone(),
+            )
+        })?;
+
+    Ok(crate::comm::serial::SerialConfig {
+        port: port.to_string(),
+        baud_rate: serial.baud_rate.unwrap_or(defaults.baud_rate),
+        data_bits: serial.data_bits.unwrap_or(defaults.data_bits),
+        stop_bits: serial.stop_bits.unwrap_or(defaults.stop_bits),
+        parity: serial
+            .parity
+            .clone()
+            .unwrap_or_else(|| defaults.parity.clone()),
+    })
+}
+
 async fn write_gpio_value(
-    root_dir: Option<&str>,
+    chip_path: Option<&str>,
     pin: u32,
     active_low: Option<bool>,
     value: bool,
 ) -> Result<(), String> {
-    let gpio_root = PathBuf::from(root_dir.unwrap_or("/sys/class/gpio"));
-    let gpio_dir = ensure_gpio_directory(&gpio_root, pin).await?;
-    let direction_path = gpio_dir.join("direction");
-    let active_low_path = gpio_dir.join("active_low");
-    let value_path = gpio_dir.join("value");
+    let chip_path = chip_path
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_GPIO_CHIP_PATH)
+        .to_string();
+    let active_low = active_low.unwrap_or(false);
 
-    if direction_path.exists() {
-        tokio::fs::write(&direction_path, b"out")
-            .await
-            .map_err(|error| {
-                format!(
-                    "failed to configure gpio direction at `{}`: {error}",
-                    direction_path.display()
-                )
-            })?;
-    }
-
-    if let Some(active_low) = active_low {
-        if !active_low_path.exists() {
-            return Err(format!(
-                "gpio active_low path `{}` does not exist",
-                active_low_path.display()
-            ));
+    #[cfg(test)]
+    {
+        let override_fn = gpio_write_override()
+            .lock()
+            .expect("gpio override mutex poisoned")
+            .clone();
+        if let Some(override_fn) = override_fn {
+            return override_fn(&chip_path, pin, active_low, value);
         }
-        tokio::fs::write(&active_low_path, if active_low { b"1" } else { b"0" })
-            .await
-            .map_err(|error| {
-                format!(
-                    "failed to configure gpio active_low at `{}`: {error}",
-                    active_low_path.display()
-                )
-            })?;
     }
 
-    if !value_path.exists() {
-        return Err(format!(
-            "gpio value path `{}` does not exist",
-            value_path.display()
-        ));
-    }
+    let chip_path_for_request = chip_path.clone();
+    let handle = tokio::task::spawn_blocking(move || {
+        ensure_gpio_line_handle(&chip_path_for_request, pin, active_low, value)
+    })
+    .await
+    .map_err(|error| format!("gpio write task join failed: {error}"))??;
 
-    tokio::fs::write(&value_path, if value { b"1" } else { b"0" })
-        .await
-        .map_err(|error| {
-            format!(
-                "failed to write gpio value at `{}`: {error}",
-                value_path.display()
-            )
-        })
+    tokio::task::spawn_blocking(move || {
+        let guard = handle
+            .lock()
+            .map_err(|_| "gpio handle mutex poisoned".to_string())?;
+        guard
+            .set_value(if value { 1 } else { 0 })
+            .map_err(|error| format!("failed to write gpio line {pin} on `{chip_path}`: {error}"))
+    })
+    .await
+    .map_err(|error| format!("gpio set_value task join failed: {error}"))?
 }
 
-async fn ensure_gpio_directory(root_dir: &Path, pin: u32) -> Result<PathBuf, String> {
-    let gpio_dir = root_dir.join(format!("gpio{pin}"));
-    if gpio_dir.exists() {
-        return Ok(gpio_dir);
-    }
-
-    let export_path = root_dir.join("export");
-    if !export_path.exists() {
-        return Err(format!("gpio path `{}` does not exist", gpio_dir.display()));
-    }
-
-    tokio::fs::write(&export_path, pin.to_string())
-        .await
-        .map_err(|error| format!("failed to export gpio pin {pin}: {error}"))?;
-
-    let started = Instant::now();
-    while started.elapsed() < Duration::from_millis(200) {
-        if gpio_dir.exists() {
-            return Ok(gpio_dir);
+fn ensure_gpio_line_handle(
+    chip_path: &str,
+    pin: u32,
+    active_low: bool,
+    initial_value: bool,
+) -> Result<Arc<Mutex<LineHandle>>, String> {
+    let key = format!("{chip_path}:{pin}");
+    let stale_handle = {
+        let mut handles = gpio_output_handles()
+            .lock()
+            .map_err(|_| "gpio handle registry mutex poisoned".to_string())?;
+        if let Some(managed) = handles.get(&key) {
+            if managed.active_low == active_low {
+                return Ok(managed.handle.clone());
+            }
         }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
+        handles.remove(&key)
+    };
+    drop(stale_handle);
 
-    Err(format!(
-        "gpio pin {pin} did not become ready under `{}`",
-        root_dir.display()
-    ))
+    let mut flags = LineRequestFlags::OUTPUT;
+    if active_low {
+        flags |= LineRequestFlags::ACTIVE_LOW;
+    }
+    let mut chip = Chip::new(chip_path)
+        .map_err(|error| format!("failed to open gpio chip `{chip_path}`: {error}"))?;
+    let line = chip
+        .get_line(pin)
+        .map_err(|error| format!("failed to access gpio line {pin} on `{chip_path}`: {error}"))?;
+    let handle = Arc::new(Mutex::new(
+        line.request(
+            flags,
+            if initial_value { 1 } else { 0 },
+            GPIO_CONSUMER_LABEL,
+        )
+        .map_err(|error| format!("failed to request gpio line {pin} on `{chip_path}`: {error}"))?,
+    ));
+
+    let mut handles = gpio_output_handles()
+        .lock()
+        .map_err(|_| "gpio handle registry mutex poisoned".to_string())?;
+    handles.insert(
+        key,
+        ManagedGpioHandle {
+            active_low,
+            handle: handle.clone(),
+        },
+    );
+
+    Ok(handle)
 }
 
 fn dispatch_failure(

@@ -67,6 +67,7 @@ export type HmipEvent =
     | {
           type: "decode_error";
           transport: CommTransport;
+          connection_id?: string;
           message: string;
           dropped_bytes: number;
           timestamp_ms: number;
@@ -74,6 +75,7 @@ export type HmipEvent =
     | {
           type: "message";
           transport: CommTransport;
+          connection_id?: string;
           channel: number;
           seq: number;
           flags: number;
@@ -83,6 +85,17 @@ export type HmipEvent =
           timestamp_ms: number;
           summary: HmipMessageSummary;
       };
+
+export interface HmipConnectionState {
+    connectionId: string;
+    transport: CommTransport;
+    lastEventAtMs: number | null;
+    messageCount: number;
+    decodeErrorCount: number;
+    lastDecodeError: string | null;
+    lastMessage: HmipEvent | null;
+    lastError?: string;
+}
 
 /**
  * HMIP 发送帧参数（前端 → Rust → TCP/Serial）

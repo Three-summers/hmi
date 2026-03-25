@@ -40,11 +40,23 @@ pub fn get_project_bundle(
         &project_dir.join("project.json"),
         "project definition",
     )?;
+    let connections = read_optional_json_collection::<ConnectionDefinition>(
+        &project_dir.join("connections"),
+        "connection definitions",
+        &mut diagnostics,
+        "connections directory is missing; returning empty connection list",
+    )?;
     let devices = read_optional_json_collection::<DeviceInstance>(
         &project_dir.join("devices"),
         "device definitions",
         &mut diagnostics,
         "devices directory is missing; returning empty device list",
+    )?;
+    let feedback_mappings = read_optional_json_collection::<FeedbackMappingDefinition>(
+        &project_dir.join("feedback-mappings"),
+        "feedback mapping definitions",
+        &mut diagnostics,
+        "feedback-mappings directory is missing; returning empty feedback mapping list",
     )?;
     let signals = read_optional_json_collection::<SignalDefinition>(
         &project_dir.join("signals"),
@@ -80,7 +92,9 @@ pub fn get_project_bundle(
     diagnostics.extend(validate_project_resources(
         &system,
         &project,
+        &connections,
         &devices,
+        &feedback_mappings,
         &signals,
         interlocks.as_ref(),
         safe_stop.as_ref(),
@@ -91,7 +105,9 @@ pub fn get_project_bundle(
         workspace_root: path_to_string(&root),
         system,
         project,
+        connections,
         devices,
+        feedback_mappings,
         signals,
         interlocks,
         safe_stop,
@@ -135,7 +151,9 @@ pub fn get_recipe_bundle(
         workspace_root: project_bundle.workspace_root,
         system: project_bundle.system,
         project: project_bundle.project,
+        connections: project_bundle.connections,
         devices: project_bundle.devices,
+        feedback_mappings: project_bundle.feedback_mappings,
         signals: project_bundle.signals,
         interlocks: project_bundle.interlocks,
         safe_stop: project_bundle.safe_stop,

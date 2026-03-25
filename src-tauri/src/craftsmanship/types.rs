@@ -134,6 +134,55 @@ pub struct ProjectDefinition {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct TcpConnectionConfigDefinition {
+    #[serde(default)]
+    pub host: Option<String>,
+    #[serde(default)]
+    pub port: Option<u16>,
+    #[serde(default)]
+    pub timeout_ms: Option<u64>,
+    #[serde(flatten, default)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SerialConnectionConfigDefinition {
+    #[serde(default)]
+    pub port: Option<String>,
+    #[serde(default)]
+    pub baud_rate: Option<u32>,
+    #[serde(default)]
+    pub data_bits: Option<u8>,
+    #[serde(default)]
+    pub stop_bits: Option<u8>,
+    #[serde(default)]
+    pub parity: Option<String>,
+    #[serde(flatten, default)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionDefinition {
+    #[serde(default, skip_deserializing)]
+    pub source_path: String,
+    pub id: String,
+    pub name: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub tcp: Option<TcpConnectionConfigDefinition>,
+    #[serde(default)]
+    pub serial: Option<SerialConnectionConfigDefinition>,
+    #[serde(flatten, default)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct DeviceInstance {
     #[serde(default, skip_deserializing)]
     pub source_path: String,
@@ -156,13 +205,70 @@ pub struct DeviceTransportDefinition {
     #[serde(default)]
     pub kind: Option<String>,
     #[serde(default)]
+    pub connection_id: Option<String>,
+    #[serde(default)]
     pub channel: Option<u8>,
     #[serde(default)]
     pub pin: Option<u32>,
     #[serde(default)]
     pub active_low: Option<bool>,
+    #[serde(default, alias = "rootDir")]
+    pub chip_path: Option<String>,
+    #[serde(flatten, default)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedbackMatchDefinition {
+    pub connection_id: String,
     #[serde(default)]
-    pub root_dir: Option<String>,
+    pub channel: Option<u8>,
+    #[serde(default)]
+    pub msg_type: Option<u8>,
+    #[serde(default)]
+    pub summary_kind: Option<String>,
+    #[serde(default)]
+    pub request_id: Option<u32>,
+    #[serde(default)]
+    pub status: Option<u16>,
+    #[serde(default)]
+    pub event_id: Option<u16>,
+    #[serde(default)]
+    pub error_code: Option<u16>,
+    #[serde(flatten, default)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedbackTargetDefinition {
+    #[serde(default)]
+    pub signal_id: Option<String>,
+    #[serde(default)]
+    pub device_id: Option<String>,
+    #[serde(default)]
+    pub feedback_key: Option<String>,
+    #[serde(default)]
+    pub value_from: Option<String>,
+    #[serde(default)]
+    pub value: Option<Value>,
+    #[serde(flatten, default)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct FeedbackMappingDefinition {
+    #[serde(default, skip_deserializing)]
+    pub source_path: String,
+    pub id: String,
+    pub name: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(rename = "match")]
+    pub matcher: FeedbackMatchDefinition,
+    pub target: FeedbackTargetDefinition,
     #[serde(flatten, default)]
     pub extra: BTreeMap<String, Value>,
 }
@@ -314,7 +420,11 @@ pub struct CraftsmanshipProjectBundle {
     pub system: CraftsmanshipSystemBundle,
     pub project: ProjectDefinition,
     #[serde(default)]
+    pub connections: Vec<ConnectionDefinition>,
+    #[serde(default)]
     pub devices: Vec<DeviceInstance>,
+    #[serde(default)]
+    pub feedback_mappings: Vec<FeedbackMappingDefinition>,
     #[serde(default)]
     pub signals: Vec<SignalDefinition>,
     #[serde(default)]
@@ -334,7 +444,11 @@ pub struct CraftsmanshipRecipeBundle {
     pub system: CraftsmanshipSystemBundle,
     pub project: ProjectDefinition,
     #[serde(default)]
+    pub connections: Vec<ConnectionDefinition>,
+    #[serde(default)]
     pub devices: Vec<DeviceInstance>,
+    #[serde(default)]
+    pub feedback_mappings: Vec<FeedbackMappingDefinition>,
     #[serde(default)]
     pub signals: Vec<SignalDefinition>,
     #[serde(default)]
@@ -370,7 +484,19 @@ impl HasSourcePath for ProjectDefinition {
     }
 }
 
+impl HasSourcePath for ConnectionDefinition {
+    fn set_source_path(&mut self, source_path: String) {
+        self.source_path = source_path;
+    }
+}
+
 impl HasSourcePath for DeviceInstance {
+    fn set_source_path(&mut self, source_path: String) {
+        self.source_path = source_path;
+    }
+}
+
+impl HasSourcePath for FeedbackMappingDefinition {
     fn set_source_path(&mut self, source_path: String) {
         self.source_path = source_path;
     }

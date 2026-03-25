@@ -41,7 +41,7 @@ export function useCommEventBridge() {
 
                         if (payload.type === "error") {
                             const now = Date.now();
-                            const key = `${payload.transport}:${payload.message}`;
+                            const key = `${payload.transport}:${payload.connection_id ?? "default"}:${payload.message}`;
                             const shouldEmit =
                                 key !== lastErrorKey ||
                                 now - lastErrorAtMs >
@@ -71,4 +71,3 @@ export function useCommEventBridge() {
         };
     }, []);
 }
-

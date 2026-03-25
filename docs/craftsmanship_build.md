@@ -1,7 +1,7 @@
 >[!note] about
 >**创建日期**： 2026-02-10 13:23
 >**详细日期**： 星期二 10日 二月 2026 13:23:02
->**最近更新**： 2026-03-23
+>**最近更新**： 2026-03-24
 >**执行者**： Codex
 
 
@@ -13,7 +13,9 @@
 
 当前实现已经接入最小真实动作链路：
 - 动作定义中的 `dispatch`
+- 项目中的 `connections`
 - 设备实例中的 `transport`
+- 项目中的 `feedback-mappings`
 
 这条链路保持刻意精简，只覆盖当前已经落地的能力，不引入额外动作 DSL。
 
@@ -30,7 +32,9 @@ workspace/
   projects/
     <project-id>/
       project.json
+      connections/
       devices/
+      feedback-mappings/
       signals/
       safety/
       recipes/
@@ -61,10 +65,14 @@ workspace/
   projects/
     project-a/
       project.json
+      connections/
+        main_tcp.json
       devices/
         pump_01.json
         pump_02.json
         valve_01.json
+      feedback-mappings/
+        pump_running.json
       signals/
         chamber_pressure.json
         chamber_temperature.json
@@ -482,6 +490,23 @@ GPIO 示例：
   }
 }
 ```
+对于 TCP/串口设备，建议写成：
+```json
+{
+  "id": "pump_01",
+  "name": "前级泵",
+  "typeId": "pump",
+  "enabled": true,
+  "transport": {
+    "kind": "tcp",
+    "connectionId": "main-tcp",
+    "channel": 1
+  },
+  "tags": {
+    "running": "device.pump01.running"
+  }
+}
+```
 字段说明：
 - `id`
   - 设备实例唯一标识
@@ -501,7 +526,7 @@ GPIO 示例：
 
 - `transport`
   - 设备通信出口定义
-  - 用于把动作下发到现有通信连接
+  - 用于把动作下发到某条具体连接，或下发到本机 GPIO
 
 - `tags`
   - 设备反馈键映射
@@ -511,15 +536,22 @@ GPIO 示例：
 **设备实例 `transport` 的意义**
 这是“设备实例”和“现有通信通道”之间的绑定层。
 例如：
+- 连接 `main-tcp` 定义了主控 TCP 的 `host/port`
 - 设备 `pump_01` 声明 `transport.kind = tcp`
-- `transport.channel = 1` 表示发送时走当前 1 号通道
+- `transport.connectionId = main-tcp` 表示发送时使用这条连接
+- `transport.channel = 1` 表示发送时走 1 号通道
 - 设备 `valve_01` 声明 `transport.kind = gpio`
 - `transport.pin = 17` 表示发送时写本机 GPIO17
-- 运行时根据 `dispatch + transport` 完成真实动作下发
+- 运行时根据 `dispatch + connection + transport` 完成真实动作下发
 
 建议字段：
 - `kind`
   - 当前支持 `tcp`、`serial`、`gpio`
+
+- `connectionId`
+  - `tcp`、`serial` 使用
+  - 指向 `projects/<project-id>/connections/*.json` 中的某条连接
+  - `gpio` 不使用
 
 - `channel`
   - 现有通信通道编号
@@ -550,7 +582,7 @@ GPIO 示例：
 - 运行时通过 `deviceId + tag key` 找到真实反馈键
 
 在当前实现中：
-- 真实动作发送依据 `dispatch + transport`
+- 真实动作发送依据 `dispatch + connection + transport`
 - `tags` 主要服务于 `deviceFeedback` completion 和外部反馈写回
 
 建议 `tags` 聚焦可观察反馈键：
@@ -558,6 +590,105 @@ GPIO 示例：
 - `opened`
 - `fault`
 - `ready`
+
+
+**连接定义文件**
+位置：`projects/<project-id>/connections/*.json`
+作用：
+定义一条可复用的 TCP/串口连接实例，供多个设备通过 `transport.connectionId` 复用。
+TCP 示例：
+```json
+{
+  "id": "main-tcp",
+  "name": "主控 TCP",
+  "enabled": true,
+  "kind": "tcp",
+  "tcp": {
+    "host": "192.168.1.10",
+    "port": 502,
+    "timeoutMs": 3000
+  }
+}
+```
+串口示例：
+```json
+{
+  "id": "plc-serial",
+  "name": "PLC 串口",
+  "enabled": true,
+  "kind": "serial",
+  "serial": {
+    "port": "/dev/ttyUSB0",
+    "baudRate": 9600,
+    "dataBits": 8,
+    "stopBits": 1,
+    "parity": "none"
+  }
+}
+```
+说明：
+- 一条 `connection` 对应后端一条真实连接 actor
+- 现在后端已支持同类型多条连接并行存在
+- recipe 运行时在第一次真实发送前会按 `connectionId` 自动建连
+
+
+**反馈映射文件**
+位置：`projects/<project-id>/feedback-mappings/*.json`
+作用：
+定义“收到哪条连接上的哪类 HMIP 消息时，往 runtime 写什么值”。
+示例：
+```json
+{
+  "id": "pump-running-feedback",
+  "name": "前级泵运行反馈",
+  "match": {
+    "connectionId": "main-tcp",
+    "channel": 1,
+    "summaryKind": "response",
+    "status": 0
+  },
+  "target": {
+    "deviceId": "pump_01",
+    "feedbackKey": "running",
+    "value": true
+  }
+}
+```
+写信号示例：
+```json
+{
+  "id": "pressure-feedback",
+  "name": "腔压反馈",
+  "match": {
+    "connectionId": "main-tcp",
+    "channel": 1,
+    "summaryKind": "event",
+    "eventId": 32
+  },
+  "target": {
+    "signalId": "chamber_pressure",
+    "valueFrom": "summary.payloadHex"
+  }
+}
+```
+当前支持的 `target.valueFrom`：
+- `channel`
+- `seq`
+- `msgType`
+- `flags`
+- `summary.requestId`
+- `summary.status`
+- `summary.eventId`
+- `summary.errorCode`
+- `summary.bodyBase64`
+- `summary.bodyHex`
+- `summary.payloadBase64`
+- `summary.payloadHex`
+
+说明：
+- `target` 必须二选一：`signalId`，或 `deviceId + feedbackKey`
+- 如果直接用固定值回写，可只写 `value`
+- 这层是统一接收桥接层，不需要每条连接单独写一套回写逻辑
 
 
 **5. 信号定义文件**

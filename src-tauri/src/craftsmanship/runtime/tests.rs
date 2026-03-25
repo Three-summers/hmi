@@ -1,8 +1,10 @@
 use super::manager::RecipeRuntimeManager;
 use super::types::{RecipeRuntimePhase, RecipeRuntimeStatus, RecipeRuntimeStepStatus};
+use bytes::Bytes;
 use serde_json::{json, Value};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 struct TestWorkspace {
@@ -1387,6 +1389,19 @@ async fn runtime_should_fail_dispatched_action_when_app_handle_is_missing() {
         }),
     );
     workspace.write_json(
+        "projects/project-a/connections/pump_tcp.json",
+        json!({
+            "id": "pump-tcp",
+            "name": "前级泵 TCP",
+            "kind": "tcp",
+            "tcp": {
+                "host": "127.0.0.1",
+                "port": 15020,
+                "timeoutMs": 200
+            }
+        }),
+    );
+    workspace.write_json(
         "projects/project-a/devices/pump_01.json",
         json!({
             "id": "pump_01",
@@ -1395,6 +1410,7 @@ async fn runtime_should_fail_dispatched_action_when_app_handle_is_missing() {
             "enabled": true,
             "transport": {
                 "kind": "tcp",
+                "connectionId": "pump-tcp",
                 "channel": 1
             },
             "tags": {
@@ -1494,7 +1510,7 @@ async fn runtime_should_dispatch_gpio_action_to_configured_pin() {
                 "kind": "gpio",
                 "pin": 17,
                 "activeLow": false,
-                "rootDir": gpio_root.to_string_lossy().to_string()
+                "chipPath": "/dev/gpiochip-test"
             },
             "tags": {}
         }),
@@ -1528,9 +1544,27 @@ async fn runtime_should_dispatch_gpio_action_to_configured_pin() {
         )
         .await
         .unwrap();
+    super::dispatch::set_gpio_write_override(Some(Arc::new({
+        let gpio_dir = gpio_dir.clone();
+        move |chip_path, pin, active_low, value| {
+            assert_eq!(chip_path, "/dev/gpiochip-test");
+            assert_eq!(pin, 17);
+            fs::write(gpio_dir.join("direction"), "out")
+                .map_err(|error| format!("failed to write gpio direction fixture: {error}"))?;
+            fs::write(
+                gpio_dir.join("active_low"),
+                if active_low { "1" } else { "0" },
+            )
+            .map_err(|error| format!("failed to write gpio active_low fixture: {error}"))?;
+            fs::write(gpio_dir.join("value"), if value { "1" } else { "0" })
+                .map_err(|error| format!("failed to write gpio value fixture: {error}"))?;
+            Ok(())
+        }
+    })));
     manager.start(None).await.unwrap();
 
     let snapshot = wait_for_terminal_status(&manager).await;
+    super::dispatch::set_gpio_write_override(None);
     assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
     assert_eq!(
         snapshot.recipe_steps[0].status,
@@ -1544,5 +1578,206 @@ async fn runtime_should_dispatch_gpio_action_to_configured_pin() {
     assert_eq!(
         fs::read_to_string(gpio_dir.join("active_low")).unwrap(),
         "0"
+    );
+}
+
+#[tokio::test]
+async fn runtime_should_complete_wait_step_from_hmip_feedback_mapping() {
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "projects/project-a/connections/main_tcp.json",
+        json!({
+            "id": "main-tcp",
+            "name": "主控 TCP",
+            "kind": "tcp",
+            "tcp": {
+                "host": "127.0.0.1",
+                "port": 15030,
+                "timeoutMs": 200
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/chamber_pressure.json",
+        json!({
+            "id": "chamber-pressure-feedback",
+            "name": "腔压反馈",
+            "match": {
+                "connectionId": "main-tcp",
+                "channel": 1,
+                "summaryKind": "event",
+                "eventId": 32
+            },
+            "target": {
+                "signalId": "chamber_pressure",
+                "value": 3
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/wait-door.json",
+        json!({
+            "id": "wait-door",
+            "name": "等待门关闭",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "等待腔压到位",
+                    "actionId": "common.wait-signal",
+                    "parameters": {
+                        "signalId": "chamber_pressure",
+                        "operator": "lt",
+                        "value": 5
+                    },
+                    "timeoutMs": 500,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "wait-door".to_string(),
+        )
+        .await
+        .unwrap();
+    manager.start(None).await.unwrap();
+
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let message = crate::comm::proto::Message::Event(crate::comm::proto::Event {
+        event_id: 32,
+        timestamp_ms: 1234,
+        body: Bytes::new(),
+    });
+    manager
+        .apply_hmip_feedback(
+            None,
+            "main-tcp",
+            crate::comm::proto::FrameHeader {
+                msg_type: crate::comm::proto::msg_type::EVENT,
+                flags: 0,
+                channel: 1,
+                seq: 7,
+                payload_len: 0,
+                payload_crc32: None,
+            },
+            Some(&message),
+            &[],
+        )
+        .await
+        .unwrap();
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+    assert_eq!(
+        snapshot.signal_values.get("chamber_pressure"),
+        Some(&json!(3))
+    );
+}
+
+#[tokio::test]
+async fn runtime_should_complete_device_step_from_hmip_feedback_mapping() {
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "projects/project-a/connections/main_tcp.json",
+        json!({
+            "id": "main-tcp",
+            "name": "主控 TCP",
+            "kind": "tcp",
+            "tcp": {
+                "host": "127.0.0.1",
+                "port": 15031,
+                "timeoutMs": 200
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/pump_running.json",
+        json!({
+            "id": "pump-running-feedback",
+            "name": "前级泵运行反馈",
+            "match": {
+                "connectionId": "main-tcp",
+                "channel": 1,
+                "summaryKind": "response",
+                "status": 0
+            },
+            "target": {
+                "deviceId": "pump_01",
+                "feedbackKey": "running",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/pump-start-mapped.json",
+        json!({
+            "id": "pump-start-mapped",
+            "name": "开泵映射工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "开泵",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_01",
+                    "timeoutMs": 500,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "pump-start-mapped".to_string(),
+        )
+        .await
+        .unwrap();
+    manager.start(None).await.unwrap();
+
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    let message = crate::comm::proto::Message::Response(crate::comm::proto::Response {
+        request_id: 99,
+        status: 0,
+        body: Bytes::new(),
+    });
+    manager
+        .apply_hmip_feedback(
+            None,
+            "main-tcp",
+            crate::comm::proto::FrameHeader {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 1,
+                seq: 9,
+                payload_len: 0,
+                payload_crc32: None,
+            },
+            Some(&message),
+            &[],
+        )
+        .await
+        .unwrap();
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+    assert_eq!(
+        snapshot.runtime_values.get("device.pump_01.running"),
+        Some(&json!(true))
     );
 }

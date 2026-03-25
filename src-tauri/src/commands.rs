@@ -203,31 +203,24 @@ pub async fn connect_serial(
     app: AppHandle,
     state: State<'_, CommState>,
     config: serial::SerialConfig,
+    connection_id: Option<String>,
 ) -> Result<(), String> {
-    let stream = serial::open_stream(&config)?;
-    let handle = crate::comm::actor::spawn_serial_actor(app, config.clone(), stream);
-
-    let old = {
-        let mut serial_lock = state.serial.lock().await;
-        serial_lock.replace(handle)
-    };
-    if let Some(old) = old {
-        old.shutdown().await;
-    }
-    Ok(())
+    let connection_id = connection_id
+        .as_deref()
+        .unwrap_or(crate::comm::DEFAULT_SERIAL_CONNECTION_ID);
+    crate::comm::connect_serial(&state, &app, connection_id, config).await
 }
 
 /// 断开串口
 #[tauri::command]
-pub async fn disconnect_serial(state: State<'_, CommState>) -> Result<(), String> {
-    let old = {
-        let mut serial_lock = state.serial.lock().await;
-        serial_lock.take()
-    };
-    if let Some(old) = old {
-        old.shutdown().await;
-    }
-    Ok(())
+pub async fn disconnect_serial(
+    state: State<'_, CommState>,
+    connection_id: Option<String>,
+) -> Result<(), String> {
+    let connection_id = connection_id
+        .as_deref()
+        .unwrap_or(crate::comm::DEFAULT_SERIAL_CONNECTION_ID);
+    crate::comm::disconnect_connection(&state, connection_id).await
 }
 
 /// 通过串口发送数据
@@ -236,8 +229,13 @@ pub async fn send_serial_data(
     state: State<'_, CommState>,
     data: Vec<u8>,
     priority: Option<CommPriority>,
+    connection_id: Option<String>,
 ) -> Result<(), String> {
-    crate::comm::send_serial_data_bytes(&state, data, priority.unwrap_or_default()).await
+    let connection_id = connection_id
+        .as_deref()
+        .unwrap_or(crate::comm::DEFAULT_SERIAL_CONNECTION_ID);
+    crate::comm::send_serial_data_bytes(&state, connection_id, data, priority.unwrap_or_default())
+        .await
 }
 
 /// 连接 TCP 服务
@@ -246,31 +244,24 @@ pub async fn connect_tcp(
     app: AppHandle,
     state: State<'_, CommState>,
     config: tcp::TcpConfig,
+    connection_id: Option<String>,
 ) -> Result<(), String> {
-    let stream = tcp::open_stream(&config).await?;
-    let handle = crate::comm::actor::spawn_tcp_actor(app, config.clone(), stream);
-
-    let old = {
-        let mut tcp_lock = state.tcp.lock().await;
-        tcp_lock.replace(handle)
-    };
-    if let Some(old) = old {
-        old.shutdown().await;
-    }
-    Ok(())
+    let connection_id = connection_id
+        .as_deref()
+        .unwrap_or(crate::comm::DEFAULT_TCP_CONNECTION_ID);
+    crate::comm::connect_tcp(&state, &app, connection_id, config).await
 }
 
 /// 断开 TCP
 #[tauri::command]
-pub async fn disconnect_tcp(state: State<'_, CommState>) -> Result<(), String> {
-    let old = {
-        let mut tcp_lock = state.tcp.lock().await;
-        tcp_lock.take()
-    };
-    if let Some(old) = old {
-        old.shutdown().await;
-    }
-    Ok(())
+pub async fn disconnect_tcp(
+    state: State<'_, CommState>,
+    connection_id: Option<String>,
+) -> Result<(), String> {
+    let connection_id = connection_id
+        .as_deref()
+        .unwrap_or(crate::comm::DEFAULT_TCP_CONNECTION_ID);
+    crate::comm::disconnect_connection(&state, connection_id).await
 }
 
 /// 通过 TCP 发送数据
@@ -279,8 +270,13 @@ pub async fn send_tcp_data(
     state: State<'_, CommState>,
     data: Vec<u8>,
     priority: Option<CommPriority>,
+    connection_id: Option<String>,
 ) -> Result<(), String> {
-    crate::comm::send_tcp_data_bytes(&state, data, priority.unwrap_or_default()).await
+    let connection_id = connection_id
+        .as_deref()
+        .unwrap_or(crate::comm::DEFAULT_TCP_CONNECTION_ID);
+    crate::comm::send_tcp_data_bytes(&state, connection_id, data, priority.unwrap_or_default())
+        .await
 }
 
 // Deserialize 是 serde 生态中的一个特征表示一个类型可以从外部数据格式反序列化回来
@@ -299,9 +295,14 @@ pub struct HmipSendFrame {
 pub async fn send_tcp_hmip_frame(
     state: State<'_, CommState>,
     frame: HmipSendFrame,
+    connection_id: Option<String>,
 ) -> Result<u32, String> {
+    let connection_id = connection_id
+        .as_deref()
+        .unwrap_or(crate::comm::DEFAULT_TCP_CONNECTION_ID);
     crate::comm::send_tcp_hmip_frame(
         &state,
+        connection_id,
         HmipOutboundFrame {
             msg_type: frame.msg_type,
             flags: frame.flags.unwrap_or(0),
@@ -318,9 +319,14 @@ pub async fn send_tcp_hmip_frame(
 pub async fn send_serial_hmip_frame(
     state: State<'_, CommState>,
     frame: HmipSendFrame,
+    connection_id: Option<String>,
 ) -> Result<u32, String> {
+    let connection_id = connection_id
+        .as_deref()
+        .unwrap_or(crate::comm::DEFAULT_SERIAL_CONNECTION_ID);
     crate::comm::send_serial_hmip_frame(
         &state,
+        connection_id,
         HmipOutboundFrame {
             msg_type: frame.msg_type,
             flags: frame.flags.unwrap_or(0),

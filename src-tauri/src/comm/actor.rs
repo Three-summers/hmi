@@ -2,7 +2,7 @@ use crate::comm::{proto, serial, tcp};
 use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::{mpsc, oneshot};
 
@@ -38,20 +38,24 @@ impl Default for CommPriority {
 pub enum CommEvent {
     Connected {
         transport: String,
+        connection_id: String,
         timestamp_ms: u64,
     },
     Disconnected {
         transport: String,
+        connection_id: String,
         timestamp_ms: u64,
     },
     Reconnecting {
         transport: String,
+        connection_id: String,
         attempt: u32,
         delay_ms: u64,
         timestamp_ms: u64,
     },
     Rx {
         transport: String,
+        connection_id: String,
         data_base64: String,
         text: Option<String>,
         size: usize,
@@ -59,11 +63,13 @@ pub enum CommEvent {
     },
     Tx {
         transport: String,
+        connection_id: String,
         size: usize,
         timestamp_ms: u64,
     },
     Error {
         transport: String,
+        connection_id: String,
         message: String,
         timestamp_ms: u64,
     },
@@ -74,12 +80,14 @@ pub enum CommEvent {
 pub enum HmipEvent {
     DecodeError {
         transport: String,
+        connection_id: String,
         message: String,
         dropped_bytes: usize,
         timestamp_ms: u64,
     },
     Message {
         transport: String,
+        connection_id: String,
         channel: u8,
         seq: u32,
         flags: u8,
@@ -155,6 +163,24 @@ impl CommActorHandle {
     }
 }
 
+#[cfg(test)]
+impl CommActorHandle {
+    pub(crate) fn new_test_handle() -> Self {
+        let (tx_high, _) = mpsc::channel(1);
+        let (tx_normal, _) = mpsc::channel(1);
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        let join = tauri::async_runtime::spawn(async move {
+            let _ = shutdown_rx.await;
+        });
+        Self {
+            tx_high,
+            tx_normal,
+            shutdown_tx,
+            join,
+        }
+    }
+}
+
 fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -213,6 +239,26 @@ fn emit_hmip_event(app: &AppHandle, event: &HmipEvent) -> bool {
     }
 }
 
+async fn bridge_hmip_message(
+    app: &AppHandle,
+    connection_id: &str,
+    header: proto::FrameHeader,
+    message: Option<&proto::Message>,
+    raw_payload: &[u8],
+) {
+    let manager = app.state::<crate::craftsmanship::RecipeRuntimeManager>();
+    if let Err(error) = manager
+        .apply_hmip_feedback(Some(app), connection_id, header, message, raw_payload)
+        .await
+    {
+        log::warn!(
+            "Failed to bridge HMIP message from connection `{}` into runtime: {}",
+            connection_id,
+            error
+        );
+    }
+}
+
 fn base64_preview(bytes: &[u8]) -> (Option<String>, bool) {
     if bytes.is_empty() {
         return (None, false);
@@ -234,6 +280,7 @@ enum ConnectionExit {
 async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
     app: &AppHandle,
     transport: &str,
+    connection_id: &str,
     stream: S,
     high_rx: &mut mpsc::Receiver<Vec<u8>>,
     normal_rx: &mut mpsc::Receiver<Vec<u8>>,
@@ -258,6 +305,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                     Ok(Ok(())) => {
                         let event = CommEvent::Tx {
                             transport: transport.to_string(),
+                            connection_id: connection_id.to_string(),
                             size,
                             timestamp_ms: now_ms(),
                         };
@@ -280,6 +328,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                     Ok(Ok(())) => {
                         let event = CommEvent::Tx {
                             transport: transport.to_string(),
+                            connection_id: connection_id.to_string(),
                             size,
                             timestamp_ms: now_ms(),
                         };
@@ -305,6 +354,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                         let bytes = &buf[..n];
                         let event = CommEvent::Rx {
                             transport: transport.to_string(),
+                            connection_id: connection_id.to_string(),
                             data_base64: general_purpose::STANDARD.encode(bytes),
                             text: maybe_utf8_preview(bytes),
                             size: n,
@@ -318,6 +368,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                         if let Err(err) = hmip_decoder.push(bytes) {
                             let ev = HmipEvent::DecodeError {
                                 transport: transport.to_string(),
+                                connection_id: connection_id.to_string(),
                                 message: err.message,
                                 dropped_bytes: err.dropped_bytes,
                                 timestamp_ms: now_ms(),
@@ -331,25 +382,33 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                                     Ok(Some(frame)) => {
                                         let header = frame.header;
                                         let decoded = proto::decode_message(&frame);
+                                        bridge_hmip_message(
+                                            app,
+                                            connection_id,
+                                            header,
+                                            decoded.as_ref().ok(),
+                                            frame.payload.as_ref(),
+                                        )
+                                        .await;
 
-                                        let summary = match decoded {
+                                        let summary = match &decoded {
                                             Ok(proto::Message::Hello(v)) => HmipMessageSummary::Hello {
                                                 role: match v.role {
                                                     proto::Role::Client => "client".to_string(),
                                                     proto::Role::Server => "server".to_string(),
                                                 },
                                                 capabilities: v.capabilities,
-                                                name: v.name,
+                                                name: v.name.clone(),
                                             },
                                             Ok(proto::Message::HelloAck(v)) => HmipMessageSummary::HelloAck {
                                                 capabilities: v.capabilities,
-                                                name: v.name,
+                                                name: v.name.clone(),
                                             },
                                             Ok(proto::Message::Heartbeat(v)) => HmipMessageSummary::Heartbeat {
                                                 timestamp_ms: v.timestamp_ms,
                                             },
                                             Ok(proto::Message::Request(v)) => {
-                                                let (b64, truncated) = base64_preview(&v.body);
+                                                let (b64, truncated) = base64_preview(v.body.as_ref());
                                                 HmipMessageSummary::Request {
                                                     request_id: v.request_id,
                                                     method: v.method,
@@ -359,7 +418,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                                                 }
                                             }
                                             Ok(proto::Message::Response(v)) => {
-                                                let (b64, truncated) = base64_preview(&v.body);
+                                                let (b64, truncated) = base64_preview(v.body.as_ref());
                                                 HmipMessageSummary::Response {
                                                     request_id: v.request_id,
                                                     status: v.status,
@@ -369,7 +428,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                                                 }
                                             }
                                             Ok(proto::Message::Event(v)) => {
-                                                let (b64, truncated) = base64_preview(&v.body);
+                                                let (b64, truncated) = base64_preview(v.body.as_ref());
                                                 HmipMessageSummary::Event {
                                                     event_id: v.event_id,
                                                     timestamp_ms: v.timestamp_ms,
@@ -380,12 +439,12 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                                             }
                                             Ok(proto::Message::Error(v)) => HmipMessageSummary::Error {
                                                 code: v.code,
-                                                message: v.message,
+                                                message: v.message.clone(),
                                             },
                                             Ok(proto::Message::Raw { msg_type, payload }) => {
-                                                let (b64, truncated) = base64_preview(&payload);
+                                                let (b64, truncated) = base64_preview(payload.as_ref());
                                                 HmipMessageSummary::Raw {
-                                                    msg_type,
+                                                    msg_type: *msg_type,
                                                     payload_len: payload.len(),
                                                     payload_base64: b64,
                                                     payload_truncated: truncated,
@@ -404,6 +463,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
 
                                         let ev = HmipEvent::Message {
                                             transport: transport.to_string(),
+                                            connection_id: connection_id.to_string(),
                                             channel: header.channel,
                                             seq: header.seq,
                                             flags: header.flags,
@@ -421,6 +481,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                                     Err(err) => {
                                         let ev = HmipEvent::DecodeError {
                                             transport: transport.to_string(),
+                                            connection_id: connection_id.to_string(),
                                             message: err.message,
                                             dropped_bytes: err.dropped_bytes,
                                             timestamp_ms: now_ms(),
@@ -446,6 +507,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
 
 pub fn spawn_serial_actor(
     app: AppHandle,
+    connection_id: String,
     config: serial::SerialConfig,
     initial_stream: tokio_serial::SerialStream,
 ) -> CommActorHandle {
@@ -471,6 +533,7 @@ pub fn spawn_serial_actor(
                             &app,
                             &CommEvent::Error {
                                 transport: transport.clone(),
+                                connection_id: connection_id.clone(),
                                 message: err,
                                 timestamp_ms: now_ms(),
                             },
@@ -479,6 +542,7 @@ pub fn spawn_serial_actor(
                             &app,
                             &CommEvent::Reconnecting {
                                 transport: transport.clone(),
+                                connection_id: connection_id.clone(),
                                 attempt,
                                 delay_ms,
                                 timestamp_ms: now_ms(),
@@ -499,6 +563,7 @@ pub fn spawn_serial_actor(
                 &app,
                 &CommEvent::Connected {
                     transport: transport.clone(),
+                    connection_id: connection_id.clone(),
                     timestamp_ms: now_ms(),
                 },
             ) {
@@ -508,6 +573,7 @@ pub fn spawn_serial_actor(
             match run_io_loop(
                 &app,
                 &transport,
+                &connection_id,
                 stream,
                 &mut rx_high,
                 &mut rx_normal,
@@ -521,6 +587,7 @@ pub fn spawn_serial_actor(
                         &app,
                         &CommEvent::Error {
                             transport: transport.clone(),
+                            connection_id: connection_id.clone(),
                             message,
                             timestamp_ms: now_ms(),
                         },
@@ -533,6 +600,7 @@ pub fn spawn_serial_actor(
                         &app,
                         &CommEvent::Reconnecting {
                             transport: transport.clone(),
+                            connection_id: connection_id.clone(),
                             attempt,
                             delay_ms,
                             timestamp_ms: now_ms(),
@@ -552,6 +620,7 @@ pub fn spawn_serial_actor(
             &app,
             &CommEvent::Disconnected {
                 transport,
+                connection_id,
                 timestamp_ms: now_ms(),
             },
         );
@@ -567,6 +636,7 @@ pub fn spawn_serial_actor(
 
 pub fn spawn_tcp_actor(
     app: AppHandle,
+    connection_id: String,
     config: tcp::TcpConfig,
     initial_stream: tokio::net::TcpStream,
 ) -> CommActorHandle {
@@ -594,6 +664,7 @@ pub fn spawn_tcp_actor(
                             &app,
                             &CommEvent::Error {
                                 transport: transport.clone(),
+                                connection_id: connection_id.clone(),
                                 message: err,
                                 timestamp_ms: now_ms(),
                             },
@@ -602,6 +673,7 @@ pub fn spawn_tcp_actor(
                             &app,
                             &CommEvent::Reconnecting {
                                 transport: transport.clone(),
+                                connection_id: connection_id.clone(),
                                 attempt,
                                 delay_ms,
                                 timestamp_ms: now_ms(),
@@ -622,6 +694,7 @@ pub fn spawn_tcp_actor(
                 &app,
                 &CommEvent::Connected {
                     transport: transport.clone(),
+                    connection_id: connection_id.clone(),
                     timestamp_ms: now_ms(),
                 },
             ) {
@@ -631,6 +704,7 @@ pub fn spawn_tcp_actor(
             match run_io_loop(
                 &app,
                 &transport,
+                &connection_id,
                 stream,
                 &mut rx_high,
                 &mut rx_normal,
@@ -644,6 +718,7 @@ pub fn spawn_tcp_actor(
                         &app,
                         &CommEvent::Error {
                             transport: transport.clone(),
+                            connection_id: connection_id.clone(),
                             message,
                             timestamp_ms: now_ms(),
                         },
@@ -655,6 +730,7 @@ pub fn spawn_tcp_actor(
                         &app,
                         &CommEvent::Reconnecting {
                             transport: transport.clone(),
+                            connection_id: connection_id.clone(),
                             attempt,
                             delay_ms,
                             timestamp_ms: now_ms(),
@@ -674,6 +750,7 @@ pub fn spawn_tcp_actor(
             &app,
             &CommEvent::Disconnected {
                 transport,
+                connection_id,
                 timestamp_ms: now_ms(),
             },
         );

@@ -30,6 +30,7 @@ crc32fast = "1"
 prost = "0.14"
 tonic = { version = "0.14", features = ["transport"] }
 tonic-prost = "0.14"
+gpio-cdev = "0.6"
 
 [profile.release]
 panic = "abort"

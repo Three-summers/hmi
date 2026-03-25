@@ -4,9 +4,10 @@ use super::types::{
     RecipeRuntimePhase, RecipeRuntimeSnapshot, RecipeRuntimeStatus, RecipeRuntimeStepStatus,
 };
 use crate::craftsmanship::{
-    get_recipe_bundle, ActionDefinition, CraftsmanshipRecipeBundle, DeviceInstance,
-    SignalDefinition,
+    get_recipe_bundle, ActionDefinition, ConnectionDefinition, CraftsmanshipRecipeBundle,
+    DeviceInstance, FeedbackMappingDefinition, SignalDefinition,
 };
+use base64::{engine::general_purpose, Engine as _};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -44,7 +45,9 @@ pub(super) struct RecipeRuntimeState {
 pub(super) struct LoadedRecipeRuntime {
     pub bundle: CraftsmanshipRecipeBundle,
     pub actions: HashMap<String, ActionDefinition>,
+    pub connections: HashMap<String, ConnectionDefinition>,
     pub devices: HashMap<String, DeviceInstance>,
+    pub feedback_mappings: Vec<FeedbackMappingDefinition>,
     pub signals: HashMap<String, SignalDefinition>,
     pub signal_sources: HashMap<String, String>,
 }
@@ -53,6 +56,18 @@ pub(super) struct LoadedRecipeRuntime {
 pub(super) struct RuntimeRunControl {
     stop_requested: Arc<AtomicBool>,
     stopped: Arc<Notify>,
+}
+
+enum PendingRuntimeWrite {
+    Signal {
+        signal_id: String,
+        value: Value,
+    },
+    DeviceFeedback {
+        device_id: String,
+        feedback_key: String,
+        value: Value,
+    },
 }
 
 impl RuntimeRunControl {
@@ -91,6 +106,12 @@ impl LoadedRecipeRuntime {
             .cloned()
             .map(|device| (device.id.clone(), device))
             .collect();
+        let connections = bundle
+            .connections
+            .iter()
+            .cloned()
+            .map(|connection| (connection.id.clone(), connection))
+            .collect();
         let signals = bundle
             .signals
             .iter()
@@ -107,11 +128,14 @@ impl LoadedRecipeRuntime {
                     .map(|source| (source.clone(), signal.id.clone()))
             })
             .collect();
+        let feedback_mappings = bundle.feedback_mappings.clone();
 
         Self {
             bundle,
             actions,
+            connections,
             devices,
+            feedback_mappings,
             signals,
             signal_sources,
         }
@@ -337,6 +361,74 @@ impl RecipeRuntimeManager {
         );
 
         Ok(snapshot)
+    }
+
+    pub async fn apply_hmip_feedback(
+        &self,
+        app: Option<&AppHandle>,
+        connection_id: &str,
+        header: crate::comm::proto::FrameHeader,
+        message: Option<&crate::comm::proto::Message>,
+        raw_payload: &[u8],
+    ) -> Result<usize, String> {
+        let loaded = {
+            let state = self.inner.lock().await;
+            state.loaded.clone()
+        };
+        let Some(loaded) = loaded else {
+            return Ok(0);
+        };
+
+        let mut pending_writes = Vec::new();
+        for mapping in &loaded.feedback_mappings {
+            if !mapping.enabled {
+                continue;
+            }
+            if !feedback_mapping_matches(mapping, connection_id, header, message) {
+                continue;
+            }
+            let Some(value) = extract_feedback_value(mapping, header, message, raw_payload) else {
+                continue;
+            };
+
+            if let Some(signal_id) = mapping.target.signal_id.as_ref() {
+                pending_writes.push(PendingRuntimeWrite::Signal {
+                    signal_id: signal_id.clone(),
+                    value,
+                });
+                continue;
+            }
+
+            if let (Some(device_id), Some(feedback_key)) = (
+                mapping.target.device_id.as_ref(),
+                mapping.target.feedback_key.as_ref(),
+            ) {
+                pending_writes.push(PendingRuntimeWrite::DeviceFeedback {
+                    device_id: device_id.clone(),
+                    feedback_key: feedback_key.clone(),
+                    value,
+                });
+            }
+        }
+
+        let applied = pending_writes.len();
+        for pending in pending_writes {
+            match pending {
+                PendingRuntimeWrite::Signal { signal_id, value } => {
+                    self.write_signal(app, signal_id, value).await?;
+                }
+                PendingRuntimeWrite::DeviceFeedback {
+                    device_id,
+                    feedback_key,
+                    value,
+                } => {
+                    self.write_device_feedback(app, device_id, feedback_key, value)
+                        .await?;
+                }
+            }
+        }
+
+        Ok(applied)
     }
 
     pub(super) fn value_changed(&self) -> Arc<Notify> {
@@ -624,4 +716,164 @@ pub(super) fn now_ms() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
+}
+
+fn feedback_mapping_matches(
+    mapping: &FeedbackMappingDefinition,
+    connection_id: &str,
+    header: crate::comm::proto::FrameHeader,
+    message: Option<&crate::comm::proto::Message>,
+) -> bool {
+    if mapping.matcher.connection_id != connection_id {
+        return false;
+    }
+    if mapping
+        .matcher
+        .channel
+        .is_some_and(|channel| channel != header.channel)
+    {
+        return false;
+    }
+    if mapping
+        .matcher
+        .msg_type
+        .is_some_and(|msg_type| msg_type != header.msg_type)
+    {
+        return false;
+    }
+
+    if let Some(summary_kind) = mapping.matcher.summary_kind.as_deref() {
+        if !summary_kind_matches(summary_kind, hmip_summary_kind(message)) {
+            return false;
+        }
+    }
+    if mapping
+        .matcher
+        .request_id
+        .is_some_and(|request_id| Some(request_id) != hmip_request_id(message))
+    {
+        return false;
+    }
+    if mapping
+        .matcher
+        .status
+        .is_some_and(|status| Some(status) != hmip_status(message))
+    {
+        return false;
+    }
+    if mapping
+        .matcher
+        .event_id
+        .is_some_and(|event_id| Some(event_id) != hmip_event_id(message))
+    {
+        return false;
+    }
+    if mapping
+        .matcher
+        .error_code
+        .is_some_and(|error_code| Some(error_code) != hmip_error_code(message))
+    {
+        return false;
+    }
+
+    true
+}
+
+fn extract_feedback_value(
+    mapping: &FeedbackMappingDefinition,
+    header: crate::comm::proto::FrameHeader,
+    message: Option<&crate::comm::proto::Message>,
+    raw_payload: &[u8],
+) -> Option<Value> {
+    if let Some(value) = mapping.target.value.clone() {
+        return Some(value);
+    }
+
+    match mapping.target.value_from.as_deref()? {
+        "channel" => Some(Value::from(header.channel)),
+        "seq" => Some(Value::from(header.seq)),
+        "msgType" => Some(Value::from(header.msg_type)),
+        "flags" => Some(Value::from(header.flags)),
+        "summary.requestId" => hmip_request_id(message).map(Value::from),
+        "summary.status" => hmip_status(message).map(Value::from),
+        "summary.eventId" => hmip_event_id(message).map(Value::from),
+        "summary.errorCode" => hmip_error_code(message).map(Value::from),
+        "summary.bodyBase64" => hmip_body_bytes(message)
+            .map(|body| Value::String(general_purpose::STANDARD.encode(body))),
+        "summary.bodyHex" => hmip_body_bytes(message).map(|body| Value::String(encode_hex(body))),
+        "summary.payloadBase64" => {
+            Some(Value::String(general_purpose::STANDARD.encode(raw_payload)))
+        }
+        "summary.payloadHex" => Some(Value::String(encode_hex(raw_payload))),
+        _ => None,
+    }
+}
+
+fn hmip_summary_kind(message: Option<&crate::comm::proto::Message>) -> &'static str {
+    match message {
+        Some(crate::comm::proto::Message::Hello(_)) => "hello",
+        Some(crate::comm::proto::Message::HelloAck(_)) => "helloAck",
+        Some(crate::comm::proto::Message::Heartbeat(_)) => "heartbeat",
+        Some(crate::comm::proto::Message::Request(_)) => "request",
+        Some(crate::comm::proto::Message::Response(_)) => "response",
+        Some(crate::comm::proto::Message::Event(_)) => "event",
+        Some(crate::comm::proto::Message::Error(_)) => "error",
+        Some(crate::comm::proto::Message::Raw { .. }) | None => "raw",
+    }
+}
+
+fn summary_kind_matches(expected: &str, actual: &str) -> bool {
+    expected == actual
+        || matches!(
+            (expected, actual),
+            ("hello_ack", "helloAck") | ("helloAck", "hello_ack")
+        )
+}
+
+fn hmip_request_id(message: Option<&crate::comm::proto::Message>) -> Option<u32> {
+    match message {
+        Some(crate::comm::proto::Message::Request(message)) => Some(message.request_id),
+        Some(crate::comm::proto::Message::Response(message)) => Some(message.request_id),
+        _ => None,
+    }
+}
+
+fn hmip_status(message: Option<&crate::comm::proto::Message>) -> Option<u16> {
+    match message {
+        Some(crate::comm::proto::Message::Response(message)) => Some(message.status),
+        _ => None,
+    }
+}
+
+fn hmip_event_id(message: Option<&crate::comm::proto::Message>) -> Option<u16> {
+    match message {
+        Some(crate::comm::proto::Message::Event(message)) => Some(message.event_id),
+        _ => None,
+    }
+}
+
+fn hmip_error_code(message: Option<&crate::comm::proto::Message>) -> Option<u16> {
+    match message {
+        Some(crate::comm::proto::Message::Error(message)) => Some(message.code),
+        _ => None,
+    }
+}
+
+fn hmip_body_bytes(message: Option<&crate::comm::proto::Message>) -> Option<&[u8]> {
+    match message {
+        Some(crate::comm::proto::Message::Request(message)) => Some(message.body.as_ref()),
+        Some(crate::comm::proto::Message::Response(message)) => Some(message.body.as_ref()),
+        Some(crate::comm::proto::Message::Event(message)) => Some(message.body.as_ref()),
+        _ => None,
+    }
+}
+
+fn encode_hex(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut encoded = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        encoded.push(HEX[(byte >> 4) as usize] as char);
+        encoded.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    encoded
 }

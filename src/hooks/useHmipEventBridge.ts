@@ -40,7 +40,7 @@ export function useHmipEventBridge() {
                     const now = Date.now();
 
                     if (payload.type === "decode_error") {
-                        const key = `decode:${payload.transport}:${payload.message}`;
+                        const key = `decode:${payload.transport}:${payload.connection_id ?? "default"}:${payload.message}`;
                         const shouldEmit =
                             key !== lastErrorKey ||
                             now - lastErrorAtMs > ERROR_ALARM_DEDUP_WINDOW_MS;
@@ -59,7 +59,7 @@ export function useHmipEventBridge() {
                         payload.type === "message" &&
                         payload.summary.kind === "error"
                     ) {
-                        const key = `proto_error:${payload.transport}:${payload.summary.code}:${payload.summary.message}`;
+                        const key = `proto_error:${payload.transport}:${payload.connection_id ?? "default"}:${payload.summary.code}:${payload.summary.message}`;
                         const shouldEmit =
                             key !== lastErrorKey ||
                             now - lastErrorAtMs > ERROR_ALARM_DEDUP_WINDOW_MS;
@@ -86,4 +86,3 @@ export function useHmipEventBridge() {
         };
     }, []);
 }
-

@@ -19,8 +19,13 @@ import { invoke } from "@/platform/invoke";
 import { withTimeout } from "@/utils/async";
 import { toErrorMessage } from "@/utils/error";
 import { toByteArray } from "@/protocol/hmip";
+import {
+    DEFAULT_SERIAL_CONNECTION_ID,
+    DEFAULT_TCP_CONNECTION_ID,
+} from "@/types";
 import type { ErrorHandler } from "@/types/common";
 import type {
+    CommConnectionState,
     CommEvent,
     CommState,
     CommTransport,
@@ -103,86 +108,116 @@ interface CommStoreState extends CommState {
 const DEFAULT_COMM_TIMEOUT_MS = COMM_CONFIG.TCP_TIMEOUT_MS;
 const COMM_EVENT_LOG_MAX = 200;
 
-function updateTransportModel(params: {
-    transport: CommTransport;
+function getDefaultConnectionId(transport: CommTransport): string {
+    return transport === "serial"
+        ? DEFAULT_SERIAL_CONNECTION_ID
+        : DEFAULT_TCP_CONNECTION_ID;
+}
+
+function resolveConnectionId(
+    transport: CommTransport,
+    connectionId?: string,
+): string {
+    return connectionId ?? getDefaultConnectionId(transport);
+}
+
+function createCommConnectionState(
+    connectionId: string,
+    transport: CommTransport,
+): CommConnectionState {
+    return {
+        connectionId,
+        transport,
+        connected: false,
+        status: "disconnected",
+        rxBytes: 0,
+        txBytes: 0,
+        rxCount: 0,
+        txCount: 0,
+        lastRxText: null,
+        lastEventAtMs: null,
+        lastError: undefined,
+    };
+}
+
+function updateConnectionState(params: {
+    connection: CommConnectionState;
     event: CommEvent;
-    prev: Pick<
-        CommStoreState,
-        | "serialStatus"
-        | "tcpStatus"
-        | "serialRxBytes"
-        | "serialTxBytes"
-        | "tcpRxBytes"
-        | "tcpTxBytes"
-        | "serialRxCount"
-        | "serialTxCount"
-        | "tcpRxCount"
-        | "tcpTxCount"
-        | "serialLastRxText"
-        | "tcpLastRxText"
-        | "serialLastEventAtMs"
-        | "tcpLastEventAtMs"
-        | "serialConnected"
-        | "tcpConnected"
-        | "lastError"
-    >;
-}): Partial<CommStoreState> {
-    const { transport, event, prev } = params;
-    const patch: Partial<CommStoreState> = {
-        lastError:
-            event.type === "error" ? `[${transport}] ${event.message}` : prev.lastError,
+}): CommConnectionState {
+    const { connection, event } = params;
+    const next: CommConnectionState = {
+        ...connection,
+        lastEventAtMs: event.timestamp_ms,
     };
 
+    if (event.type === "error") {
+        next.lastError = `[${event.transport}] ${event.message}`;
+        return next;
+    }
+
+    if (event.type === "connected") {
+        next.connected = true;
+        next.status = "connected";
+        next.lastError = undefined;
+        return next;
+    }
+
+    if (event.type === "disconnected") {
+        next.connected = false;
+        next.status = "disconnected";
+        return next;
+    }
+
+    if (event.type === "reconnecting") {
+        next.connected = false;
+        next.status = "reconnecting";
+        return next;
+    }
+
+    if (event.type === "rx") {
+        next.rxBytes += event.size;
+        next.rxCount += 1;
+        next.lastRxText = event.text ?? null;
+        return next;
+    }
+
+    next.txBytes += event.size;
+    next.txCount += 1;
+    return next;
+}
+
+function patchDefaultTransportModel(params: {
+    transport: CommTransport;
+    event: CommEvent;
+    connection: CommConnectionState;
+}): Partial<CommStoreState> {
+    const { transport, event, connection } = params;
+    const patch: Partial<CommStoreState> = {};
+
     if (transport === "serial") {
-        patch.serialLastEventAtMs = event.timestamp_ms;
-        if (event.type === "connected") {
-            patch.serialStatus = "connected";
-            patch.serialConnected = true;
-            patch.lastError = undefined;
-        }
-        if (event.type === "disconnected") {
-            patch.serialStatus = "disconnected";
-            patch.serialConnected = false;
-        }
-        if (event.type === "reconnecting") {
-            patch.serialStatus = "reconnecting";
-            patch.serialConnected = false;
-        }
-        if (event.type === "rx") {
-            patch.serialRxBytes = prev.serialRxBytes + event.size;
-            patch.serialRxCount = prev.serialRxCount + 1;
-            patch.serialLastRxText = event.text ?? null;
-        }
-        if (event.type === "tx") {
-            patch.serialTxBytes = prev.serialTxBytes + event.size;
-            patch.serialTxCount = prev.serialTxCount + 1;
-        }
+        patch.serialConnected = connection.connected;
+        patch.serialStatus = connection.status;
+        patch.serialRxBytes = connection.rxBytes;
+        patch.serialTxBytes = connection.txBytes;
+        patch.serialRxCount = connection.rxCount;
+        patch.serialTxCount = connection.txCount;
+        patch.serialLastRxText = connection.lastRxText;
+        patch.serialLastEventAtMs = connection.lastEventAtMs;
+        if (event.type === "error") patch.lastError = connection.lastError;
+        if (event.type === "connected") patch.lastError = undefined;
         return patch;
     }
 
-    patch.tcpLastEventAtMs = event.timestamp_ms;
-    if (event.type === "connected") {
-        patch.tcpStatus = "connected";
-        patch.tcpConnected = true;
-        patch.lastError = undefined;
-    }
-    if (event.type === "disconnected") {
-        patch.tcpStatus = "disconnected";
-        patch.tcpConnected = false;
-    }
-    if (event.type === "reconnecting") {
-        patch.tcpStatus = "reconnecting";
-        patch.tcpConnected = false;
-    }
-    if (event.type === "rx") {
-        patch.tcpRxBytes = prev.tcpRxBytes + event.size;
-        patch.tcpRxCount = prev.tcpRxCount + 1;
-        patch.tcpLastRxText = event.text ?? null;
-    }
-    if (event.type === "tx") {
-        patch.tcpTxBytes = prev.tcpTxBytes + event.size;
-        patch.tcpTxCount = prev.tcpTxCount + 1;
-    }
+    patch.tcpConnected = connection.connected;
+    patch.tcpStatus = connection.status;
+    patch.tcpRxBytes = connection.rxBytes;
+    patch.tcpTxBytes = connection.txBytes;
+    patch.tcpRxCount = connection.rxCount;
+    patch.tcpTxCount = connection.txCount;
+    patch.tcpLastRxText = connection.lastRxText;
+    patch.tcpLastEventAtMs = connection.lastEventAtMs;
+    if (event.type === "error") patch.lastError = connection.lastError;
+    if (event.type === "connected") patch.lastError = undefined;
 
     return patch;
 }
@@ -225,6 +260,7 @@ export const useCommStore = create<CommStoreState>((set) => ({
     serialConfig: undefined,
     tcpConfig: undefined,
     lastError: undefined,
+    connectionStates: {},
     serialStatus: "disconnected",
     tcpStatus: "disconnected",
     serialRxBytes: 0,
@@ -248,12 +284,36 @@ export const useCommStore = create<CommStoreState>((set) => ({
                 fullLog.length > COMM_EVENT_LOG_MAX
                     ? fullLog.slice(fullLog.length - COMM_EVENT_LOG_MAX)
                     : fullLog;
-
-            const patch = updateTransportModel({
-                transport: event.transport,
+            const connectionId = resolveConnectionId(
+                event.transport,
+                event.connection_id,
+            );
+            const currentConnection =
+                state.connectionStates?.[connectionId] ??
+                createCommConnectionState(connectionId, event.transport);
+            const nextConnection = updateConnectionState({
+                connection: currentConnection,
                 event,
-                prev: state,
             });
+            const nextConnectionStates = {
+                ...(state.connectionStates ?? {}),
+                [connectionId]: nextConnection,
+            };
+
+            const patch: Partial<CommStoreState> = {
+                connectionStates: nextConnectionStates,
+            };
+
+            if (connectionId === getDefaultConnectionId(event.transport)) {
+                Object.assign(
+                    patch,
+                    patchDefaultTransportModel({
+                        transport: event.transport,
+                        event,
+                        connection: nextConnection,
+                    }),
+                );
+            }
 
             return {
                 ...patch,
@@ -280,12 +340,27 @@ export const useCommStore = create<CommStoreState>((set) => ({
                 },
                 timeoutMs,
             );
-            set({
+            set((state) => ({
                 serialConnected: true,
                 serialConfig: config,
                 lastError: undefined,
                 serialStatus: "connected",
-            });
+                connectionStates: {
+                    ...(state.connectionStates ?? {}),
+                    [DEFAULT_SERIAL_CONNECTION_ID]: {
+                        ...(state.connectionStates?.[
+                            DEFAULT_SERIAL_CONNECTION_ID
+                        ] ??
+                            createCommConnectionState(
+                                DEFAULT_SERIAL_CONNECTION_ID,
+                                "serial",
+                            )),
+                        connected: true,
+                        status: "connected",
+                        lastError: undefined,
+                    },
+                },
+            }));
         } catch (error) {
             const message = toErrorMessage(error);
             set({ lastError: message });
@@ -298,12 +373,27 @@ export const useCommStore = create<CommStoreState>((set) => ({
         try {
             const timeoutMs = options?.timeoutMs ?? DEFAULT_COMM_TIMEOUT_MS;
             await invokeWithTimeout("disconnect_serial", undefined, timeoutMs);
-            set({
+            set((state) => ({
                 serialConnected: false,
                 serialConfig: undefined,
                 lastError: undefined,
                 serialStatus: "disconnected",
-            });
+                connectionStates: {
+                    ...(state.connectionStates ?? {}),
+                    [DEFAULT_SERIAL_CONNECTION_ID]: {
+                        ...(state.connectionStates?.[
+                            DEFAULT_SERIAL_CONNECTION_ID
+                        ] ??
+                            createCommConnectionState(
+                                DEFAULT_SERIAL_CONNECTION_ID,
+                                "serial",
+                            )),
+                        connected: false,
+                        status: "disconnected",
+                        lastError: undefined,
+                    },
+                },
+            }));
         } catch (error) {
             const message = toErrorMessage(error);
             set({ lastError: message });
@@ -341,12 +431,27 @@ export const useCommStore = create<CommStoreState>((set) => ({
                 },
                 timeoutMs,
             );
-            set({
+            set((state) => ({
                 tcpConnected: true,
                 tcpConfig: config,
                 lastError: undefined,
                 tcpStatus: "connected",
-            });
+                connectionStates: {
+                    ...(state.connectionStates ?? {}),
+                    [DEFAULT_TCP_CONNECTION_ID]: {
+                        ...(state.connectionStates?.[
+                            DEFAULT_TCP_CONNECTION_ID
+                        ] ??
+                            createCommConnectionState(
+                                DEFAULT_TCP_CONNECTION_ID,
+                                "tcp",
+                            )),
+                        connected: true,
+                        status: "connected",
+                        lastError: undefined,
+                    },
+                },
+            }));
         } catch (error) {
             const message = toErrorMessage(error);
             set({ lastError: message });
@@ -359,12 +464,27 @@ export const useCommStore = create<CommStoreState>((set) => ({
         try {
             const timeoutMs = options?.timeoutMs ?? DEFAULT_COMM_TIMEOUT_MS;
             await invokeWithTimeout("disconnect_tcp", undefined, timeoutMs);
-            set({
+            set((state) => ({
                 tcpConnected: false,
                 tcpConfig: undefined,
                 lastError: undefined,
                 tcpStatus: "disconnected",
-            });
+                connectionStates: {
+                    ...(state.connectionStates ?? {}),
+                    [DEFAULT_TCP_CONNECTION_ID]: {
+                        ...(state.connectionStates?.[
+                            DEFAULT_TCP_CONNECTION_ID
+                        ] ??
+                            createCommConnectionState(
+                                DEFAULT_TCP_CONNECTION_ID,
+                                "tcp",
+                            )),
+                        connected: false,
+                        status: "disconnected",
+                        lastError: undefined,
+                    },
+                },
+            }));
         } catch (error) {
             const message = toErrorMessage(error);
             set({ lastError: message });

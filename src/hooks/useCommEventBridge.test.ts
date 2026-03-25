@@ -35,6 +35,7 @@ describe("useCommEventBridge", () => {
 
         // 重置 Comm 读模型
         useCommStore.setState({
+            connectionStates: {},
             serialConnected: false,
             tcpConnected: false,
             serialStatus: "disconnected",

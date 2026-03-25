@@ -95,7 +95,9 @@ pub(super) fn validate_system_bundle(
 pub(super) fn validate_project_resources(
     system: &CraftsmanshipSystemBundle,
     project: &ProjectDefinition,
+    connections: &[ConnectionDefinition],
     devices: &[DeviceInstance],
+    feedback_mappings: &[FeedbackMappingDefinition],
     signals: &[SignalDefinition],
     interlocks: Option<&InterlockFile>,
     safe_stop: Option<&SafeStopDefinition>,
@@ -112,6 +114,10 @@ pub(super) fn validate_project_resources(
         .iter()
         .map(|device_type| (device_type.id.as_str(), device_type))
         .collect::<HashMap<_, _>>();
+    let connection_map = connections
+        .iter()
+        .map(|connection| (connection.id.as_str(), connection))
+        .collect::<HashMap<_, _>>();
     let device_map = devices
         .iter()
         .map(|device| (device.id.as_str(), device))
@@ -121,6 +127,24 @@ pub(super) fn validate_project_resources(
         .map(|signal| signal.id.as_str())
         .collect::<HashSet<_>>();
     let mut used_action_ids = HashSet::new();
+    let mut seen_connection_ids = HashSet::new();
+    let mut seen_feedback_mapping_ids = HashSet::new();
+
+    for connection in connections {
+        if !seen_connection_ids.insert(connection.id.as_str()) {
+            diagnostics.push(diagnostic_error(
+                "duplicate_connection_id",
+                format!(
+                    "project `{}` defines duplicate connection `{}`",
+                    project.id, connection.id
+                ),
+                Some(connection.source_path.clone()),
+                Some(connection.id.clone()),
+            ));
+        }
+
+        validate_connection_definition(project, connection, &mut diagnostics);
+    }
 
     for device in devices {
         if !device_type_map.contains_key(device.type_id.as_str()) {
@@ -136,8 +160,35 @@ pub(super) fn validate_project_resources(
         }
 
         if let Some(transport) = device.transport.as_ref() {
-            validate_device_transport_definition(device, transport, &mut diagnostics);
+            validate_device_transport_definition(
+                device,
+                transport,
+                &connection_map,
+                &mut diagnostics,
+            );
         }
+    }
+
+    for mapping in feedback_mappings {
+        if !seen_feedback_mapping_ids.insert(mapping.id.as_str()) {
+            diagnostics.push(diagnostic_error(
+                "duplicate_feedback_mapping_id",
+                format!(
+                    "project `{}` defines duplicate feedback mapping `{}`",
+                    project.id, mapping.id
+                ),
+                Some(mapping.source_path.clone()),
+                Some(mapping.id.clone()),
+            ));
+        }
+
+        validate_feedback_mapping_definition(
+            mapping,
+            &connection_map,
+            &device_map,
+            &signal_ids,
+            &mut diagnostics,
+        );
     }
 
     if let Some(interlocks) = interlocks {
@@ -808,19 +859,161 @@ fn validate_action_dispatch_definition(
     }
 }
 
+fn validate_connection_definition(
+    project: &ProjectDefinition,
+    connection: &ConnectionDefinition,
+    diagnostics: &mut Vec<CraftsmanshipDiagnostic>,
+) {
+    match connection.kind.as_deref() {
+        Some("tcp") => {
+            let Some(tcp) = connection.tcp.as_ref() else {
+                diagnostics.push(diagnostic_error(
+                    "connection_missing_tcp_config",
+                    format!(
+                        "project `{}` connection `{}` declares `kind=tcp` but `tcp` config is missing",
+                        project.id, connection.id
+                    ),
+                    Some(connection.source_path.clone()),
+                    Some(connection.id.clone()),
+                ));
+                return;
+            };
+
+            if tcp
+                .host
+                .as_deref()
+                .is_none_or(|host| host.trim().is_empty())
+            {
+                diagnostics.push(diagnostic_error(
+                    "connection_missing_tcp_host",
+                    format!("connection `{}` is missing TCP `host`", connection.id),
+                    Some(connection.source_path.clone()),
+                    Some(connection.id.clone()),
+                ));
+            }
+
+            if tcp.port.is_none() {
+                diagnostics.push(diagnostic_error(
+                    "connection_missing_tcp_port",
+                    format!("connection `{}` is missing TCP `port`", connection.id),
+                    Some(connection.source_path.clone()),
+                    Some(connection.id.clone()),
+                ));
+            }
+        }
+        Some("serial") => {
+            let Some(serial) = connection.serial.as_ref() else {
+                diagnostics.push(diagnostic_error(
+                    "connection_missing_serial_config",
+                    format!(
+                        "project `{}` connection `{}` declares `kind=serial` but `serial` config is missing",
+                        project.id, connection.id
+                    ),
+                    Some(connection.source_path.clone()),
+                    Some(connection.id.clone()),
+                ));
+                return;
+            };
+
+            if serial
+                .port
+                .as_deref()
+                .is_none_or(|port| port.trim().is_empty())
+            {
+                diagnostics.push(diagnostic_error(
+                    "connection_missing_serial_port",
+                    format!("connection `{}` is missing serial `port`", connection.id),
+                    Some(connection.source_path.clone()),
+                    Some(connection.id.clone()),
+                ));
+            }
+        }
+        Some(other) => diagnostics.push(diagnostic_error(
+            "connection_invalid_kind",
+            format!(
+                "connection `{}` declares unsupported kind `{other}`",
+                connection.id
+            ),
+            Some(connection.source_path.clone()),
+            Some(connection.id.clone()),
+        )),
+        None => diagnostics.push(diagnostic_error(
+            "connection_missing_kind",
+            format!("connection `{}` is missing `kind`", connection.id),
+            Some(connection.source_path.clone()),
+            Some(connection.id.clone()),
+        )),
+    }
+}
+
 fn validate_device_transport_definition(
     device: &DeviceInstance,
     transport: &DeviceTransportDefinition,
+    connection_map: &HashMap<&str, &ConnectionDefinition>,
     diagnostics: &mut Vec<CraftsmanshipDiagnostic>,
 ) {
     match transport.kind.as_deref() {
-        Some("serial") | Some("tcp") => {}
+        Some("serial") | Some("tcp") => {
+            let Some(connection_id) = transport.connection_id.as_deref() else {
+                diagnostics.push(diagnostic_error(
+                    "device_missing_transport_connection",
+                    format!(
+                        "device `{}` declares `{}` transport but `connectionId` is missing",
+                        device.id,
+                        transport.kind.as_deref().unwrap_or_default()
+                    ),
+                    Some(device.source_path.clone()),
+                    Some(device.id.clone()),
+                ));
+                return;
+            };
+
+            let Some(connection) = connection_map.get(connection_id).copied() else {
+                diagnostics.push(diagnostic_error(
+                    "device_unknown_connection",
+                    format!(
+                        "device `{}` references unknown connection `{connection_id}`",
+                        device.id
+                    ),
+                    Some(device.source_path.clone()),
+                    Some(device.id.clone()),
+                ));
+                return;
+            };
+
+            if connection.kind.as_deref() != transport.kind.as_deref() {
+                diagnostics.push(diagnostic_error(
+                    "device_transport_connection_kind_mismatch",
+                    format!(
+                        "device `{}` transport kind `{}` does not match connection `{}` kind `{}`",
+                        device.id,
+                        transport.kind.as_deref().unwrap_or_default(),
+                        connection.id,
+                        connection.kind.as_deref().unwrap_or("missing")
+                    ),
+                    Some(device.source_path.clone()),
+                    Some(device.id.clone()),
+                ));
+            }
+        }
         Some("gpio") => {
             if transport.pin.is_none() {
                 diagnostics.push(diagnostic_error(
                     "device_missing_transport_pin",
                     format!(
                         "device `{}` declares GPIO transport but `pin` is missing",
+                        device.id
+                    ),
+                    Some(device.source_path.clone()),
+                    Some(device.id.clone()),
+                ));
+            }
+
+            if transport.connection_id.is_some() {
+                diagnostics.push(diagnostic_warning(
+                    "device_gpio_transport_ignores_connection",
+                    format!(
+                        "device `{}` declares GPIO transport; `connectionId` will be ignored",
                         device.id
                     ),
                     Some(device.source_path.clone()),
@@ -847,6 +1040,177 @@ fn validate_device_transport_definition(
             Some(device.id.clone()),
         )),
     }
+}
+
+fn validate_feedback_mapping_definition(
+    mapping: &FeedbackMappingDefinition,
+    connection_map: &HashMap<&str, &ConnectionDefinition>,
+    device_map: &HashMap<&str, &DeviceInstance>,
+    signal_ids: &HashSet<&str>,
+    diagnostics: &mut Vec<CraftsmanshipDiagnostic>,
+) {
+    let Some(connection) = connection_map
+        .get(mapping.matcher.connection_id.as_str())
+        .copied()
+    else {
+        diagnostics.push(diagnostic_error(
+            "feedback_mapping_unknown_connection",
+            format!(
+                "feedback mapping `{}` references unknown connection `{}`",
+                mapping.id, mapping.matcher.connection_id
+            ),
+            Some(mapping.source_path.clone()),
+            Some(mapping.id.clone()),
+        ));
+        return;
+    };
+
+    if !matches!(connection.kind.as_deref(), Some("tcp") | Some("serial")) {
+        diagnostics.push(diagnostic_error(
+            "feedback_mapping_invalid_connection_kind",
+            format!(
+                "feedback mapping `{}` requires TCP or serial connection, but `{}` uses kind `{}`",
+                mapping.id,
+                connection.id,
+                connection.kind.as_deref().unwrap_or("missing")
+            ),
+            Some(mapping.source_path.clone()),
+            Some(mapping.id.clone()),
+        ));
+    }
+
+    if let Some(summary_kind) = mapping.matcher.summary_kind.as_deref() {
+        if !matches!(
+            summary_kind,
+            "hello"
+                | "helloAck"
+                | "hello_ack"
+                | "heartbeat"
+                | "request"
+                | "response"
+                | "event"
+                | "error"
+                | "raw"
+        ) {
+            diagnostics.push(diagnostic_error(
+                "feedback_mapping_invalid_summary_kind",
+                format!(
+                    "feedback mapping `{}` uses unsupported summaryKind `{summary_kind}`",
+                    mapping.id
+                ),
+                Some(mapping.source_path.clone()),
+                Some(mapping.id.clone()),
+            ));
+        }
+    }
+
+    let signal_id = mapping.target.signal_id.as_deref();
+    let device_id = mapping.target.device_id.as_deref();
+    let feedback_key = mapping.target.feedback_key.as_deref();
+    match (signal_id, device_id, feedback_key) {
+        (Some(signal_id), None, None) => {
+            if !signal_ids.contains(signal_id) {
+                diagnostics.push(diagnostic_error(
+                    "feedback_mapping_unknown_signal",
+                    format!(
+                        "feedback mapping `{}` references unknown signal `{signal_id}`",
+                        mapping.id
+                    ),
+                    Some(mapping.source_path.clone()),
+                    Some(mapping.id.clone()),
+                ));
+            }
+        }
+        (None, Some(device_id), Some(feedback_key)) => {
+            let Some(device) = device_map.get(device_id).copied() else {
+                diagnostics.push(diagnostic_error(
+                    "feedback_mapping_unknown_device",
+                    format!(
+                        "feedback mapping `{}` references unknown device `{device_id}`",
+                        mapping.id
+                    ),
+                    Some(mapping.source_path.clone()),
+                    Some(mapping.id.clone()),
+                ));
+                return;
+            };
+
+            if !device.tags.contains_key(feedback_key) {
+                diagnostics.push(diagnostic_error(
+                    "feedback_mapping_unknown_feedback_key",
+                    format!(
+                        "feedback mapping `{}` references missing feedback key `{feedback_key}` on device `{device_id}`",
+                        mapping.id
+                    ),
+                    Some(mapping.source_path.clone()),
+                    Some(mapping.id.clone()),
+                ));
+            }
+        }
+        _ => diagnostics.push(diagnostic_error(
+            "feedback_mapping_invalid_target",
+            format!(
+                "feedback mapping `{}` must target either `signalId` or `deviceId + feedbackKey`",
+                mapping.id
+            ),
+            Some(mapping.source_path.clone()),
+            Some(mapping.id.clone()),
+        )),
+    }
+
+    match (
+        mapping.target.value_from.as_deref(),
+        mapping.target.value.as_ref(),
+    ) {
+        (None, None) => diagnostics.push(diagnostic_error(
+            "feedback_mapping_missing_value_source",
+            format!(
+                "feedback mapping `{}` must define either `valueFrom` or constant `value`",
+                mapping.id
+            ),
+            Some(mapping.source_path.clone()),
+            Some(mapping.id.clone()),
+        )),
+        (Some(_), Some(_)) => diagnostics.push(diagnostic_error(
+            "feedback_mapping_ambiguous_value_source",
+            format!(
+                "feedback mapping `{}` cannot define both `valueFrom` and constant `value`",
+                mapping.id
+            ),
+            Some(mapping.source_path.clone()),
+            Some(mapping.id.clone()),
+        )),
+        (Some(value_from), None) if !is_valid_feedback_value_source(value_from) => {
+            diagnostics.push(diagnostic_error(
+                "feedback_mapping_invalid_value_source",
+                format!(
+                    "feedback mapping `{}` uses unsupported valueFrom `{value_from}`",
+                    mapping.id
+                ),
+                Some(mapping.source_path.clone()),
+                Some(mapping.id.clone()),
+            ));
+        }
+        _ => {}
+    }
+}
+
+fn is_valid_feedback_value_source(value_from: &str) -> bool {
+    matches!(
+        value_from,
+        "channel"
+            | "seq"
+            | "msgType"
+            | "flags"
+            | "summary.requestId"
+            | "summary.status"
+            | "summary.eventId"
+            | "summary.errorCode"
+            | "summary.bodyBase64"
+            | "summary.bodyHex"
+            | "summary.payloadBase64"
+            | "summary.payloadHex"
+    )
 }
 
 fn validate_completion_operator_and_value(

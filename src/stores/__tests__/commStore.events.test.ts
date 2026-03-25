@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DEFAULT_TCP_CONNECTION_ID } from "@/types";
 import type { CommEvent } from "@/types";
 
 describe("stores/commStore（comm-event 读模型）", () => {
@@ -14,6 +15,7 @@ describe("stores/commStore（comm-event 读模型）", () => {
             serialConnected: false,
             serialStatus: "disconnected",
             lastError: "x",
+            connectionStates: {},
             commEventLog: [],
         } as any);
 
@@ -41,6 +43,7 @@ describe("stores/commStore（comm-event 读模型）", () => {
             tcpRxBytes: 0,
             tcpRxCount: 0,
             tcpLastRxText: null,
+            connectionStates: {},
             commEventLog: [],
         } as any);
 
@@ -66,7 +69,11 @@ describe("stores/commStore（comm-event 读模型）", () => {
         vi.doMock("@/platform/invoke", () => ({ invoke: vi.fn() }));
         const { useCommStore } = await import("../commStore");
 
-        useCommStore.setState({ lastError: undefined, commEventLog: [] } as any);
+        useCommStore.setState({
+            lastError: undefined,
+            connectionStates: {},
+            commEventLog: [],
+        } as any);
 
         const event: CommEvent = {
             type: "error",
@@ -84,7 +91,7 @@ describe("stores/commStore（comm-event 读模型）", () => {
         vi.doMock("@/platform/invoke", () => ({ invoke: vi.fn() }));
         const { useCommStore } = await import("../commStore");
 
-        useCommStore.setState({ commEventLog: [] } as any);
+        useCommStore.setState({ connectionStates: {}, commEventLog: [] } as any);
 
         for (let i = 0; i < 210; i += 1) {
             useCommStore.getState().handleCommEvent({
@@ -99,5 +106,55 @@ describe("stores/commStore（comm-event 读模型）", () => {
         expect(useCommStore.getState().commEventLog[0]?.timestamp_ms).toBe(10);
         expect(useCommStore.getState().commEventLog[199]?.timestamp_ms).toBe(209);
     });
-});
 
+    it("非默认连接事件：不应覆盖默认 TCP 连接状态", async () => {
+        vi.doMock("@/platform/invoke", () => ({ invoke: vi.fn() }));
+        const { useCommStore } = await import("../commStore");
+
+        useCommStore.setState({
+            tcpConnected: true,
+            tcpStatus: "connected",
+            lastError: "keep",
+            connectionStates: {
+                [DEFAULT_TCP_CONNECTION_ID]: {
+                    connectionId: DEFAULT_TCP_CONNECTION_ID,
+                    transport: "tcp",
+                    connected: true,
+                    status: "connected",
+                    rxBytes: 0,
+                    txBytes: 0,
+                    rxCount: 0,
+                    txCount: 0,
+                    lastRxText: null,
+                    lastEventAtMs: 1,
+                    lastError: undefined,
+                },
+            },
+            commEventLog: [],
+        } as any);
+
+        useCommStore.getState().handleCommEvent({
+            type: "disconnected",
+            transport: "tcp",
+            connection_id: "main-tcp",
+            timestamp_ms: 20,
+        });
+        useCommStore.getState().handleCommEvent({
+            type: "error",
+            transport: "tcp",
+            connection_id: "main-tcp",
+            message: "boom",
+            timestamp_ms: 21,
+        });
+
+        const state = useCommStore.getState();
+        expect(state.tcpConnected).toBe(true);
+        expect(state.tcpStatus).toBe("connected");
+        expect(state.lastError).toBe("keep");
+        expect(state.connectionStates["main-tcp"]?.status).toBe("disconnected");
+        expect(state.connectionStates["main-tcp"]?.lastError).toBe("[tcp] boom");
+        expect(state.connectionStates[DEFAULT_TCP_CONNECTION_ID]?.status).toBe(
+            "connected",
+        );
+    });
+});

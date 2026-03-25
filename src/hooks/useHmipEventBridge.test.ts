@@ -35,6 +35,7 @@ describe("useHmipEventBridge", () => {
 
         // 重置 HMIP 读模型
         useHmipStore.setState({
+            connectionStates: {},
             serialLastEventAtMs: null,
             tcpLastEventAtMs: null,
             serialMessageCount: 0,
@@ -147,4 +148,3 @@ describe("useHmipEventBridge", () => {
         expect(unlisten).toHaveBeenCalledTimes(1);
     });
 });
-

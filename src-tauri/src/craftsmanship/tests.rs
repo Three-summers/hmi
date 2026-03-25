@@ -476,14 +476,16 @@ fn get_project_bundle_should_warn_when_optional_resources_are_missing() {
 
     let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
 
+    assert!(bundle.connections.is_empty());
     assert!(bundle.devices.is_empty());
+    assert!(bundle.feedback_mappings.is_empty());
     assert!(bundle.signals.is_empty());
     assert!(bundle.recipes.is_empty());
     assert!(bundle.interlocks.is_none());
     assert!(bundle.safe_stop.is_none());
     assert_eq!(
         count_diagnostic(&bundle.diagnostics, "missing_directory"),
-        3
+        5
     );
     assert_eq!(count_diagnostic(&bundle.diagnostics, "missing_file"), 2);
 }
@@ -498,6 +500,128 @@ fn get_project_bundle_should_find_project_using_project_json_id() {
 
     assert_eq!(bundle.project.id, "project-a");
     assert_eq!(bundle.project.name, "项目 project-a");
+}
+
+#[test]
+fn get_project_bundle_should_load_connections_and_feedback_mappings() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/connections/main_tcp.json",
+        json!({
+            "id": "main-tcp",
+            "name": "主控 TCP",
+            "kind": "tcp",
+            "tcp": {
+                "host": "127.0.0.1",
+                "port": 502,
+                "timeoutMs": 1000
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/devices/pump_01.json",
+        json!({
+            "id": "pump_01",
+            "name": "前级泵",
+            "typeId": "pump",
+            "enabled": true,
+            "transport": {
+                "kind": "tcp",
+                "connectionId": "main-tcp",
+                "channel": 1
+            },
+            "tags": {
+                "running": "device.pump01.running"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/signals/door_closed.json",
+        json!({
+            "id": "door_closed",
+            "name": "门关闭",
+            "dataType": "boolean",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/door_closed.json",
+        json!({
+            "id": "door-closed-feedback",
+            "name": "门关闭反馈",
+            "match": {
+                "connectionId": "main-tcp",
+                "channel": 1,
+                "summaryKind": "event",
+                "eventId": 32
+            },
+            "target": {
+                "signalId": "door_closed",
+                "value": true
+            }
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert_eq!(bundle.connections.len(), 1);
+    assert_eq!(bundle.feedback_mappings.len(), 1);
+    assert_eq!(bundle.connections[0].id, "main-tcp");
+    assert_eq!(bundle.feedback_mappings[0].id, "door-closed-feedback");
+}
+
+#[test]
+fn get_project_bundle_should_accept_hello_ack_feedback_summary_kind() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/connections/main_tcp.json",
+        json!({
+            "id": "main-tcp",
+            "name": "主控 TCP",
+            "kind": "tcp",
+            "tcp": {
+                "host": "127.0.0.1",
+                "port": 502,
+                "timeoutMs": 1000
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/signals/door_closed.json",
+        json!({
+            "id": "door_closed",
+            "name": "门关闭",
+            "dataType": "boolean",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/door_closed.json",
+        json!({
+            "id": "door-closed-feedback",
+            "name": "门关闭反馈",
+            "match": {
+                "connectionId": "main-tcp",
+                "channel": 1,
+                "summaryKind": "hello_ack"
+            },
+            "target": {
+                "signalId": "door_closed",
+                "value": true
+            }
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(!has_diagnostic(
+        &bundle.diagnostics,
+        "feedback_mapping_invalid_summary_kind"
+    ));
 }
 
 #[test]
