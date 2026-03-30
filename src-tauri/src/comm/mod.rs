@@ -463,8 +463,10 @@ pub async fn send_serial_hmip_frame(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tauri::test::mock_app;
-    use tokio::io::AsyncReadExt;
+    use serde_json::Value;
+    use std::sync::{Arc, Mutex};
+    use tauri::{test::mock_app, Listener};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
     use tokio::time::{timeout, Duration};
 
@@ -710,6 +712,158 @@ mod tests {
         assert_eq!(received, expected);
 
         disconnect_connection(&state, "tcp-hmip").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn tcp_actor_should_reconnect_after_remote_close_and_resume_io() {
+        let app = mock_app();
+        let state = CommState::default();
+        let comm_events = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let listener = app.listen_any("comm-event", {
+            let comm_events = comm_events.clone();
+            move |event| {
+                let payload: Value =
+                    serde_json::from_str(event.payload()).expect("comm event payload must be json");
+                comm_events
+                    .lock()
+                    .expect("comm event collector mutex poisoned")
+                    .push(payload);
+            }
+        });
+
+        let tcp_listener = match TcpListener::bind("127.0.0.1:0").await {
+            Ok(listener) => listener,
+            Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => {
+                eprintln!("skip tcp reconnect integration test: {error}");
+                app.unlisten(listener);
+                return;
+            }
+            Err(error) => panic!("failed to bind tcp listener: {error}"),
+        };
+        let port = tcp_listener.local_addr().unwrap().port();
+
+        let server = tokio::spawn(async move {
+            let (mut first_socket, _) = tcp_listener.accept().await.unwrap();
+            let mut first_received = vec![0u8; 6];
+            first_socket.read_exact(&mut first_received).await.unwrap();
+            drop(first_socket);
+
+            let (mut second_socket, _) = tcp_listener.accept().await.unwrap();
+            let mut second_received = vec![0u8; 7];
+            second_socket.read_exact(&mut second_received).await.unwrap();
+            second_socket.write_all(b"RECOVERED").await.unwrap();
+            second_socket.flush().await.unwrap();
+
+            (first_received, second_received)
+        });
+
+        connect_tcp(
+            &state,
+            app.handle(),
+            "tcp-reconnect",
+            tcp::TcpConfig {
+                host: "127.0.0.1".to_string(),
+                port,
+                timeout_ms: 1000,
+            },
+        )
+        .await
+        .unwrap();
+
+        send_tcp_data_bytes(
+            &state,
+            "tcp-reconnect",
+            b"FIRST!".to_vec(),
+            CommPriority::High,
+        )
+        .await
+        .unwrap();
+
+        timeout(Duration::from_secs(4), async {
+            loop {
+                let events = comm_events
+                    .lock()
+                    .expect("comm event collector mutex poisoned")
+                    .clone();
+                let connected_count = events
+                    .iter()
+                    .filter(|event| {
+                        event.get("type") == Some(&Value::String("connected".to_string()))
+                    })
+                    .count();
+                let has_error = events
+                    .iter()
+                    .any(|event| event.get("type") == Some(&Value::String("error".to_string())));
+                let has_reconnecting = events.iter().any(|event| {
+                    event.get("type") == Some(&Value::String("reconnecting".to_string()))
+                });
+                if connected_count >= 2 && has_error && has_reconnecting {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("timed out while waiting for tcp reconnect events");
+
+        send_tcp_data_bytes(
+            &state,
+            "tcp-reconnect",
+            b"SECOND?".to_vec(),
+            CommPriority::Normal,
+        )
+        .await
+        .unwrap();
+
+        let (first_received, second_received) = timeout(Duration::from_secs(4), server)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(first_received, b"FIRST!");
+        assert_eq!(second_received, b"SECOND?");
+
+        timeout(Duration::from_secs(4), async {
+            loop {
+                let has_recovered_rx = comm_events
+                    .lock()
+                    .expect("comm event collector mutex poisoned")
+                    .iter()
+                    .any(|event| {
+                        event.get("type") == Some(&Value::String("rx".to_string()))
+                            && event.get("text") == Some(&Value::String("RECOVERED".to_string()))
+                    });
+                if has_recovered_rx {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("timed out while waiting for recovered rx event");
+
+        let events = comm_events
+            .lock()
+            .expect("comm event collector mutex poisoned")
+            .clone();
+        let connected_count = events
+            .iter()
+            .filter(|event| event.get("type") == Some(&Value::String("connected".to_string())))
+            .count();
+        let tx_count = events
+            .iter()
+            .filter(|event| event.get("type") == Some(&Value::String("tx".to_string())))
+            .count();
+        assert!(connected_count >= 2);
+        assert!(tx_count >= 2);
+        assert!(events
+            .iter()
+            .any(|event| event.get("type") == Some(&Value::String("error".to_string()))));
+        assert!(events
+            .iter()
+            .any(|event| event.get("type") == Some(&Value::String("reconnecting".to_string()))));
+
+        app.unlisten(listener);
+        disconnect_connection(&state, "tcp-reconnect").await.unwrap();
     }
 
     #[cfg(unix)]

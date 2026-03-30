@@ -8,15 +8,15 @@ use std::path::{Path, PathBuf};
 pub fn scan_workspace(workspace_root: &str) -> Result<CraftsmanshipWorkspaceSummary, String> {
     let root = resolve_workspace_root(workspace_root)?;
     let system = load_system_bundle(&root)?;
-    let diagnostics = validate_system_bundle(&system);
+    let mut diagnostics = validate_system_bundle(&system);
     let projects_dir = require_directory(&root.join("projects"), "projects")?;
     let project_dirs = read_child_directories(&projects_dir)?;
 
     let mut projects = Vec::new();
     for project_dir in project_dirs {
-        let project_path = project_dir.join("project.json");
-        let project = read_json_file::<ProjectDefinition>(&project_path, "project definition")?;
-        projects.push(project);
+        let bundle = load_project_bundle_from_dir(&root, &system, &project_dir, Vec::new())?;
+        diagnostics.extend(bundle.diagnostics);
+        projects.push(bundle.project);
     }
 
     Ok(CraftsmanshipWorkspaceSummary {
@@ -34,8 +34,243 @@ pub fn get_project_bundle(
     let root = resolve_workspace_root(workspace_root)?;
     let system = load_system_bundle(&root)?;
     let project_dir = find_project_dir(&root, project_id)?;
-    let mut diagnostics = validate_system_bundle(&system);
+    load_project_bundle_from_dir(
+        &root,
+        &system,
+        &project_dir,
+        validate_system_bundle(&system),
+    )
+}
 
+pub fn get_recipe_bundle(
+    workspace_root: &str,
+    project_id: &str,
+    recipe_id: &str,
+) -> Result<CraftsmanshipRecipeBundle, String> {
+    let project_bundle = get_project_bundle(workspace_root, project_id)?;
+    let recipe = project_bundle
+        .recipes
+        .iter()
+        .find(|candidate| candidate.id == recipe_id)
+        .cloned()
+        .ok_or_else(|| {
+            format!(
+                "recipe `{recipe_id}` not found in project `{}`",
+                project_bundle.project.id
+            )
+        })?;
+
+    let action_ids: HashSet<&str> = recipe
+        .steps
+        .iter()
+        .map(|step| step.action_id.as_str())
+        .collect();
+    let related_actions = project_bundle
+        .system
+        .actions
+        .iter()
+        .filter(|action| action_ids.contains(action.id.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    let diagnostics = filter_recipe_diagnostics(&project_bundle, &recipe);
+
+    Ok(CraftsmanshipRecipeBundle {
+        workspace_root: project_bundle.workspace_root,
+        system: project_bundle.system,
+        project: project_bundle.project,
+        connections: project_bundle.connections,
+        devices: project_bundle.devices,
+        feedback_mappings: project_bundle.feedback_mappings,
+        signals: project_bundle.signals,
+        interlocks: project_bundle.interlocks,
+        safe_stop: project_bundle.safe_stop,
+        recipe,
+        related_actions,
+        diagnostics,
+    })
+}
+
+fn filter_recipe_diagnostics(
+    project_bundle: &CraftsmanshipProjectBundle,
+    recipe: &RecipeDefinition,
+) -> Vec<CraftsmanshipDiagnostic> {
+    let mut relevant_paths = HashSet::from([
+        project_bundle.project.source_path.clone(),
+        recipe.source_path.clone(),
+    ]);
+    let recipe_action_ids = recipe
+        .steps
+        .iter()
+        .map(|step| step.action_id.clone())
+        .collect::<HashSet<_>>();
+    let mut relevant_action_ids = recipe_action_ids.clone();
+    let mut relevant_device_ids = recipe
+        .steps
+        .iter()
+        .filter_map(|step| step.device_id.clone())
+        .collect::<HashSet<_>>();
+    let mut relevant_device_type_ids = HashSet::new();
+    let mut relevant_connection_ids = HashSet::new();
+    let mut relevant_signal_ids = recipe
+        .steps
+        .iter()
+        .filter_map(|step| {
+            step.parameters
+                .get("signalId")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string)
+        })
+        .collect::<HashSet<_>>();
+    let mut relevant_interlock_rule_ids = HashSet::new();
+
+    if let Some(safe_stop) = project_bundle.safe_stop.as_ref() {
+        relevant_paths.insert(safe_stop.source_path.clone());
+        for step in &safe_stop.steps {
+            relevant_action_ids.insert(step.action_id.clone());
+            if let Some(device_id) = step.device_id.clone() {
+                relevant_device_ids.insert(device_id);
+            }
+        }
+    }
+
+    if let Some(interlocks) = project_bundle.interlocks.as_ref() {
+        for rule in &interlocks.rules {
+            if rule
+                .action_ids
+                .iter()
+                .any(|action_id| recipe_action_ids.contains(action_id))
+            {
+                relevant_interlock_rule_ids.insert(rule.id.clone());
+                collect_condition_signal_ids(&rule.condition, &mut relevant_signal_ids);
+            }
+        }
+    }
+
+    for action in &project_bundle.system.actions {
+        if relevant_action_ids.contains(&action.id) {
+            relevant_paths.insert(action.source_path.clone());
+            if let Some(signal_id) = action
+                .completion
+                .as_ref()
+                .and_then(|completion| completion.signal_id.clone())
+            {
+                relevant_signal_ids.insert(signal_id);
+            }
+        }
+    }
+
+    for device in &project_bundle.devices {
+        if relevant_device_ids.contains(&device.id) {
+            relevant_paths.insert(device.source_path.clone());
+            relevant_device_type_ids.insert(device.type_id.clone());
+            if let Some(connection_id) = device
+                .transport
+                .as_ref()
+                .and_then(|transport| transport.connection_id.clone())
+            {
+                relevant_connection_ids.insert(connection_id);
+            }
+        }
+    }
+
+    for device_type in &project_bundle.system.device_types {
+        if relevant_device_type_ids.contains(&device_type.id) {
+            relevant_paths.insert(device_type.source_path.clone());
+        }
+    }
+
+    for connection in &project_bundle.connections {
+        if relevant_connection_ids.contains(&connection.id) {
+            relevant_paths.insert(connection.source_path.clone());
+        }
+    }
+
+    for signal in &project_bundle.signals {
+        if relevant_signal_ids.contains(&signal.id) {
+            relevant_paths.insert(signal.source_path.clone());
+        }
+    }
+
+    for mapping in &project_bundle.feedback_mappings {
+        let targets_relevant_signal = mapping
+            .target
+            .signal_id
+            .as_ref()
+            .is_some_and(|signal_id| relevant_signal_ids.contains(signal_id));
+        let targets_relevant_device = mapping
+            .target
+            .device_id
+            .as_ref()
+            .is_some_and(|device_id| relevant_device_ids.contains(device_id));
+        if targets_relevant_signal || targets_relevant_device {
+            relevant_paths.insert(mapping.source_path.clone());
+        }
+    }
+
+    let interlocks_source_path = project_bundle
+        .interlocks
+        .as_ref()
+        .map(|interlocks| interlocks.source_path.as_str());
+
+    project_bundle
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| {
+            if diagnostic.level != "error" {
+                return true;
+            }
+
+            if diagnostic.source_path.as_deref() == interlocks_source_path {
+                return diagnostic
+                    .entity_id
+                    .as_ref()
+                    .is_some_and(|entity_id| relevant_interlock_rule_ids.contains(entity_id));
+            }
+
+            diagnostic
+                .source_path
+                .as_ref()
+                .is_some_and(|source_path| relevant_paths.contains(source_path))
+        })
+        .cloned()
+        .collect()
+}
+
+fn collect_condition_signal_ids(condition: &InterlockCondition, signal_ids: &mut HashSet<String>) {
+    if let Some(signal_id) = condition.signal_id.as_ref() {
+        signal_ids.insert(signal_id.clone());
+    }
+
+    for item in &condition.items {
+        collect_condition_signal_ids(item, signal_ids);
+    }
+}
+
+fn resolve_workspace_root(workspace_root: &str) -> Result<PathBuf, String> {
+    let trimmed = workspace_root.trim();
+    if trimmed.is_empty() {
+        return Err("workspace_root is empty".to_string());
+    }
+
+    let path = PathBuf::from(trimmed);
+    if !path.exists() {
+        return Err(format!("workspace root does not exist: {}", path.display()));
+    }
+    if !path.is_dir() {
+        return Err(format!(
+            "workspace root is not a directory: {}",
+            path.display()
+        ));
+    }
+    Ok(path)
+}
+
+fn load_project_bundle_from_dir(
+    root: &Path,
+    system: &CraftsmanshipSystemBundle,
+    project_dir: &Path,
+    mut diagnostics: Vec<CraftsmanshipDiagnostic>,
+) -> Result<CraftsmanshipProjectBundle, String> {
     let project = read_json_file::<ProjectDefinition>(
         &project_dir.join("project.json"),
         "project definition",
@@ -90,7 +325,7 @@ pub fn get_project_bundle(
     }
 
     diagnostics.extend(validate_project_resources(
-        &system,
+        system,
         &project,
         &connections,
         &devices,
@@ -102,8 +337,8 @@ pub fn get_project_bundle(
     ));
 
     Ok(CraftsmanshipProjectBundle {
-        workspace_root: path_to_string(&root),
-        system,
+        workspace_root: path_to_string(root),
+        system: system.clone(),
         project,
         connections,
         devices,
@@ -114,72 +349,6 @@ pub fn get_project_bundle(
         recipes,
         diagnostics,
     })
-}
-
-pub fn get_recipe_bundle(
-    workspace_root: &str,
-    project_id: &str,
-    recipe_id: &str,
-) -> Result<CraftsmanshipRecipeBundle, String> {
-    let project_bundle = get_project_bundle(workspace_root, project_id)?;
-    let recipe = project_bundle
-        .recipes
-        .iter()
-        .find(|candidate| candidate.id == recipe_id)
-        .cloned()
-        .ok_or_else(|| {
-            format!(
-                "recipe `{recipe_id}` not found in project `{}`",
-                project_bundle.project.id
-            )
-        })?;
-
-    let action_ids: HashSet<&str> = recipe
-        .steps
-        .iter()
-        .map(|step| step.action_id.as_str())
-        .collect();
-    let related_actions = project_bundle
-        .system
-        .actions
-        .iter()
-        .filter(|action| action_ids.contains(action.id.as_str()))
-        .cloned()
-        .collect::<Vec<_>>();
-
-    Ok(CraftsmanshipRecipeBundle {
-        workspace_root: project_bundle.workspace_root,
-        system: project_bundle.system,
-        project: project_bundle.project,
-        connections: project_bundle.connections,
-        devices: project_bundle.devices,
-        feedback_mappings: project_bundle.feedback_mappings,
-        signals: project_bundle.signals,
-        interlocks: project_bundle.interlocks,
-        safe_stop: project_bundle.safe_stop,
-        recipe,
-        related_actions,
-        diagnostics: project_bundle.diagnostics,
-    })
-}
-
-fn resolve_workspace_root(workspace_root: &str) -> Result<PathBuf, String> {
-    let trimmed = workspace_root.trim();
-    if trimmed.is_empty() {
-        return Err("workspace_root is empty".to_string());
-    }
-
-    let path = PathBuf::from(trimmed);
-    if !path.exists() {
-        return Err(format!("workspace root does not exist: {}", path.display()));
-    }
-    if !path.is_dir() {
-        return Err(format!(
-            "workspace root is not a directory: {}",
-            path.display()
-        ));
-    }
-    Ok(path)
 }
 
 fn load_system_bundle(workspace_root: &Path) -> Result<CraftsmanshipSystemBundle, String> {
@@ -317,12 +486,23 @@ fn list_json_file_paths(path: &Path) -> Result<Vec<String>, String> {
 fn find_project_dir(workspace_root: &Path, project_id: &str) -> Result<PathBuf, String> {
     let projects_dir = require_directory(&workspace_root.join("projects"), "projects")?;
     let project_dir = projects_dir.join(project_id);
+    let mut direct_dir_mismatch = None;
     if project_dir.exists() && project_dir.is_dir() {
-        return Ok(project_dir);
+        let project_json = project_dir.join("project.json");
+        if project_json.exists() {
+            let project = read_json_file::<ProjectDefinition>(&project_json, "project definition")?;
+            if project.id == project_id {
+                return Ok(project_dir);
+            }
+            direct_dir_mismatch = Some(project.id);
+        }
     }
 
     let child_dirs = read_child_directories(&projects_dir)?;
     for child_dir in child_dirs {
+        if child_dir == project_dir {
+            continue;
+        }
         let project_json = child_dir.join("project.json");
         if !project_json.exists() {
             continue;
@@ -331,6 +511,13 @@ fn find_project_dir(workspace_root: &Path, project_id: &str) -> Result<PathBuf, 
         if project.id == project_id {
             return Ok(child_dir);
         }
+    }
+
+    if let Some(actual_id) = direct_dir_mismatch {
+        return Err(format!(
+            "project directory `{}` exists, but project.json declares id `{actual_id}` instead of `{project_id}`",
+            project_dir.display()
+        ));
     }
 
     Err(format!(

@@ -419,6 +419,36 @@ fn scan_workspace_should_collect_action_schema_diagnostics() {
 }
 
 #[test]
+fn scan_workspace_should_collect_project_level_diagnostics() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/recipes/broken.json",
+        json!({
+            "id": "broken",
+            "name": "错误工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "未知动作",
+                    "actionId": "missing.action",
+                    "parameters": {}
+                }
+            ]
+        }),
+    );
+
+    let summary = scan_workspace(workspace.path().to_str().unwrap()).unwrap();
+
+    assert!(has_diagnostic(
+        &summary.diagnostics,
+        "recipe_unknown_action"
+    ));
+}
+
+#[test]
 fn get_project_bundle_should_sort_steps_and_collect_diagnostics() {
     let workspace = build_workspace_fixture();
     let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
@@ -469,6 +499,54 @@ fn get_recipe_bundle_should_return_related_actions_only() {
 }
 
 #[test]
+fn get_recipe_bundle_should_exclude_unrelated_recipe_diagnostics() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/recipes/valid.json",
+        json!({
+            "id": "valid",
+            "name": "有效工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "开泵",
+                    "actionId": "pump.start",
+                    "parameters": {}
+                }
+            ]
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/broken.json",
+        json!({
+            "id": "broken",
+            "name": "错误工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "未知动作",
+                    "actionId": "missing.action",
+                    "parameters": {}
+                }
+            ]
+        }),
+    );
+
+    let bundle =
+        get_recipe_bundle(workspace.path().to_str().unwrap(), "project-a", "valid").unwrap();
+
+    assert!(
+        !has_diagnostic(&bundle.diagnostics, "recipe_unknown_action"),
+        "unrelated recipe diagnostics should not leak into selected recipe bundle: {:?}",
+        bundle.diagnostics
+    );
+}
+
+#[test]
 fn get_project_bundle_should_warn_when_optional_resources_are_missing() {
     let workspace = TestWorkspace::new();
     write_minimal_system(&workspace);
@@ -500,6 +578,51 @@ fn get_project_bundle_should_find_project_using_project_json_id() {
 
     assert_eq!(bundle.project.id, "project-a");
     assert_eq!(bundle.project.name, "项目 project-a");
+}
+
+#[test]
+fn get_project_bundle_should_ignore_directory_name_shadowed_by_mismatched_project_id() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    workspace.write_json(
+        "projects/project-a/project.json",
+        json!({
+            "id": "wrong-project",
+            "name": "错误项目",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/actual-project/project.json",
+        json!({
+            "id": "project-a",
+            "name": "目标项目",
+            "enabled": true
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert_eq!(bundle.project.id, "project-a");
+    assert_eq!(bundle.project.name, "目标项目");
+}
+
+#[test]
+fn get_project_bundle_should_report_disabled_project() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    workspace.write_json(
+        "projects/project-a/project.json",
+        json!({
+            "id": "project-a",
+            "name": "项目A",
+            "enabled": false
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(has_diagnostic(&bundle.diagnostics, "project_disabled"));
 }
 
 #[test]
@@ -1339,6 +1462,327 @@ fn get_project_bundle_should_validate_gpio_transport_pin_and_dispatch_transport_
         &bundle.diagnostics,
         "dispatch_transport_not_supported"
     ));
+}
+
+#[test]
+fn get_project_bundle_should_treat_disabled_resources_as_unavailable() {
+    let workspace = TestWorkspace::new();
+    workspace.write_json(
+        "system/actions/pump.start.json",
+        json!({
+            "id": "pump.start",
+            "name": "开泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "dispatch": {
+                "kind": "hmipFrame",
+                "msgType": 16,
+                "payloadHex": "0101"
+            },
+            "completion": {
+                "type": "signalCompare",
+                "signalId": "pressure_enabled",
+                "operator": "eq",
+                "value": 1
+            }
+        }),
+    );
+    workspace.write_json(
+        "system/actions/common.wait-signal.json",
+        json!({
+            "id": "common.wait-signal",
+            "name": "等待信号",
+            "targetMode": "none",
+            "parameters": [
+                {
+                    "key": "signalId",
+                    "name": "信号",
+                    "type": "string",
+                    "required": true
+                },
+                {
+                    "key": "value",
+                    "name": "目标值",
+                    "type": "number",
+                    "required": true
+                }
+            ]
+        }),
+    );
+    workspace.write_json(
+        "system/device-types/pump.json",
+        json!({
+            "id": "pump",
+            "name": "泵",
+            "allowedActions": ["pump.start"]
+        }),
+    );
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/connections/main-disabled.json",
+        json!({
+            "id": "main-disabled",
+            "name": "禁用连接",
+            "enabled": false,
+            "kind": "tcp",
+            "tcp": {
+                "host": "127.0.0.1",
+                "port": 502
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/devices/pump_disabled.json",
+        json!({
+            "id": "pump_disabled",
+            "name": "禁用泵",
+            "typeId": "pump",
+            "enabled": false,
+            "transport": {
+                "kind": "tcp",
+                "connectionId": "main-disabled",
+                "channel": 1
+            },
+            "tags": {
+                "running": "device.pump_disabled.running"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/devices/pump_enabled.json",
+        json!({
+            "id": "pump_enabled",
+            "name": "启用泵",
+            "typeId": "pump",
+            "enabled": true,
+            "transport": {
+                "kind": "tcp",
+                "connectionId": "main-disabled",
+                "channel": 2
+            },
+            "tags": {
+                "running": "device.pump_enabled.running"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/signals/pressure_enabled.json",
+        json!({
+            "id": "pressure_enabled",
+            "name": "启用压力",
+            "dataType": "number",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/signals/pressure_disabled.json",
+        json!({
+            "id": "pressure_disabled",
+            "name": "禁用压力",
+            "dataType": "number",
+            "enabled": false
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/disabled-resources.json",
+        json!({
+            "id": "disabled-resources",
+            "name": "禁用资源工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "引用禁用设备",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_disabled",
+                    "parameters": {}
+                },
+                {
+                    "id": "S020",
+                    "seq": 20,
+                    "name": "引用禁用连接",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_enabled",
+                    "parameters": {}
+                },
+                {
+                    "id": "S030",
+                    "seq": 30,
+                    "name": "等待禁用信号",
+                    "actionId": "common.wait-signal",
+                    "parameters": {
+                        "signalId": "pressure_disabled",
+                        "value": 1
+                    }
+                }
+            ]
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(has_diagnostic(&bundle.diagnostics, "device_disabled"));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "device_transport_disabled_connection"
+    ));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "recipe_signal_disabled"
+    ));
+}
+
+#[test]
+fn get_project_bundle_should_validate_feedback_mapping_summary_semantics() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/connections/main_tcp.json",
+        json!({
+            "id": "main-tcp",
+            "name": "主控 TCP",
+            "enabled": true,
+            "kind": "tcp",
+            "tcp": {
+                "host": "127.0.0.1",
+                "port": 502
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/signals/pressure.json",
+        json!({
+            "id": "pressure",
+            "name": "压力",
+            "dataType": "number",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/event_status_invalid.json",
+        json!({
+            "id": "event-status-invalid",
+            "name": "事件状态非法",
+            "enabled": true,
+            "match": {
+                "connectionId": "main-tcp",
+                "summaryKind": "event",
+                "status": 0
+            },
+            "target": {
+                "signalId": "pressure",
+                "value": 1
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/hello_value_from_invalid.json",
+        json!({
+            "id": "hello-value-from-invalid",
+            "name": "Hello 取值非法",
+            "enabled": true,
+            "match": {
+                "connectionId": "main-tcp",
+                "summaryKind": "hello"
+            },
+            "target": {
+                "signalId": "pressure",
+                "valueFrom": "summary.status"
+            }
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "feedback_mapping_summary_field_mismatch"
+    ));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "feedback_mapping_value_source_summary_mismatch"
+    ));
+}
+
+#[test]
+fn get_project_bundle_should_reject_parameterized_real_dispatch_actions() {
+    let workspace = TestWorkspace::new();
+    workspace.write_json(
+        "system/actions/pump.start.json",
+        json!({
+            "id": "pump.start",
+            "name": "开泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [
+                {
+                    "key": "speed",
+                    "name": "转速",
+                    "type": "number",
+                    "required": false
+                }
+            ],
+            "dispatch": {
+                "kind": "hmipFrame",
+                "msgType": 16,
+                "payloadHex": "0101"
+            }
+        }),
+    );
+    workspace.write_json(
+        "system/actions/valve.open.json",
+        json!({
+            "id": "valve.open",
+            "name": "开阀",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["valve"],
+            "parameters": [
+                {
+                    "key": "holdMs",
+                    "name": "保持时间",
+                    "type": "number",
+                    "required": false
+                }
+            ],
+            "dispatch": {
+                "kind": "gpioWrite",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "system/device-types/pump.json",
+        json!({
+            "id": "pump",
+            "name": "泵",
+            "allowedActions": ["pump.start"]
+        }),
+    );
+    workspace.write_json(
+        "system/device-types/valve.json",
+        json!({
+            "id": "valve",
+            "name": "阀",
+            "allowedActions": ["valve.open"]
+        }),
+    );
+    write_project_definition(&workspace, "project-a", "project-a");
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "action_dispatch_parameters_not_supported"
+    ));
+    assert_eq!(
+        count_diagnostic(
+            &bundle.diagnostics,
+            "action_dispatch_parameters_not_supported"
+        ),
+        2
+    );
 }
 
 #[test]

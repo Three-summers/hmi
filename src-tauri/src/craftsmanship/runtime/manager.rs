@@ -103,24 +103,28 @@ impl LoadedRecipeRuntime {
         let devices = bundle
             .devices
             .iter()
+            .filter(|device| device.enabled)
             .cloned()
             .map(|device| (device.id.clone(), device))
             .collect();
         let connections = bundle
             .connections
             .iter()
+            .filter(|connection| connection.enabled)
             .cloned()
             .map(|connection| (connection.id.clone(), connection))
             .collect();
         let signals = bundle
             .signals
             .iter()
+            .filter(|signal| signal.enabled)
             .cloned()
             .map(|signal| (signal.id.clone(), signal))
             .collect::<HashMap<_, _>>();
         let signal_sources = bundle
             .signals
             .iter()
+            .filter(|signal| signal.enabled)
             .filter_map(|signal| {
                 signal
                     .source
@@ -128,7 +132,12 @@ impl LoadedRecipeRuntime {
                     .map(|source| (source.clone(), signal.id.clone()))
             })
             .collect();
-        let feedback_mappings = bundle.feedback_mappings.clone();
+        let feedback_mappings = bundle
+            .feedback_mappings
+            .iter()
+            .filter(|mapping| mapping.enabled)
+            .cloned()
+            .collect();
 
         Self {
             bundle,

@@ -104,6 +104,15 @@ pub(super) fn validate_project_resources(
     recipes: &[RecipeDefinition],
 ) -> Vec<CraftsmanshipDiagnostic> {
     let mut diagnostics = Vec::new();
+    if !project.enabled {
+        diagnostics.push(diagnostic_error(
+            "project_disabled",
+            format!("project `{}` is disabled", project.id),
+            Some(project.source_path.clone()),
+            Some(project.id.clone()),
+        ));
+    }
+
     let action_map = system
         .actions
         .iter()
@@ -122,10 +131,10 @@ pub(super) fn validate_project_resources(
         .iter()
         .map(|device| (device.id.as_str(), device))
         .collect::<HashMap<_, _>>();
-    let signal_ids = signals
+    let signal_map = signals
         .iter()
-        .map(|signal| signal.id.as_str())
-        .collect::<HashSet<_>>();
+        .map(|signal| (signal.id.as_str(), signal))
+        .collect::<HashMap<_, _>>();
     let mut used_action_ids = HashSet::new();
     let mut seen_connection_ids = HashSet::new();
     let mut seen_device_ids = HashSet::new();
@@ -230,7 +239,7 @@ pub(super) fn validate_project_resources(
             mapping,
             &connection_map,
             &device_map,
-            &signal_ids,
+            &signal_map,
             &mut diagnostics,
         );
     }
@@ -253,7 +262,7 @@ pub(super) fn validate_project_resources(
             }
             validate_interlock_condition(
                 &rule.condition,
-                &signal_ids,
+                &signal_map,
                 &interlocks.source_path,
                 &rule.id,
                 &mut diagnostics,
@@ -310,7 +319,7 @@ pub(super) fn validate_project_resources(
                 &action_map,
                 &device_type_map,
                 &device_map,
-                &signal_ids,
+                &signal_map,
                 &recipe.source_path,
                 recipe.id.as_str(),
                 step,
@@ -321,7 +330,7 @@ pub(super) fn validate_project_resources(
 
     for action_id in used_action_ids {
         if let Some(action) = action_map.get(action_id).copied() {
-            validate_action_completion_against_project(action, &signal_ids, &mut diagnostics);
+            validate_action_completion_against_project(action, &signal_map, &mut diagnostics);
         }
     }
 
@@ -332,7 +341,7 @@ fn validate_recipe_step(
     action_map: &HashMap<&str, &ActionDefinition>,
     device_type_map: &HashMap<&str, &DeviceTypeDefinition>,
     device_map: &HashMap<&str, &DeviceInstance>,
-    signal_ids: &HashSet<&str>,
+    signal_map: &HashMap<&str, &SignalDefinition>,
     source_path: &str,
     recipe_id: &str,
     step: &RecipeStep,
@@ -419,8 +428,8 @@ fn validate_recipe_step(
     }
 
     if let Some(signal_id) = step.parameters.get("signalId").and_then(Value::as_str) {
-        if !signal_ids.contains(signal_id) {
-            diagnostics.push(diagnostic_error(
+        match signal_map.get(signal_id).copied() {
+            None => diagnostics.push(diagnostic_error(
                 "recipe_unknown_signal",
                 format!(
                     "recipe `{}` step `{}` references unknown signal `{}`",
@@ -428,7 +437,17 @@ fn validate_recipe_step(
                 ),
                 Some(source_path.to_string()),
                 Some(step.id.clone()),
-            ));
+            )),
+            Some(signal) if !signal.enabled => diagnostics.push(diagnostic_error(
+                "recipe_signal_disabled",
+                format!(
+                    "recipe `{}` step `{}` references disabled signal `{}`",
+                    recipe_id, step.id, signal_id
+                ),
+                Some(source_path.to_string()),
+                Some(step.id.clone()),
+            )),
+            Some(_) => {}
         }
     }
 }
@@ -497,6 +516,16 @@ fn validate_action_device_binding(
         ));
         return;
     };
+
+    if !device.enabled {
+        diagnostics.push(diagnostic_error(
+            "device_disabled",
+            format!("{context} `{entity_id}` references disabled device `{device_id}`"),
+            Some(source_path.to_string()),
+            Some(entity_id.to_string()),
+        ));
+        return;
+    }
 
     if !action.allowed_device_types.is_empty()
         && !action
@@ -639,7 +668,7 @@ fn validate_action_device_binding(
 
 fn validate_interlock_condition(
     condition: &InterlockCondition,
-    signal_ids: &HashSet<&str>,
+    signal_map: &HashMap<&str, &SignalDefinition>,
     source_path: &str,
     rule_id: &str,
     diagnostics: &mut Vec<CraftsmanshipDiagnostic>,
@@ -671,7 +700,7 @@ fn validate_interlock_condition(
         }
 
         for item in &condition.items {
-            validate_interlock_condition(item, signal_ids, source_path, rule_id, diagnostics);
+            validate_interlock_condition(item, signal_map, source_path, rule_id, diagnostics);
         }
 
         return;
@@ -694,13 +723,21 @@ fn validate_interlock_condition(
             Some(source_path.to_string()),
             Some(rule_id.to_string()),
         )),
-        Some(signal_id) if !signal_ids.contains(signal_id) => diagnostics.push(diagnostic_error(
-            "interlock_unknown_signal",
-            format!("interlock rule `{rule_id}` references unknown signal `{signal_id}`"),
-            Some(source_path.to_string()),
-            Some(rule_id.to_string()),
-        )),
-        _ => {}
+        Some(signal_id) => match signal_map.get(signal_id).copied() {
+            None => diagnostics.push(diagnostic_error(
+                "interlock_unknown_signal",
+                format!("interlock rule `{rule_id}` references unknown signal `{signal_id}`"),
+                Some(source_path.to_string()),
+                Some(rule_id.to_string()),
+            )),
+            Some(signal) if !signal.enabled => diagnostics.push(diagnostic_error(
+                "interlock_signal_disabled",
+                format!("interlock rule `{rule_id}` references disabled signal `{signal_id}`"),
+                Some(source_path.to_string()),
+                Some(rule_id.to_string()),
+            )),
+            Some(_) => {}
+        },
     }
 
     match condition.operator.as_deref() {
@@ -867,6 +904,18 @@ fn validate_action_dispatch_definition(
 ) {
     match dispatch.kind.as_deref() {
         Some("hmipFrame") => {
+            if !action.parameters.is_empty() {
+                diagnostics.push(diagnostic_error(
+                    "action_dispatch_parameters_not_supported",
+                    format!(
+                        "action `{}` uses HMIP dispatch; only fixed payload dispatch is supported so action parameters are not allowed",
+                        action.id
+                    ),
+                    Some(action.source_path.clone()),
+                    Some(action.id.clone()),
+                ));
+            }
+
             if !matches!(action.target_mode.as_deref(), Some("required")) {
                 diagnostics.push(diagnostic_error(
                     "action_dispatch_requires_device_target",
@@ -943,6 +992,18 @@ fn validate_action_dispatch_definition(
             }
         }
         Some("gpioWrite") => {
+            if !action.parameters.is_empty() {
+                diagnostics.push(diagnostic_error(
+                    "action_dispatch_parameters_not_supported",
+                    format!(
+                        "action `{}` uses GPIO dispatch; only fixed boolean values are supported so action parameters are not allowed",
+                        action.id
+                    ),
+                    Some(action.source_path.clone()),
+                    Some(action.id.clone()),
+                ));
+            }
+
             if !matches!(action.target_mode.as_deref(), Some("required")) {
                 diagnostics.push(diagnostic_error(
                     "action_dispatch_requires_device_target",
@@ -1110,6 +1171,19 @@ fn validate_device_transport_definition(
                 return;
             };
 
+            if !connection.enabled {
+                diagnostics.push(diagnostic_error(
+                    "device_transport_disabled_connection",
+                    format!(
+                        "device `{}` references disabled connection `{connection_id}`",
+                        device.id
+                    ),
+                    Some(device.source_path.clone()),
+                    Some(device.id.clone()),
+                ));
+                return;
+            }
+
             if connection.kind.as_deref() != transport.kind.as_deref() {
                 diagnostics.push(diagnostic_error(
                     "device_transport_connection_kind_mismatch",
@@ -1175,7 +1249,7 @@ fn validate_feedback_mapping_definition(
     mapping: &FeedbackMappingDefinition,
     connection_map: &HashMap<&str, &ConnectionDefinition>,
     device_map: &HashMap<&str, &DeviceInstance>,
-    signal_ids: &HashSet<&str>,
+    signal_map: &HashMap<&str, &SignalDefinition>,
     diagnostics: &mut Vec<CraftsmanshipDiagnostic>,
 ) {
     let Some(connection) = connection_map
@@ -1194,6 +1268,19 @@ fn validate_feedback_mapping_definition(
         return;
     };
 
+    if mapping.enabled && !connection.enabled {
+        diagnostics.push(diagnostic_error(
+            "feedback_mapping_disabled_connection",
+            format!(
+                "feedback mapping `{}` references disabled connection `{}`",
+                mapping.id, connection.id
+            ),
+            Some(mapping.source_path.clone()),
+            Some(mapping.id.clone()),
+        ));
+        return;
+    }
+
     if !matches!(connection.kind.as_deref(), Some("tcp") | Some("serial")) {
         diagnostics.push(diagnostic_error(
             "feedback_mapping_invalid_connection_kind",
@@ -1209,18 +1296,8 @@ fn validate_feedback_mapping_definition(
     }
 
     if let Some(summary_kind) = mapping.matcher.summary_kind.as_deref() {
-        if !matches!(
-            summary_kind,
-            "hello"
-                | "helloAck"
-                | "hello_ack"
-                | "heartbeat"
-                | "request"
-                | "response"
-                | "event"
-                | "error"
-                | "raw"
-        ) {
+        let summary_kind = normalize_feedback_summary_kind(summary_kind);
+        if !is_valid_feedback_summary_kind(summary_kind) {
             diagnostics.push(diagnostic_error(
                 "feedback_mapping_invalid_summary_kind",
                 format!(
@@ -1230,6 +1307,39 @@ fn validate_feedback_mapping_definition(
                 Some(mapping.source_path.clone()),
                 Some(mapping.id.clone()),
             ));
+        } else {
+            for (field_name, is_present) in [
+                ("requestId", mapping.matcher.request_id.is_some()),
+                ("status", mapping.matcher.status.is_some()),
+                ("eventId", mapping.matcher.event_id.is_some()),
+                ("errorCode", mapping.matcher.error_code.is_some()),
+            ] {
+                if is_present && !summary_kind_supports_match_field(summary_kind, field_name) {
+                    diagnostics.push(diagnostic_error(
+                        "feedback_mapping_summary_field_mismatch",
+                        format!(
+                            "feedback mapping `{}` declares summaryKind `{summary_kind}` but matcher field `{field_name}` is not applicable",
+                            mapping.id
+                        ),
+                        Some(mapping.source_path.clone()),
+                        Some(mapping.id.clone()),
+                    ));
+                }
+            }
+
+            if let Some(value_from) = mapping.target.value_from.as_deref() {
+                if !summary_kind_supports_value_source(summary_kind, value_from) {
+                    diagnostics.push(diagnostic_error(
+                        "feedback_mapping_value_source_summary_mismatch",
+                        format!(
+                            "feedback mapping `{}` declares summaryKind `{summary_kind}` but valueFrom `{value_from}` is not applicable",
+                            mapping.id
+                        ),
+                        Some(mapping.source_path.clone()),
+                        Some(mapping.id.clone()),
+                    ));
+                }
+            }
         }
     }
 
@@ -1237,19 +1347,29 @@ fn validate_feedback_mapping_definition(
     let device_id = mapping.target.device_id.as_deref();
     let feedback_key = mapping.target.feedback_key.as_deref();
     match (signal_id, device_id, feedback_key) {
-        (Some(signal_id), None, None) => {
-            if !signal_ids.contains(signal_id) {
+        (Some(signal_id), None, None) => match signal_map.get(signal_id).copied() {
+            None => diagnostics.push(diagnostic_error(
+                "feedback_mapping_unknown_signal",
+                format!(
+                    "feedback mapping `{}` references unknown signal `{signal_id}`",
+                    mapping.id
+                ),
+                Some(mapping.source_path.clone()),
+                Some(mapping.id.clone()),
+            )),
+            Some(signal) if mapping.enabled && !signal.enabled => {
                 diagnostics.push(diagnostic_error(
-                    "feedback_mapping_unknown_signal",
+                    "feedback_mapping_signal_disabled",
                     format!(
-                        "feedback mapping `{}` references unknown signal `{signal_id}`",
+                        "feedback mapping `{}` references disabled signal `{signal_id}`",
                         mapping.id
                     ),
                     Some(mapping.source_path.clone()),
                     Some(mapping.id.clone()),
-                ));
+                ))
             }
-        }
+            Some(_) => {}
+        },
         (None, Some(device_id), Some(feedback_key)) => {
             let Some(device) = device_map.get(device_id).copied() else {
                 diagnostics.push(diagnostic_error(
@@ -1263,6 +1383,19 @@ fn validate_feedback_mapping_definition(
                 ));
                 return;
             };
+
+            if mapping.enabled && !device.enabled {
+                diagnostics.push(diagnostic_error(
+                    "feedback_mapping_device_disabled",
+                    format!(
+                        "feedback mapping `{}` references disabled device `{device_id}`",
+                        mapping.id
+                    ),
+                    Some(mapping.source_path.clone()),
+                    Some(mapping.id.clone()),
+                ));
+                return;
+            }
 
             if !device.tags.contains_key(feedback_key) {
                 diagnostics.push(diagnostic_error(
@@ -1342,6 +1475,43 @@ fn is_valid_feedback_value_source(value_from: &str) -> bool {
     )
 }
 
+fn normalize_feedback_summary_kind(summary_kind: &str) -> &str {
+    match summary_kind {
+        "hello_ack" => "helloAck",
+        _ => summary_kind,
+    }
+}
+
+fn is_valid_feedback_summary_kind(summary_kind: &str) -> bool {
+    matches!(
+        summary_kind,
+        "hello" | "helloAck" | "heartbeat" | "request" | "response" | "event" | "error" | "raw"
+    )
+}
+
+fn summary_kind_supports_match_field(summary_kind: &str, field_name: &str) -> bool {
+    match field_name {
+        "requestId" => matches!(summary_kind, "request" | "response"),
+        "status" => summary_kind == "response",
+        "eventId" => summary_kind == "event",
+        "errorCode" => summary_kind == "error",
+        _ => true,
+    }
+}
+
+fn summary_kind_supports_value_source(summary_kind: &str, value_from: &str) -> bool {
+    match value_from {
+        "summary.requestId" => matches!(summary_kind, "request" | "response"),
+        "summary.status" => summary_kind == "response",
+        "summary.eventId" => summary_kind == "event",
+        "summary.errorCode" => summary_kind == "error",
+        "summary.bodyBase64" | "summary.bodyHex" => {
+            matches!(summary_kind, "request" | "response" | "event")
+        }
+        _ => true,
+    }
+}
+
 fn validate_completion_operator_and_value(
     action: &ActionDefinition,
     completion: &ActionCompletionDefinition,
@@ -1386,7 +1556,7 @@ fn validate_completion_operator_and_value(
 
 fn validate_action_completion_against_project(
     action: &ActionDefinition,
-    signal_ids: &HashSet<&str>,
+    signal_map: &HashMap<&str, &SignalDefinition>,
     diagnostics: &mut Vec<CraftsmanshipDiagnostic>,
 ) {
     let Some(completion) = action.completion.as_ref() else {
@@ -1395,8 +1565,8 @@ fn validate_action_completion_against_project(
 
     if matches!(completion.r#type.as_deref(), Some("signalCompare")) {
         if let Some(signal_id) = completion.signal_id.as_deref() {
-            if !signal_ids.contains(signal_id) {
-                diagnostics.push(diagnostic_error(
+            match signal_map.get(signal_id).copied() {
+                None => diagnostics.push(diagnostic_error(
                     "action_completion_unknown_signal",
                     format!(
                         "action `{}` completion references unknown signal `{}`",
@@ -1404,7 +1574,17 @@ fn validate_action_completion_against_project(
                     ),
                     Some(action.source_path.clone()),
                     Some(action.id.clone()),
-                ));
+                )),
+                Some(signal) if !signal.enabled => diagnostics.push(diagnostic_error(
+                    "action_completion_signal_disabled",
+                    format!(
+                        "action `{}` completion references disabled signal `{}`",
+                        action.id, signal_id
+                    ),
+                    Some(action.source_path.clone()),
+                    Some(action.id.clone()),
+                )),
+                Some(_) => {}
             }
         }
     }

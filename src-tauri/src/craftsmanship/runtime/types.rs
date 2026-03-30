@@ -184,6 +184,8 @@ impl RecipeRuntimeSnapshot {
         self.finished_at_ms = None;
         self.active_step_id = None;
         self.active_step_phase = None;
+        self.signal_values.clear();
+        self.runtime_values.clear();
         self.last_error = None;
         self.last_message = Some("recipe runtime started".to_string());
         reset_step_collection(&mut self.recipe_steps);
