@@ -4,7 +4,6 @@ import path from "path";
 
 const filesChartsModules = [
   "/src/components/views/Files/FilesChartPreview.tsx",
-  "/src/components/views/Files/LazyFilesChartPreview.tsx",
   "/src/components/views/Files/ChartPanel.tsx",
   "/src/hooks/useChartData.ts",
 ];
@@ -35,6 +34,7 @@ export default defineConfig({
     minify: "esbuild",
     rollupOptions: {
       output: {
+        onlyExplicitManualChunks: true,
         manualChunks(id) {
           const normalizedId = id.split(path.sep).join("/");
 

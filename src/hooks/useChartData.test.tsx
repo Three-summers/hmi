@@ -179,6 +179,66 @@ describe("hooks/useChartData", () => {
         expect(chart.destroy).toHaveBeenCalledTimes(1);
     });
 
+    it("图表隐藏且放大图已打开时应销毁放大图实例", async () => {
+        const { useChartData } = await import("./useChartData");
+        const csvData = buildCsv();
+
+        const { result, rerender } = renderHook(
+            ({ isChartsVisible }) =>
+                useChartData({
+                    csvData,
+                    theme: "dark",
+                    scaleFactor: 1,
+                    isChartsVisible,
+                }),
+            {
+                initialProps: { isChartsVisible: true },
+            },
+        );
+
+        const container = document.createElement("div");
+        Object.defineProperty(container, "clientWidth", {
+            value: 400,
+            configurable: true,
+        });
+
+        const enlargedContainer = document.createElement("div");
+        Object.defineProperty(enlargedContainer, "clientWidth", {
+            value: 800,
+            configurable: true,
+        });
+        Object.defineProperty(enlargedContainer, "clientHeight", {
+            value: 520,
+            configurable: true,
+        });
+
+        act(() => {
+            result.current.setChartRef(1, container);
+        });
+
+        await act(async () => {
+            flushRaf();
+        });
+
+        act(() => {
+            result.current.enlargedChartRef.current = enlargedContainer;
+            result.current.setEnlargedColumn(1);
+        });
+
+        await act(async () => {
+            flushRaf();
+        });
+
+        const uPlotMod = await import("uplot");
+        const enlargedChart = (uPlotMod.default as any).instances[1];
+
+        expect(enlargedChart).toBeDefined();
+
+        rerender({ isChartsVisible: false });
+
+        expect(enlargedChart.destroy).toHaveBeenCalledTimes(1);
+    });
+
     it("放大图初始化异常时应进入 enlargedChartError，并支持 retryEnlargedChart 恢复", async () => {
         const { useChartData } = await import("./useChartData");
         const csvData = buildCsv();
