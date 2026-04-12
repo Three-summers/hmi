@@ -1,16 +1,14 @@
-import { lazy, type LazyExoticComponent } from "react";
 import type { HighlightStatus, ViewId } from "@/types";
 
 /**
  * HMI 视图注册表（View Registry）
  *
  * 设计目的：
- * - 统一管理“主导航/视图加载/图标/默认文案 key”等元信息，减少分散的硬编码
+ * - 统一管理主导航的图标与文案 key 等元信息，减少分散的硬编码
  * - 让 MainLayout 作为可复用的“壳”，未来在其它项目中只需要替换/扩展注册表即可复用整套布局
  *
  * 使用方式：
  * - NavPanel：使用 `HMI_NAV_ITEMS` 渲染导航按钮与图标
- * - InfoPanel：使用 `HMI_VIEW_COMPONENTS` 渲染主页面组件（支持 Keep-Alive）
  */
 
 export interface HmiNavItem {
@@ -19,13 +17,6 @@ export interface HmiNavItem {
     icon: JSX.Element;
     highlight?: HighlightStatus;
 }
-
-const JobsView = lazy(() => import("@/components/views/Jobs"));
-const RecipesView = lazy(() => import("@/components/views/Recipes"));
-const FilesView = lazy(() => import("@/components/views/Files"));
-const SetupView = lazy(() => import("@/components/views/Setup"));
-const AlarmsView = lazy(() => import("@/components/views/Alarms"));
-const HelpView = lazy(() => import("@/components/views/Help"));
 
 export const HMI_NAV_ITEMS: HmiNavItem[] = [
     {
@@ -83,12 +74,3 @@ export const HMI_NAV_ITEMS: HmiNavItem[] = [
         ),
     },
 ];
-
-export const HMI_VIEW_COMPONENTS = {
-    jobs: JobsView,
-    recipes: RecipesView,
-    files: FilesView,
-    setup: SetupView,
-    alarms: AlarmsView,
-    help: HelpView,
-} satisfies Record<ViewId, LazyExoticComponent<() => JSX.Element>>;
