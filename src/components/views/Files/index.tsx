@@ -16,7 +16,7 @@
  * @module Files
  */
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
 import { Tabs } from "@/components/common";
 import type { CommandButtonConfig } from "@/types";
@@ -40,6 +40,9 @@ export default function FilesView() {
 
     const fileTree = useFileTree(t);
     const { preview, selectFile, retryPreview } = useFilePreview(t);
+    const [activatedChartPreviewKey, setActivatedChartPreviewKey] = useState<
+        string | null
+    >(null);
 
     const commands = useMemo<CommandButtonConfig[]>(
         () => [
@@ -70,12 +73,34 @@ export default function FilesView() {
 
     useRegisterViewCommands("files", commands, isViewActive);
 
+    const chartPreviewKey = preview.csvData
+        ? (preview.selectedFilePath ?? preview.selectedFileName ?? "__csv-preview__")
+        : null;
     const shouldRenderChartPreview =
-        isViewActive && activeTab === "overview" && !!preview.csvData;
+        isViewActive && activeTab === "overview" && chartPreviewKey !== null;
+    const hasActivatedChartPreview =
+        chartPreviewKey !== null && activatedChartPreviewKey === chartPreviewKey;
+    const shouldMountChartPreview =
+        preview.csvData !== null &&
+        (shouldRenderChartPreview || hasActivatedChartPreview);
 
-    const chartContent = shouldRenderChartPreview && preview.csvData
+    useEffect(() => {
+        if (chartPreviewKey === null) {
+            setActivatedChartPreviewKey(null);
+            return;
+        }
+
+        if (shouldRenderChartPreview) {
+            setActivatedChartPreviewKey((currentKey) =>
+                currentKey === chartPreviewKey ? currentKey : chartPreviewKey,
+            );
+        }
+    }, [chartPreviewKey, shouldRenderChartPreview]);
+
+    const chartContent = shouldMountChartPreview && preview.csvData
         ? (
               <LazyFilesChartPreview
+                  isActive={shouldRenderChartPreview}
                   title={preview.selectedFileName ?? preview.selectedFilePath ?? ""}
                   csvData={preview.csvData}
                   loadingText={t("common.loading")}

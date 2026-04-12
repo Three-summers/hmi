@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewCommandProvider } from "@/components/layout/ViewCommandContext";
@@ -33,6 +33,7 @@ const mocks = vi.hoisted(() => ({
     setEnlargedColumn: vi.fn(),
     closeEnlargedChart: vi.fn(),
     resetEnlargedZoom: vi.fn(),
+    chartMountCount: 0,
 }));
 
 vi.mock("@/hooks/useCanvasScale", () => ({
@@ -89,7 +90,22 @@ vi.mock("@/hooks/useNotify", () => ({
 }));
 
 vi.mock("./LazyFilesChartPreview", () => ({
-    LazyFilesChartPreview: () => <div data-testid="lazy-chart-preview" />,
+    LazyFilesChartPreview: ({ isActive }: { isActive: boolean }) => {
+        const mountIdRef = useRef<number | null>(null);
+
+        if (mountIdRef.current === null) {
+            mocks.chartMountCount += 1;
+            mountIdRef.current = mocks.chartMountCount;
+        }
+
+        return (
+            <div
+                data-testid="lazy-chart-preview"
+                data-active={String(isActive)}
+                data-mount-id={String(mountIdRef.current)}
+            />
+        );
+    },
 }));
 
 import FilesView from "./index";
@@ -129,6 +145,7 @@ describe("FilesView", () => {
         vi.clearAllMocks();
         mocks.preview = mocks.createPreview();
         mocks.retryPreview.mockResolvedValue(undefined);
+        mocks.chartMountCount = 0;
     });
 
     it("刷新命令应触发 retryTree 与 retryPreview", async () => {
@@ -167,6 +184,58 @@ describe("FilesView", () => {
         renderFilesView(true);
 
         expect(screen.getByTestId("lazy-chart-preview")).toBeInTheDocument();
+    });
+
+    it("已激活的 CSV 图表子树在概览与说明切换间保持挂载", () => {
+        mocks.preview = {
+            selectedFilePath: "/logs/demo.csv",
+            selectedFileName: "demo.csv",
+            loading: false,
+            error: null,
+            content: "time,value\n0,1\n1,2",
+            csvData: {
+                headers: ["time", "value"],
+                rows: [
+                    [0, 1],
+                    [1, 2],
+                ],
+            },
+            isCsvFile: true,
+        };
+
+        renderFilesView(true);
+
+        expect(screen.getByTestId("lazy-chart-preview")).toHaveAttribute(
+            "data-mount-id",
+            "1",
+        );
+        expect(screen.getByTestId("lazy-chart-preview")).toHaveAttribute(
+            "data-active",
+            "true",
+        );
+
+        fireEvent.click(screen.getByRole("tab", { name: "说明" }));
+
+        expect(screen.getByTestId("lazy-chart-preview")).toHaveAttribute(
+            "data-mount-id",
+            "1",
+        );
+        expect(screen.getByTestId("lazy-chart-preview")).toHaveAttribute(
+            "data-active",
+            "false",
+        );
+
+        fireEvent.click(screen.getByRole("tab", { name: "概览" }));
+
+        expect(screen.getByTestId("lazy-chart-preview")).toHaveAttribute(
+            "data-mount-id",
+            "1",
+        );
+        expect(screen.getByTestId("lazy-chart-preview")).toHaveAttribute(
+            "data-active",
+            "true",
+        );
+        expect(mocks.chartMountCount).toBe(1);
     });
 
     it("CSV 预览在非激活视图中跳过图表子树并保留原始文本", () => {

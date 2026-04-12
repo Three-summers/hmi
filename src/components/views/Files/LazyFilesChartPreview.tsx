@@ -65,6 +65,7 @@ class LocalErrorBoundary extends Component<
 }
 
 export function LazyFilesChartPreview({
+    isActive,
     loadingText,
     chartInitErrorText,
     title,
@@ -96,6 +97,7 @@ export function LazyFilesChartPreview({
                 }
             >
                 <FilesChartPreview
+                    isActive={isActive}
                     title={title}
                     csvData={csvData}
                     showMoreText={showMoreText}

@@ -7,6 +7,7 @@ import type { CsvData } from "@/types";
 import { ChartPanel } from "./ChartPanel";
 
 export interface FilesChartPreviewProps {
+    isActive: boolean;
     title: string;
     csvData: CsvData;
     showMoreText: string;
@@ -21,6 +22,7 @@ export interface FilesChartPreviewProps {
 }
 
 export default function FilesChartPreview({
+    isActive,
     title,
     csvData,
     showMoreText,
@@ -40,7 +42,7 @@ export default function FilesChartPreview({
         csvData: deferredCsvData,
         theme,
         scaleFactor,
-        isChartsVisible: true,
+        isChartsVisible: isActive,
     });
 
     return (
