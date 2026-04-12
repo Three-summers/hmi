@@ -1,6 +1,6 @@
+import type { ReactNode } from "react";
 import { StatusIndicator } from "@/components/common";
 import type { PreviewConfig } from "@/types";
-import { ChartPanel, type ChartPanelProps } from "./ChartPanel";
 import filesStyles from "./Files.module.css";
 
 export interface FilePreviewPanelProps {
@@ -10,28 +10,7 @@ export interface FilePreviewPanelProps {
     retryText: string;
     retryDisabled: boolean;
     onRetryPreview: () => void;
-    showMoreText: string;
-    showLessText: string;
-    resetText: string;
-    closeText: string;
-    zoomHintText: string;
-    chartInitErrorText: string;
-    chartEmptyDataText: string;
-    chartEmptySelectionText: string;
-    chartProps: Omit<
-        ChartPanelProps,
-        | "csvData"
-        | "title"
-        | "showMoreText"
-        | "showLessText"
-        | "resetText"
-        | "closeText"
-        | "zoomHintText"
-        | "retryText"
-        | "chartInitErrorText"
-        | "chartEmptyDataText"
-        | "chartEmptySelectionText"
-    > | null;
+    chartContent: ReactNode | null;
 }
 
 /**
@@ -44,15 +23,7 @@ export function FilePreviewPanel({
     retryText,
     retryDisabled,
     onRetryPreview,
-    showMoreText,
-    showLessText,
-    resetText,
-    closeText,
-    zoomHintText,
-    chartInitErrorText,
-    chartEmptyDataText,
-    chartEmptySelectionText,
-    chartProps,
+    chartContent,
 }: FilePreviewPanelProps) {
     if (!preview.selectedFilePath) {
         return (
@@ -104,24 +75,9 @@ export function FilePreviewPanel({
         );
     }
 
-    if (preview.isCsvFile && preview.csvData && chartProps) {
+    if (preview.isCsvFile && preview.csvData && chartContent !== null) {
         return (
-            <div className={filesStyles.preview}>
-                <ChartPanel
-                    title={preview.selectedFileName ?? preview.selectedFilePath}
-                    csvData={preview.csvData}
-                    showMoreText={showMoreText}
-                    showLessText={showLessText}
-                    resetText={resetText}
-                    closeText={closeText}
-                    zoomHintText={zoomHintText}
-                    retryText={retryText}
-                    chartInitErrorText={chartInitErrorText}
-                    chartEmptyDataText={chartEmptyDataText}
-                    chartEmptySelectionText={chartEmptySelectionText}
-                    {...chartProps}
-                />
-            </div>
+            <div className={filesStyles.preview}>{chartContent}</div>
         );
     }
 
