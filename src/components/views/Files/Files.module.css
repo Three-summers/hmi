@@ -224,6 +224,35 @@
     background: var(--overlay-mid);
 }
 
+.csvPreviewPane {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.csvPreviewShell {
+    flex: 0 1 12rem;
+    min-height: 8rem;
+    max-height: 40%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-bottom: var(--border-width-1) solid var(--border-color);
+}
+
+.chartContentRegion {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.chartContentRegion > * {
+    flex: 1;
+    min-height: 0;
+}
+
 /* ═══ CSV 预览 ═══ */
 .csvPreview {
     flex: 1;

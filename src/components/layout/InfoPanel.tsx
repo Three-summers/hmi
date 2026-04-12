@@ -12,7 +12,7 @@ import { memo, Suspense, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ViewId } from "@/types";
 import { StatusIndicator } from "@/components/common";
-import { HMI_VIEW_COMPONENTS } from "@/hmi/viewRegistry";
+import { HMI_VIEW_COMPONENTS } from "@/hmi/viewLoaders";
 import styles from "./InfoPanel.module.css";
 import { ViewContextProvider } from "./ViewContext";
 

@@ -1,6 +1,6 @@
+import type { ReactNode } from "react";
 import { StatusIndicator } from "@/components/common";
 import type { PreviewConfig } from "@/types";
-import { ChartPanel, type ChartPanelProps } from "./ChartPanel";
 import filesStyles from "./Files.module.css";
 
 export interface FilePreviewPanelProps {
@@ -10,28 +10,7 @@ export interface FilePreviewPanelProps {
     retryText: string;
     retryDisabled: boolean;
     onRetryPreview: () => void;
-    showMoreText: string;
-    showLessText: string;
-    resetText: string;
-    closeText: string;
-    zoomHintText: string;
-    chartInitErrorText: string;
-    chartEmptyDataText: string;
-    chartEmptySelectionText: string;
-    chartProps: Omit<
-        ChartPanelProps,
-        | "csvData"
-        | "title"
-        | "showMoreText"
-        | "showLessText"
-        | "resetText"
-        | "closeText"
-        | "zoomHintText"
-        | "retryText"
-        | "chartInitErrorText"
-        | "chartEmptyDataText"
-        | "chartEmptySelectionText"
-    > | null;
+    chartContent: ReactNode | null;
 }
 
 /**
@@ -44,16 +23,15 @@ export function FilePreviewPanel({
     retryText,
     retryDisabled,
     onRetryPreview,
-    showMoreText,
-    showLessText,
-    resetText,
-    closeText,
-    zoomHintText,
-    chartInitErrorText,
-    chartEmptyDataText,
-    chartEmptySelectionText,
-    chartProps,
+    chartContent,
 }: FilePreviewPanelProps) {
+    const textPreview = (
+        <div className={filesStyles.textPreview}>
+            <div className={filesStyles.textHeader}>{preview.selectedFileName}</div>
+            <pre className={filesStyles.textContent}>{preview.content}</pre>
+        </div>
+    );
+
     if (!preview.selectedFilePath) {
         return (
             <div className={filesStyles.preview}>
@@ -104,35 +82,20 @@ export function FilePreviewPanel({
         );
     }
 
-    if (preview.isCsvFile && preview.csvData && chartProps) {
+    if (preview.isCsvFile && preview.csvData) {
         return (
             <div className={filesStyles.preview}>
-                <ChartPanel
-                    title={preview.selectedFileName ?? preview.selectedFilePath}
-                    csvData={preview.csvData}
-                    showMoreText={showMoreText}
-                    showLessText={showLessText}
-                    resetText={resetText}
-                    closeText={closeText}
-                    zoomHintText={zoomHintText}
-                    retryText={retryText}
-                    chartInitErrorText={chartInitErrorText}
-                    chartEmptyDataText={chartEmptyDataText}
-                    chartEmptySelectionText={chartEmptySelectionText}
-                    {...chartProps}
-                />
+                <div className={filesStyles.csvPreviewPane}>
+                    <div className={filesStyles.csvPreviewShell}>{textPreview}</div>
+                    {chartContent !== null && (
+                        <div className={filesStyles.chartContentRegion}>
+                            {chartContent}
+                        </div>
+                    )}
+                </div>
             </div>
         );
     }
 
-    return (
-        <div className={filesStyles.preview}>
-            <div className={filesStyles.textPreview}>
-                <div className={filesStyles.textHeader}>
-                    {preview.selectedFileName}
-                </div>
-                <pre className={filesStyles.textContent}>{preview.content}</pre>
-            </div>
-        </div>
-    );
+    return <div className={filesStyles.preview}>{textPreview}</div>;
 }

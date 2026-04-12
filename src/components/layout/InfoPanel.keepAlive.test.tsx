@@ -29,7 +29,7 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
             return <div data-testid="dummy">dummy</div>;
         }
 
-        vi.doMock("@/hmi/viewRegistry", () => ({
+        vi.doMock("@/hmi/viewLoaders", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: JobsView,
                 recipes: DummyView,
@@ -75,7 +75,7 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
             return <div>dummy</div>;
         }
 
-        vi.doMock("@/hmi/viewRegistry", () => ({
+        vi.doMock("@/hmi/viewLoaders", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: JobsView,
                 recipes: DummyView,
@@ -137,7 +137,7 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
             return <div>dummy</div>;
         }
 
-        vi.doMock("@/hmi/viewRegistry", () => ({
+        vi.doMock("@/hmi/viewLoaders", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: JobsView,
                 recipes: DummyView,
@@ -193,7 +193,7 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
             return <div>dummy</div>;
         }
 
-        vi.doMock("@/hmi/viewRegistry", () => ({
+        vi.doMock("@/hmi/viewLoaders", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: JobsView,
                 recipes: DummyView,
@@ -264,7 +264,7 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
             return <div>dummy</div>;
         }
 
-        vi.doMock("@/hmi/viewRegistry", () => ({
+        vi.doMock("@/hmi/viewLoaders", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: JobsView,
                 recipes: DummyView,
@@ -367,7 +367,7 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
             return <div data-testid="dummy">dummy</div>;
         }
 
-        vi.doMock("@/hmi/viewRegistry", () => ({
+        vi.doMock("@/hmi/viewLoaders", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: JobsView,
                 recipes: DummyView,
@@ -442,7 +442,7 @@ describe("InfoPanel Keep-Alive 副作用管理", () => {
             return <div>dummy</div>;
         }
 
-        vi.doMock("@/hmi/viewRegistry", () => ({
+        vi.doMock("@/hmi/viewLoaders", () => ({
             HMI_VIEW_COMPONENTS: {
                 jobs: SuspendsView,
                 recipes: DummyView,

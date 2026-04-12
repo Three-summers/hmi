@@ -16,36 +16,33 @@
  * @module Files
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useTranslation } from "react-i18next";
-import "uplot/dist/uPlot.min.css";
-import { useAppStore } from "@/stores";
 import { Tabs } from "@/components/common";
 import type { CommandButtonConfig } from "@/types";
 import { useIsViewActive } from "@/components/layout/ViewContext";
 import { useRegisterViewCommands } from "@/components/layout/ViewCommandContext";
 import { FILES_CONFIG } from "@/constants";
-import {
-    useCanvasScale,
-    useChartData,
-    useFilePreview,
-    useFileTree,
-    useNotify,
-} from "@/hooks";
+import { useFilePreview } from "@/hooks/useFilePreview";
+import { useFileTree } from "@/hooks/useFileTree";
+import { useNotify } from "@/hooks/useNotify";
 import styles from "../shared.module.css";
 import filesStyles from "./Files.module.css";
 import { FileTreePanel } from "./FileTreePanel";
 import { FilePreviewPanel } from "./FilePreviewPanel";
+import { LazyFilesChartPreview } from "./LazyFilesChartPreview";
 export default function FilesView() {
     const { t } = useTranslation();
     const isViewActive = useIsViewActive();
     const { info } = useNotify();
-    const theme = useAppStore((s) => s.theme);
-    const scaleFactor = useCanvasScale(16);
     const [activeTab, setActiveTab] = useState<"overview" | "info">("overview");
+    const [, startTabTransition] = useTransition();
 
     const fileTree = useFileTree(t);
     const { preview, selectFile, retryPreview } = useFilePreview(t);
+    const [activatedChartPreviewKey, setActivatedChartPreviewKey] = useState<
+        string | null
+    >(null);
 
     const commands = useMemo<CommandButtonConfig[]>(
         () => [
@@ -76,53 +73,68 @@ export default function FilesView() {
 
     useRegisterViewCommands("files", commands, isViewActive);
 
-    const charts = useChartData({
-        csvData: preview.csvData,
-        theme,
-        scaleFactor,
-        isChartsVisible: isViewActive && activeTab === "overview",
-    });
-
-    const showMoreText = preview.csvData
-        ? t("files.showMore", {
-              count: Math.max(
-                  0,
-                  preview.csvData.headers.length -
-                      1 -
-                      FILES_CONFIG.DEFAULT_VISIBLE_CHARTS,
-              ),
-          })
-        : "";
-
-    const chartProps = preview.csvData
-        ? {
-              visibleCharts: charts.visibleCharts,
-              enabledColumns: charts.enabledColumns,
-              sortedEnabledColumns: charts.sortedEnabledColumns,
-              hasMoreCharts: charts.hasMoreCharts,
-              chartColors: charts.chartColors,
-              chartError: charts.chartError,
-              onRetryCharts: charts.retryCharts,
-              enlargedColumn: charts.enlargedColumn,
-              enlargedChartRef: charts.enlargedChartRef,
-              enlargedChartError: charts.enlargedChartError,
-              onRetryEnlargedChart: charts.retryEnlargedChart,
-              onToggleColumn: charts.toggleColumn,
-              onShowMoreCharts: charts.showMoreCharts,
-              onShowLessCharts: charts.showLessCharts,
-              onSetChartRef: charts.setChartRef,
-              onOpenEnlargedChart: (colIndex: number) =>
-                  charts.setEnlargedColumn(colIndex),
-              onCloseEnlargedChart: charts.closeEnlargedChart,
-              onResetEnlargedZoom: charts.resetEnlargedZoom,
-          }
+    const chartPreviewKey = preview.csvData
+        ? (preview.selectedFilePath ?? preview.selectedFileName ?? "__csv-preview__")
         : null;
+    const shouldRenderChartPreview =
+        isViewActive && activeTab === "overview" && chartPreviewKey !== null;
+    const hasActivatedChartPreview =
+        chartPreviewKey !== null && activatedChartPreviewKey === chartPreviewKey;
+    const shouldMountChartPreview =
+        preview.csvData !== null &&
+        (shouldRenderChartPreview || hasActivatedChartPreview);
+
+    useEffect(() => {
+        if (chartPreviewKey === null) {
+            setActivatedChartPreviewKey(null);
+            return;
+        }
+
+        if (shouldRenderChartPreview) {
+            setActivatedChartPreviewKey((currentKey) =>
+                currentKey === chartPreviewKey ? currentKey : chartPreviewKey,
+            );
+        }
+    }, [chartPreviewKey, shouldRenderChartPreview]);
+
+    const chartContent = shouldMountChartPreview && preview.csvData
+        ? (
+              <LazyFilesChartPreview
+                  isActive={shouldRenderChartPreview}
+                  title={preview.selectedFileName ?? preview.selectedFilePath ?? ""}
+                  csvData={preview.csvData}
+                  loadingText={t("common.loading")}
+                  showMoreText={t("files.showMore", {
+                      count: Math.max(
+                          0,
+                          preview.csvData.headers.length -
+                              1 -
+                              FILES_CONFIG.DEFAULT_VISIBLE_CHARTS,
+                      ),
+                  })}
+                  showLessText={t("files.showLess")}
+                  resetText={t("common.reset")}
+                  closeText={t("common.close")}
+                  zoomHintText={t("files.chart.zoomHint")}
+                  retryText={t("common.retry")}
+                  chartInitErrorText={t("files.chart.initError")}
+                  chartEmptyDataText={t("files.chart.emptyData")}
+                  chartEmptySelectionText={t("files.chart.emptySelection")}
+              />
+          )
+        : null;
+
+    const handleTabChange = (tabId: "overview" | "info") => {
+        startTabTransition(() => {
+            setActiveTab(tabId);
+        });
+    };
 
     return (
         <div className={styles.view}>
             <Tabs
                 activeId={activeTab}
-                onChange={setActiveTab}
+                onChange={handleTabChange}
                 tabs={[
                     {
                         id: "overview",
@@ -152,21 +164,7 @@ export default function FilesView() {
                                         retryText={t("common.retry")}
                                         retryDisabled={preview.loading}
                                         onRetryPreview={retryPreview}
-                                        showMoreText={showMoreText}
-                                        showLessText={t("files.showLess")}
-                                        resetText={t("common.reset")}
-                                        closeText={t("common.close")}
-                                        zoomHintText={t("files.chart.zoomHint")}
-                                        chartInitErrorText={t(
-                                            "files.chart.initError",
-                                        )}
-                                        chartEmptyDataText={t(
-                                            "files.chart.emptyData",
-                                        )}
-                                        chartEmptySelectionText={t(
-                                            "files.chart.emptySelection",
-                                        )}
-                                        chartProps={chartProps}
+                                        chartContent={chartContent}
                                     />
                                 </div>
                             </>

@@ -16,7 +16,7 @@
  * @module MainLayout
  */
 
-import { memo, useCallback, useEffect } from "react";
+import { memo, useCallback } from "react";
 import { useShallow } from "zustand/shallow";
 import { TitlePanel } from "./TitlePanel";
 import { InfoPanel } from "./InfoPanel";
@@ -25,16 +25,16 @@ import { CommandPanel } from "./CommandPanel";
 import { NotificationToast } from "./NotificationToast";
 import { ViewCommandProvider } from "./ViewCommandContext";
 import { SubViewCommandProvider } from "./SubViewCommandContext";
-import { useNavigationStore, useAppStore } from "@/stores";
-import {
-    useKeyboardShortcuts,
-    useFrontendLogBridge,
-    useCommEventBridge,
-    useHmipEventBridge,
-    useHMIScale,
-    useNotify,
-} from "@/hooks";
-import { ErrorBoundary } from "@/components/common";
+import { DocumentChromeSync } from "./DocumentChromeSync";
+import { useAppStore } from "@/stores/appStore";
+import { useNavigationStore } from "@/stores/navigationStore";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useFrontendLogBridge } from "@/hooks/useFrontendLogBridge";
+import { useCommEventBridge } from "@/hooks/useCommEventBridge";
+import { useHmipEventBridge } from "@/hooks/useHmipEventBridge";
+import { useHMIScale } from "@/hooks/useHMIScale";
+import { useNotify } from "@/hooks/useNotify";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import styles from "./MainLayout.module.css";
 
 // React.memo：避免 MainLayout 因“主题/布局”等无关变化时，子面板在 props 未变化的情况下重复渲染
@@ -58,14 +58,7 @@ export function MainLayout() {
         })),
     );
 
-    // 从应用 Store 获取命令面板位置、主题与视觉效果配置
-    const { commandPanelPosition, theme, visualEffects } = useAppStore(
-        useShallow((state) => ({
-            commandPanelPosition: state.commandPanelPosition,
-            theme: state.theme,
-            visualEffects: state.visualEffects,
-        })),
-    );
+    const commandPanelPosition = useAppStore((state) => state.commandPanelPosition);
 
     // 安装全局键盘快捷键（如 Ctrl+K 打开命令面板）
     useKeyboardShortcuts();
@@ -83,16 +76,6 @@ export function MainLayout() {
 
     // 安装 HMI 缩放系统（rem + 动态根字体）
     useHMIScale();
-
-    useEffect(() => {
-        // 统一通过 data-theme 切换主题，保持 CSS 变量方案的可扩展性与低侵入性
-        document.documentElement.dataset.theme = theme;
-    }, [theme]);
-
-    useEffect(() => {
-        // 统一通过 data-effects 控制高成本视觉效果（例如 backdrop-filter）
-        document.documentElement.dataset.effects = visualEffects;
-    }, [visualEffects]);
 
     const resetToSafeView = useCallback(() => {
         // 降级策略：当关键视图（尤其是含 Canvas 绘制的 Monitor）发生异常时，
@@ -112,6 +95,8 @@ export function MainLayout() {
         <ViewCommandProvider>
             <SubViewCommandProvider>
                 <>
+                    <DocumentChromeSync />
+
                     {/* 主布局容器：通过 data-command-position 控制命令面板位置（left/right） */}
                     <div
                         className={styles.mainLayout}
