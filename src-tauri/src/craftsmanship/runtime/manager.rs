@@ -613,8 +613,9 @@ impl RecipeRuntimeManager {
         phase: RecipeRuntimePhase,
         step_id: &str,
         message: Option<String>,
+        failure: Option<RecipeRuntimeFailure>,
     ) {
-        let snapshot = {
+        let mut snapshot = {
             let mut state = self.inner.lock().await;
             let timestamp_ms = now_ms();
             state.snapshot.last_message = message.clone();
@@ -639,6 +640,10 @@ impl RecipeRuntimeManager {
             state.snapshot.active_step_phase = None;
             state.snapshot.clone()
         };
+
+        if let Some(failure) = failure {
+            snapshot.last_error = Some(failure);
+        }
 
         self.emit_event_with_app(
             app,

@@ -340,6 +340,8 @@ pub struct SafeStopStep {
     pub action_id: String,
     #[serde(default)]
     pub device_id: Option<String>,
+    #[serde(default)]
+    pub timeout_ms: Option<u64>,
     #[serde(flatten, default)]
     pub extra: BTreeMap<String, Value>,
 }

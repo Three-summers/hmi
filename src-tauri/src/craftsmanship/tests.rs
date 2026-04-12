@@ -449,6 +449,70 @@ fn scan_workspace_should_collect_project_level_diagnostics() {
 }
 
 #[test]
+fn scan_workspace_should_report_duplicate_system_identifiers() {
+    let workspace = TestWorkspace::new();
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "system/actions/pump.start-a.json",
+        json!({
+            "id": "pump.start",
+            "name": "开泵A",
+            "category": "pump",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": []
+        }),
+    );
+    workspace.write_json(
+        "system/actions/pump.start-b.json",
+        json!({
+            "id": "pump.start",
+            "name": "开泵B",
+            "category": "pump",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": []
+        }),
+    );
+    workspace.write_json(
+        "system/device-types/pump-a.json",
+        json!({
+            "id": "pump",
+            "name": "泵A",
+            "allowedActions": ["pump.start"]
+        }),
+    );
+    workspace.write_json(
+        "system/device-types/pump-b.json",
+        json!({
+            "id": "pump",
+            "name": "泵B",
+            "allowedActions": ["pump.start"]
+        }),
+    );
+
+    let summary = scan_workspace(workspace.path().to_str().unwrap()).unwrap();
+
+    assert!(has_diagnostic(&summary.diagnostics, "duplicate_action_id"));
+    assert!(has_diagnostic(
+        &summary.diagnostics,
+        "duplicate_device_type_id"
+    ));
+}
+
+#[test]
+fn scan_workspace_should_report_duplicate_project_ids() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "project-a", "project-a");
+    write_project_definition(&workspace, "project-a-shadow", "project-a");
+
+    let summary = scan_workspace(workspace.path().to_str().unwrap()).unwrap();
+
+    assert!(has_diagnostic(&summary.diagnostics, "duplicate_project_id"));
+}
+
+#[test]
 fn get_project_bundle_should_sort_steps_and_collect_diagnostics() {
     let workspace = build_workspace_fixture();
     let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
@@ -581,6 +645,40 @@ fn get_project_bundle_should_find_project_using_project_json_id() {
 }
 
 #[test]
+fn get_project_bundle_should_ignore_unrelated_malformed_project_sibling() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "renamed-directory", "project-a");
+
+    let broken_dir = workspace.path().join("projects/aaa-broken");
+    fs::create_dir_all(&broken_dir).expect("failed to create broken project directory");
+    fs::write(broken_dir.join("project.json"), b"{")
+        .expect("failed to write malformed project fixture");
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert_eq!(bundle.project.id, "project-a");
+    assert_eq!(bundle.project.name, "项目 project-a");
+}
+
+#[test]
+fn get_project_bundle_should_ignore_malformed_direct_name_project_when_renamed_match_exists() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "renamed-directory", "project-a");
+
+    let broken_dir = workspace.path().join("projects/project-a");
+    fs::create_dir_all(&broken_dir).expect("failed to create broken direct project directory");
+    fs::write(broken_dir.join("project.json"), b"{")
+        .expect("failed to write malformed direct project fixture");
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert_eq!(bundle.project.id, "project-a");
+    assert_eq!(bundle.project.name, "项目 project-a");
+}
+
+#[test]
 fn get_project_bundle_should_ignore_directory_name_shadowed_by_mismatched_project_id() {
     let workspace = TestWorkspace::new();
     write_minimal_system(&workspace);
@@ -605,6 +703,19 @@ fn get_project_bundle_should_ignore_directory_name_shadowed_by_mismatched_projec
 
     assert_eq!(bundle.project.id, "project-a");
     assert_eq!(bundle.project.name, "目标项目");
+}
+
+#[test]
+fn get_project_bundle_should_error_when_project_id_is_ambiguous() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "project-a", "project-a");
+    write_project_definition(&workspace, "project-a-shadow", "project-a");
+
+    let error = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap_err();
+
+    assert!(error.contains("ambiguous"), "unexpected error: {error}");
+    assert!(error.contains("project-a"), "unexpected error: {error}");
 }
 
 #[test]
@@ -1782,6 +1893,155 @@ fn get_project_bundle_should_reject_parameterized_real_dispatch_actions() {
             "action_dispatch_parameters_not_supported"
         ),
         2
+    );
+}
+
+#[test]
+fn get_project_bundle_should_reject_invalid_recovery_policy_values() {
+    let workspace = TestWorkspace::new();
+    workspace.write_json(
+        "system/actions/common.noop.json",
+        json!({
+            "id": "common.noop",
+            "name": "空操作",
+            "targetMode": "none",
+            "parameters": []
+        }),
+    );
+    workspace.write_json(
+        "system/device-types/noop.json",
+        json!({
+            "id": "noop",
+            "name": "空设备类型",
+            "allowedActions": []
+        }),
+    );
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/signals/door_closed.json",
+        json!({
+            "id": "door_closed",
+            "name": "门关闭",
+            "dataType": "boolean",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/safety/interlocks.json",
+        json!({
+            "rules": [
+                {
+                    "id": "invalid-on-violation",
+                    "name": "非法联锁策略",
+                    "actionIds": ["common.noop"],
+                    "condition": {
+                        "signalId": "door_closed",
+                        "operator": "eq",
+                        "value": true
+                    },
+                    "onViolation": "alaram"
+                }
+            ]
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/invalid-recovery.json",
+        json!({
+            "id": "invalid-recovery",
+            "name": "非法恢复策略工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "空操作",
+                    "actionId": "common.noop",
+                    "parameters": {},
+                    "onError": "safe_stop"
+                }
+            ]
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "recipe_invalid_on_error"
+    ));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "interlock_invalid_on_violation"
+    ));
+}
+
+#[test]
+fn get_project_bundle_should_reject_invalid_serial_framing_values() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/connections/main-serial.json",
+        json!({
+            "id": "main-serial",
+            "name": "主串口",
+            "kind": "serial",
+            "serial": {
+                "port": "/dev/ttyUSB0",
+                "baudRate": 0,
+                "dataBits": 9,
+                "stopBits": 3,
+                "parity": "mark"
+            }
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "connection_invalid_serial_baud_rate"
+    ));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "connection_invalid_serial_data_bits"
+    ));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "connection_invalid_serial_stop_bits"
+    ));
+    assert!(has_diagnostic(
+        &bundle.diagnostics,
+        "connection_invalid_serial_parity"
+    ));
+}
+
+#[test]
+fn get_project_bundle_should_accept_case_insensitive_valid_serial_parity() {
+    let workspace = TestWorkspace::new();
+    write_minimal_system(&workspace);
+    write_project_definition(&workspace, "project-a", "project-a");
+    workspace.write_json(
+        "projects/project-a/connections/main-serial.json",
+        json!({
+            "id": "main-serial",
+            "name": "主串口",
+            "kind": "serial",
+            "serial": {
+                "port": "/dev/ttyUSB0",
+                "baudRate": 115200,
+                "dataBits": 8,
+                "stopBits": 1,
+                "parity": "EVEN"
+            }
+        }),
+    );
+
+    let bundle = get_project_bundle(workspace.path().to_str().unwrap(), "project-a").unwrap();
+
+    assert!(
+        !has_diagnostic(&bundle.diagnostics, "connection_invalid_serial_parity"),
+        "valid parity should be accepted case-insensitively: {:?}",
+        bundle.diagnostics
     );
 }
 

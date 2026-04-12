@@ -52,12 +52,69 @@ fn e2e_transport_lock() -> &'static Mutex<()> {
     LOCK.get_or_init(|| Mutex::new(()))
 }
 
+fn gpio_override_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
 struct CommOverrideReset;
 
 impl Drop for CommOverrideReset {
     fn drop(&mut self) {
         crate::comm::set_tcp_stream_override(None);
         crate::comm::set_serial_stream_override(None);
+    }
+}
+
+struct ProcessFlowOverrideReset;
+
+impl Drop for ProcessFlowOverrideReset {
+    fn drop(&mut self) {
+        crate::comm::set_tcp_stream_override(None);
+        crate::comm::set_serial_stream_override(None);
+        super::dispatch::set_gpio_write_override(None);
+    }
+}
+
+fn step_in_phase<'a>(
+    snapshot: &'a super::types::RecipeRuntimeSnapshot,
+    phase: RecipeRuntimePhase,
+    step_id: &str,
+) -> &'a super::types::RecipeRuntimeStepSnapshot {
+    let steps = match phase {
+        RecipeRuntimePhase::Recipe => &snapshot.recipe_steps,
+        RecipeRuntimePhase::SafeStop => &snapshot.safe_stop_steps,
+        RecipeRuntimePhase::Idle => panic!("idle phase has no runtime steps"),
+    };
+
+    steps
+        .iter()
+        .find(|step| step.step_id == step_id)
+        .unwrap_or_else(|| panic!("step `{step_id}` not found in phase {phase:?}"))
+}
+
+async fn wait_until_step(
+    manager: &RecipeRuntimeManager,
+    phase: RecipeRuntimePhase,
+    step_id: &str,
+    status: RecipeRuntimeStepStatus,
+) -> super::types::RecipeRuntimeSnapshot {
+    let started = std::time::Instant::now();
+    loop {
+        let snapshot = manager.get_status().await;
+        let step = step_in_phase(&snapshot, phase, step_id);
+        if step.status == status {
+            return snapshot;
+        }
+
+        assert!(
+            started.elapsed() < Duration::from_secs(3),
+            "step `{step_id}` in phase {phase:?} did not reach {status:?}; current={:?}, runtime_status={:?}, active_step_id={:?}",
+            step.status,
+            snapshot.status,
+            snapshot.active_step_id
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
     }
 }
 
@@ -310,6 +367,13 @@ fn write_project_base(workspace: &TestWorkspace) {
 async fn wait_for_terminal_status(
     manager: &RecipeRuntimeManager,
 ) -> super::types::RecipeRuntimeSnapshot {
+    wait_for_terminal_status_with_timeout(manager, Duration::from_secs(3)).await
+}
+
+async fn wait_for_terminal_status_with_timeout(
+    manager: &RecipeRuntimeManager,
+    timeout: Duration,
+) -> super::types::RecipeRuntimeSnapshot {
     let started = std::time::Instant::now();
     loop {
         let snapshot = manager.get_status().await;
@@ -323,7 +387,7 @@ async fn wait_for_terminal_status(
         }
 
         assert!(
-            started.elapsed() < Duration::from_secs(3),
+            started.elapsed() < timeout,
             "runtime did not reach terminal status in time"
         );
         tokio::time::sleep(Duration::from_millis(20)).await;
@@ -636,6 +700,185 @@ async fn runtime_should_enter_safe_stop_after_timeout() {
             .as_ref()
             .map(|failure| failure.code.as_str()),
         Some("step_timeout")
+    );
+}
+
+#[tokio::test]
+async fn runtime_should_timeout_safe_stop_step_without_feedback_using_default_timeout() {
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "system/actions/pump.stop.json",
+        json!({
+            "id": "pump.stop",
+            "name": "停泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "completion": {
+                "type": "deviceFeedback",
+                "key": "running",
+                "operator": "eq",
+                "value": false
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/safety/safe-stop.json",
+        json!({
+            "id": "safe-stop",
+            "name": "安全停机",
+            "steps": [
+                {
+                    "seq": 10,
+                    "actionId": "pump.stop",
+                    "deviceId": "pump_01"
+                }
+            ]
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/wait-pressure.json",
+        json!({
+            "id": "wait-pressure",
+            "name": "等待腔压",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "等待腔压到位",
+                    "actionId": "common.wait-signal",
+                    "parameters": {
+                        "signalId": "chamber_pressure",
+                        "operator": "lt",
+                        "value": 10
+                    },
+                    "timeoutMs": 60,
+                    "onError": "safe-stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "wait-pressure".to_string(),
+        )
+        .await
+        .unwrap();
+    let started = std::time::Instant::now();
+    manager.start(None).await.unwrap();
+
+    let snapshot = wait_for_terminal_status_with_timeout(&manager, Duration::from_secs(7)).await;
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed >= Duration::from_millis(4500) && elapsed < Duration::from_millis(6800),
+        "default safe-stop timeout should stay near 5000 ms, got {elapsed:?}"
+    );
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Stopped);
+    assert_eq!(snapshot.phase, RecipeRuntimePhase::SafeStop);
+    assert_eq!(
+        snapshot.safe_stop_steps[0].status,
+        RecipeRuntimeStepStatus::Failed
+    );
+    assert_eq!(
+        snapshot
+            .last_error
+            .as_ref()
+            .map(|failure| failure.code.as_str()),
+        Some("step_timeout")
+    );
+}
+
+#[tokio::test]
+async fn runtime_should_honor_explicit_safe_stop_timeout_ms() {
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "system/actions/pump.stop.json",
+        json!({
+            "id": "pump.stop",
+            "name": "停泵",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [],
+            "completion": {
+                "type": "deviceFeedback",
+                "key": "running",
+                "operator": "eq",
+                "value": false
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/safety/safe-stop.json",
+        json!({
+            "id": "safe-stop",
+            "name": "安全停机",
+            "steps": [
+                {
+                    "seq": 10,
+                    "actionId": "pump.stop",
+                    "deviceId": "pump_01",
+                    "timeoutMs": 120
+                }
+            ]
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/wait-pressure.json",
+        json!({
+            "id": "wait-pressure",
+            "name": "等待腔压",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "等待腔压到位",
+                    "actionId": "common.wait-signal",
+                    "parameters": {
+                        "signalId": "chamber_pressure",
+                        "operator": "lt",
+                        "value": 10
+                    },
+                    "timeoutMs": 60,
+                    "onError": "safe-stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "wait-pressure".to_string(),
+        )
+        .await
+        .unwrap();
+
+    let started = std::time::Instant::now();
+    manager.start(None).await.unwrap();
+
+    let snapshot = wait_for_terminal_status_with_timeout(&manager, Duration::from_secs(2)).await;
+    let elapsed = started.elapsed();
+    assert!(
+        elapsed >= Duration::from_millis(150) && elapsed < Duration::from_millis(400),
+        "safe-stop should stay near the explicit 120 ms timeout, got {elapsed:?}"
+    );
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Stopped);
+    assert_eq!(snapshot.phase, RecipeRuntimePhase::SafeStop);
+    assert_eq!(
+        snapshot.safe_stop_steps[0].status,
+        RecipeRuntimeStepStatus::Failed
     );
 }
 
@@ -1576,7 +1819,8 @@ async fn runtime_should_preserve_original_failure_when_safe_stop_step_fails() {
                 {
                     "seq": 10,
                     "actionId": "pump.stop",
-                    "deviceId": "pump_01"
+                    "deviceId": "pump_01",
+                    "timeoutMs": 120
                 }
             ]
         }),
@@ -1593,11 +1837,11 @@ async fn runtime_should_preserve_original_failure_when_safe_stop_step_fails() {
                     "name": "等待腔压到位",
                     "actionId": "common.wait-signal",
                     "parameters": {
-                        "signalId": "chamber_pressure",
+                        "signalId": "door_closed",
                         "operator": "lt",
                         "value": 10
                     },
-                    "timeoutMs": 60,
+                    "timeoutMs": 500,
                     "onError": "safe-stop"
                 }
             ]
@@ -1619,35 +1863,17 @@ async fn runtime_should_preserve_original_failure_when_safe_stop_step_fails() {
     let writer = {
         let manager = manager.clone();
         tokio::spawn(async move {
-            let started = std::time::Instant::now();
-            loop {
-                let snapshot = manager.get_status().await;
-                if snapshot.phase == RecipeRuntimePhase::SafeStop
-                    && snapshot.active_step_id.is_some()
-                {
-                    manager
-                        .write_device_feedback(
-                            None,
-                            "pump_01".to_string(),
-                            "running".to_string(),
-                            json!("bad"),
-                        )
-                        .await
-                        .unwrap();
-                    break;
-                }
-                assert!(
-                    started.elapsed() < Duration::from_secs(2),
-                    "runtime did not start safe-stop step in time"
-                );
-                tokio::time::sleep(Duration::from_millis(20)).await;
-            }
+            tokio::time::sleep(Duration::from_millis(40)).await;
+            manager
+                .write_signal(None, "door_closed".to_string(), json!(false))
+                .await
+                .unwrap();
         })
     };
 
     writer.await.unwrap();
     let snapshot = wait_for_terminal_status(&manager).await;
-    assert_eq!(snapshot.status, RecipeRuntimeStatus::Failed);
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Stopped);
     assert_eq!(snapshot.phase, RecipeRuntimePhase::SafeStop);
     assert_eq!(
         snapshot.safe_stop_steps[0].status,
@@ -1658,12 +1884,12 @@ async fn runtime_should_preserve_original_failure_when_safe_stop_step_fails() {
             .last_error
             .as_ref()
             .map(|failure| failure.code.as_str()),
-        Some("step_timeout")
+        Some("condition_compare_error")
     );
     assert!(snapshot
         .last_message
         .as_deref()
-        .is_some_and(|message| message.contains("condition_compare_error")));
+        .is_some_and(|message| message.contains("step_timeout")));
 }
 
 #[tokio::test]
@@ -1771,6 +1997,9 @@ async fn runtime_should_fail_dispatched_action_when_app_handle_is_missing() {
 
 #[tokio::test]
 async fn runtime_should_dispatch_gpio_action_to_configured_pin() {
+    let _gpio_override_guard = gpio_override_lock()
+        .lock()
+        .expect("gpio override lock poisoned");
     let workspace = TestWorkspace::new();
     let gpio_root = workspace.path().join("mock-gpio");
     let gpio_dir = gpio_root.join("gpio17");
@@ -4309,4 +4538,1610 @@ async fn runtime_should_complete_device_step_from_hmip_feedback_mapping() {
         snapshot.runtime_values.get("device.pump_01.running"),
         Some(&json!(true))
     );
+}
+
+mod process_flow_tests {
+    use super::*;
+
+    fn write_process_flow_base(workspace: &TestWorkspace) {
+        write_system_bundle(workspace);
+        write_project_base(workspace);
+        workspace.write_json(
+            "system/actions/valve.open.json",
+            json!({
+                "id": "valve.open",
+                "name": "开阀",
+                "targetMode": "required",
+                "allowedDeviceTypes": ["valve"],
+                "parameters": [],
+                "dispatch": {
+                    "kind": "gpioWrite",
+                    "value": true
+                }
+            }),
+        );
+        workspace.write_json(
+            "system/actions/pump.start.json",
+            json!({
+                "id": "pump.start",
+                "name": "开泵",
+                "targetMode": "required",
+                "allowedDeviceTypes": ["pump"],
+                "parameters": [],
+                "dispatch": {
+                    "kind": "hmipFrame",
+                    "msgType": 33,
+                    "payloadHex": "aa55"
+                },
+                "completion": {
+                    "type": "deviceFeedback",
+                    "key": "running",
+                    "operator": "eq",
+                    "value": true
+                }
+            }),
+        );
+        workspace.write_json(
+            "system/actions/pump.ping.json",
+            json!({
+                "id": "pump.ping",
+                "name": "泵心跳",
+                "targetMode": "required",
+                "allowedDeviceTypes": ["pump"],
+                "parameters": [],
+                "dispatch": {
+                    "kind": "hmipFrame",
+                    "msgType": 34,
+                    "payloadHex": "bb66"
+                }
+            }),
+        );
+        workspace.write_json(
+            "system/device-types/pump.json",
+            json!({
+                "id": "pump",
+                "name": "泵",
+                "allowedActions": ["pump.start", "pump.stop", "pump.ping"]
+            }),
+        );
+        workspace.write_json(
+            "system/device-types/valve.json",
+            json!({
+                "id": "valve",
+                "name": "阀",
+                "allowedActions": ["valve.open"]
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/connections/main-tcp-process.json",
+            json!({
+                "id": "main-tcp-process",
+                "name": "工艺 HMIP 主控",
+                "kind": "tcp",
+                "tcp": {
+                    "host": "127.0.0.1",
+                    "port": 15090,
+                    "timeoutMs": 200
+                }
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/connections/main-serial-process.json",
+            json!({
+                "id": "main-serial-process",
+                "name": "工艺串口主控",
+                "kind": "serial",
+                "serial": {
+                    "port": "/dev/ttyPROCESS1",
+                    "baudRate": 115200,
+                    "dataBits": 8,
+                    "stopBits": 1,
+                    "parity": "none"
+                }
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/devices/valve_01.json",
+            json!({
+                "id": "valve_01",
+                "name": "工艺阀",
+                "typeId": "valve",
+                "enabled": true,
+                "transport": {
+                    "kind": "gpio",
+                    "pin": 23,
+                    "activeLow": false,
+                    "chipPath": "/dev/gpiochip-process"
+                },
+                "tags": {}
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/devices/pump_01.json",
+            json!({
+                "id": "pump_01",
+                "name": "前级泵",
+                "typeId": "pump",
+                "enabled": true,
+                "transport": {
+                    "kind": "tcp",
+                    "connectionId": "main-tcp-process",
+                    "channel": 9
+                },
+                "tags": {
+                    "running": "device.pump_01.running"
+                }
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/devices/pump_02.json",
+            json!({
+                "id": "pump_02",
+                "name": "串口前级泵",
+                "typeId": "pump",
+                "enabled": true,
+                "transport": {
+                    "kind": "serial",
+                    "connectionId": "main-serial-process",
+                    "channel": 9
+                },
+                "tags": {
+                    "running": "device.pump_02.running"
+                }
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/signals/process_ready.json",
+            json!({
+                "id": "process_ready",
+                "name": "工艺就绪",
+                "dataType": "number",
+                "source": "signal.process_ready",
+                "enabled": true
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/feedback-mappings/pump_running_process.json",
+            json!({
+                "id": "pump-running-process",
+                "name": "工艺开泵反馈",
+                "match": {
+                    "connectionId": "main-tcp-process",
+                    "channel": 9,
+                    "summaryKind": "response",
+                    "status": 0
+                },
+                "target": {
+                    "deviceId": "pump_01",
+                    "feedbackKey": "running",
+                    "value": true
+                }
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/feedback-mappings/pump_running_process_serial.json",
+            json!({
+                "id": "pump-running-process-serial",
+                "name": "工艺串口开泵反馈",
+                "match": {
+                    "connectionId": "main-serial-process",
+                    "channel": 9,
+                    "summaryKind": "response",
+                    "status": 0
+                },
+                "target": {
+                    "deviceId": "pump_02",
+                    "feedbackKey": "running",
+                    "value": true
+                }
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/feedback-mappings/process_ready_process.json",
+            json!({
+                "id": "process-ready-process",
+                "name": "工艺就绪反馈",
+                "match": {
+                    "connectionId": "main-tcp-process",
+                    "channel": 9,
+                    "summaryKind": "event",
+                    "eventId": 91
+                },
+                "target": {
+                    "signalId": "process_ready",
+                    "value": 1
+                }
+            }),
+        );
+    }
+
+    #[tokio::test]
+    async fn mixed_transport_process_should_complete_over_gpio_then_hmip_then_wait_signal() {
+        let _transport_guard = e2e_transport_lock()
+            .lock()
+            .expect("e2e transport lock poisoned");
+        let _gpio_override_guard = gpio_override_lock()
+            .lock()
+            .expect("gpio override lock poisoned");
+        let _override_reset = ProcessFlowOverrideReset;
+
+        let workspace = TestWorkspace::new();
+        write_process_flow_base(&workspace);
+        workspace.write_json(
+            "projects/project-a/recipes/mixed-transport-process.json",
+            json!({
+                "id": "mixed-transport-process",
+                "name": "混合通信流程工艺",
+                "steps": [
+                    {
+                        "id": "S010",
+                        "seq": 10,
+                        "name": "打开工艺阀",
+                        "actionId": "valve.open",
+                        "deviceId": "valve_01",
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S020",
+                        "seq": 20,
+                        "name": "启动前级泵",
+                        "actionId": "pump.start",
+                        "deviceId": "pump_01",
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S030",
+                        "seq": 30,
+                        "name": "等待工艺就绪",
+                        "actionId": "common.wait-signal",
+                        "parameters": {
+                            "signalId": "process_ready",
+                            "operator": "eq",
+                            "value": 1
+                        },
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    }
+                ]
+            }),
+        );
+
+        let manager = RecipeRuntimeManager::default();
+        let app = setup_runtime_app(&manager);
+        let gpio_writes = Arc::new(Mutex::new(Vec::<(String, u32, bool, bool)>::new()));
+        crate::craftsmanship::runtime::dispatch::set_gpio_write_override(Some(Arc::new({
+            let gpio_writes = gpio_writes.clone();
+            move |chip_path, pin, active_low, value| {
+                gpio_writes
+                    .lock()
+                    .expect("process flow gpio writes mutex poisoned")
+                    .push((chip_path.to_string(), pin, active_low, value));
+                Ok(())
+            }
+        })));
+        let (actor_stream, mut device_stream) = duplex(4096);
+        let stream_slot = Arc::new(Mutex::new(Some(actor_stream)));
+        crate::comm::set_tcp_stream_override(Some(Arc::new({
+            let stream_slot = stream_slot.clone();
+            move |config| {
+                assert_eq!(config.host, "127.0.0.1");
+                assert_eq!(config.port, 15090);
+                let stream = stream_slot
+                    .lock()
+                    .expect("process flow tcp stream slot mutex poisoned")
+                    .take()
+                    .ok_or_else(|| "process flow tcp override stream already consumed".to_string())?;
+                Ok(Box::new(stream))
+            }
+        })));
+
+        manager
+            .load_recipe(
+                None,
+                workspace.path().to_string_lossy().to_string(),
+                "project-a".to_string(),
+                "mixed-transport-process".to_string(),
+            )
+            .await
+            .unwrap();
+        manager
+            .start_with_app(Some(app.handle().clone()))
+            .await
+            .unwrap();
+
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S010",
+            RecipeRuntimeStepStatus::Completed,
+        )
+        .await;
+
+        let frame = read_hmip_frame(&mut device_stream).await;
+        assert_eq!(frame.header.channel, 9);
+        assert_eq!(frame.payload.as_ref(), &[0xaa, 0x55]);
+
+        let response_payload = crate::comm::proto::encode_response(&crate::comm::proto::Response {
+            request_id: 501,
+            status: 0,
+            body: Bytes::new(),
+        });
+        let response_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::RESPONSE,
+            flags: 0,
+            channel: 9,
+            seq: 1501,
+            payload: &response_payload,
+        });
+        write_hmip_frame(&mut device_stream, &response_frame).await;
+
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S020",
+            RecipeRuntimeStepStatus::Completed,
+        )
+        .await;
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S030",
+            RecipeRuntimeStepStatus::Running,
+        )
+        .await;
+
+        let event_payload = crate::comm::proto::encode_event(&crate::comm::proto::Event {
+            event_id: 91,
+            timestamp_ms: 1502,
+            body: Bytes::new(),
+        });
+        let event_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::EVENT,
+            flags: 0,
+            channel: 9,
+            seq: 1502,
+            payload: &event_payload,
+        });
+        write_hmip_frame(&mut device_stream, &event_frame).await;
+
+        let snapshot = wait_for_terminal_status(&manager).await;
+        assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S010").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S020").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S030").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            gpio_writes
+                .lock()
+                .expect("process flow gpio writes mutex poisoned")
+                .as_slice(),
+            &[("/dev/gpiochip-process".to_string(), 23, false, true)]
+        );
+        assert_eq!(frame.header.msg_type, 33);
+        assert_eq!(frame.header.channel, 9);
+        assert_eq!(frame.payload.as_ref(), &[0xaa, 0x55]);
+        assert_eq!(
+            snapshot.runtime_values.get("device.pump_01.running"),
+            Some(&json!(true))
+        );
+        assert_eq!(snapshot.signal_values.get("process_ready"), Some(&json!(1)));
+
+        let comm_state = app.state::<crate::comm::CommState>();
+        crate::comm::disconnect_connection(&comm_state, "main-tcp-process")
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn multi_device_process_should_complete_with_cross_transport_feedback_isolation() {
+        let _transport_guard = e2e_transport_lock()
+            .lock()
+            .expect("e2e transport lock poisoned");
+        let _override_reset = ProcessFlowOverrideReset;
+
+        let workspace = TestWorkspace::new();
+        write_process_flow_base(&workspace);
+        workspace.write_json(
+            "projects/project-a/recipes/cross-transport-feedback-isolation.json",
+            json!({
+                "id": "cross-transport-feedback-isolation",
+                "name": "跨通信反馈隔离工艺",
+                "steps": [
+                    {
+                        "id": "S010",
+                        "seq": 10,
+                        "name": "启动串口前级泵",
+                        "actionId": "pump.start",
+                        "deviceId": "pump_02",
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S020",
+                        "seq": 20,
+                        "name": "启动 TCP 前级泵",
+                        "actionId": "pump.start",
+                        "deviceId": "pump_01",
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    }
+                ]
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/signals/serial_feedback_probe.json",
+            json!({
+                "id": "serial_feedback_probe",
+                "name": "串口误路由反馈探针",
+                "dataType": "number",
+                "source": "signal.serial_feedback_probe",
+                "enabled": true
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/feedback-mappings/serial_feedback_probe_process.json",
+            json!({
+                "id": "serial-feedback-probe-process",
+                "name": "串口误路由反馈探针映射",
+                "match": {
+                    "connectionId": "main-serial-process",
+                    "channel": 9,
+                    "summaryKind": "response",
+                    "requestId": 1702
+                },
+                "target": {
+                    "signalId": "serial_feedback_probe",
+                    "valueFrom": "summary.requestId"
+                }
+            }),
+        );
+
+        let manager = RecipeRuntimeManager::default();
+        let app = setup_runtime_app(&manager);
+
+        let (tcp_actor_stream, mut tcp_device_stream) = duplex(4096);
+        let tcp_stream_slot = Arc::new(Mutex::new(Some(tcp_actor_stream)));
+        crate::comm::set_tcp_stream_override(Some(Arc::new({
+            let tcp_stream_slot = tcp_stream_slot.clone();
+            move |config| {
+                assert_eq!(config.host, "127.0.0.1");
+                assert_eq!(config.port, 15090);
+                let stream = tcp_stream_slot
+                    .lock()
+                    .expect("process flow tcp stream slot mutex poisoned")
+                    .take()
+                    .ok_or_else(|| {
+                        "process flow tcp override stream already consumed".to_string()
+                    })?;
+                Ok(Box::new(stream))
+            }
+        })));
+
+        let (serial_actor_stream, mut serial_device_stream) = duplex(4096);
+        let serial_stream_slot = Arc::new(Mutex::new(Some(serial_actor_stream)));
+        crate::comm::set_serial_stream_override(Some(Arc::new({
+            let serial_stream_slot = serial_stream_slot.clone();
+            move |config| {
+                assert_eq!(config.port, "/dev/ttyPROCESS1");
+                assert_eq!(config.baud_rate, 115200);
+                let stream = serial_stream_slot
+                    .lock()
+                    .expect("process flow serial stream slot mutex poisoned")
+                    .take()
+                    .ok_or_else(|| {
+                        "process flow serial override stream already consumed".to_string()
+                    })?;
+                Ok(Box::new(stream))
+            }
+        })));
+
+        manager
+            .load_recipe(
+                None,
+                workspace.path().to_string_lossy().to_string(),
+                "project-a".to_string(),
+                "cross-transport-feedback-isolation".to_string(),
+            )
+            .await
+            .unwrap();
+        manager
+            .start_with_app(Some(app.handle().clone()))
+            .await
+            .unwrap();
+
+        let serial_frame = read_hmip_frame(&mut serial_device_stream).await;
+        assert_eq!(serial_frame.header.msg_type, 33);
+        assert_eq!(serial_frame.header.channel, 9);
+        assert_eq!(serial_frame.payload.as_ref(), &[0xaa, 0x55]);
+
+        let serial_response_payload =
+            crate::comm::proto::encode_response(&crate::comm::proto::Response {
+                request_id: 1701,
+                status: 0,
+                body: Bytes::new(),
+            });
+        let serial_response_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 9,
+                seq: 2701,
+                payload: &serial_response_payload,
+            });
+        write_hmip_frame(&mut serial_device_stream, &serial_response_frame).await;
+
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S010",
+            RecipeRuntimeStepStatus::Completed,
+        )
+        .await;
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S020",
+            RecipeRuntimeStepStatus::Running,
+        )
+        .await;
+
+        let tcp_frame = read_hmip_frame(&mut tcp_device_stream).await;
+        assert_eq!(tcp_frame.header.msg_type, 33);
+        assert_eq!(tcp_frame.header.channel, 9);
+        assert_eq!(tcp_frame.payload.as_ref(), &[0xaa, 0x55]);
+
+        let wrong_device_payload =
+            crate::comm::proto::encode_response(&crate::comm::proto::Response {
+                request_id: 1702,
+                status: 0,
+                body: Bytes::new(),
+            });
+        let wrong_device_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 9,
+                seq: 2702,
+                payload: &wrong_device_payload,
+            });
+        write_hmip_frame(&mut serial_device_stream, &wrong_device_frame).await;
+
+        let isolation_started = std::time::Instant::now();
+        let isolated_snapshot = loop {
+            let mid_snapshot = manager.get_status().await;
+            assert_eq!(mid_snapshot.status, RecipeRuntimeStatus::Running);
+            assert_eq!(mid_snapshot.active_step_id.as_deref(), Some("S020"));
+            assert_eq!(
+                step_in_phase(&mid_snapshot, RecipeRuntimePhase::Recipe, "S010").status,
+                RecipeRuntimeStepStatus::Completed
+            );
+            assert_eq!(
+                step_in_phase(&mid_snapshot, RecipeRuntimePhase::Recipe, "S020").status,
+                RecipeRuntimeStepStatus::Running
+            );
+            assert_eq!(
+                mid_snapshot.runtime_values.get("device.pump_01.running"),
+                None
+            );
+            assert_eq!(
+                mid_snapshot.runtime_values.get("device.pump_02.running"),
+                Some(&json!(true))
+            );
+
+            if mid_snapshot.signal_values.get("serial_feedback_probe") == Some(&json!(1702)) {
+                break mid_snapshot;
+            }
+
+            assert!(
+                isolation_started.elapsed() < Duration::from_secs(2),
+                "misrouted serial feedback probe was not observed while S020 stayed active"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        };
+
+        assert_eq!(isolated_snapshot.active_step_id.as_deref(), Some("S020"));
+        assert_eq!(
+            step_in_phase(&isolated_snapshot, RecipeRuntimePhase::Recipe, "S020").status,
+            RecipeRuntimeStepStatus::Running
+        );
+        assert_eq!(
+            isolated_snapshot.runtime_values.get("device.pump_01.running"),
+            None
+        );
+        assert_eq!(
+            isolated_snapshot.signal_values.get("serial_feedback_probe"),
+            Some(&json!(1702))
+        );
+
+        let tcp_response_payload =
+            crate::comm::proto::encode_response(&crate::comm::proto::Response {
+                request_id: 1703,
+                status: 0,
+                body: Bytes::new(),
+            });
+        let tcp_response_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 9,
+                seq: 2703,
+                payload: &tcp_response_payload,
+            });
+        write_hmip_frame(&mut tcp_device_stream, &tcp_response_frame).await;
+
+        let snapshot = wait_for_terminal_status(&manager).await;
+        assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S010").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S020").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            snapshot.runtime_values.get("device.pump_01.running"),
+            Some(&json!(true))
+        );
+        assert_eq!(
+            snapshot.runtime_values.get("device.pump_02.running"),
+            Some(&json!(true))
+        );
+
+        let comm_state = app.state::<crate::comm::CommState>();
+        crate::comm::disconnect_connection(&comm_state, "main-tcp-process")
+            .await
+            .unwrap();
+        crate::comm::disconnect_connection(&comm_state, "main-serial-process")
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn process_should_complete_when_feedback_arrives_out_of_order_but_matches_correct_step() {
+        let _transport_guard = e2e_transport_lock()
+            .lock()
+            .expect("e2e transport lock poisoned");
+        let _gpio_override_guard = gpio_override_lock()
+            .lock()
+            .expect("gpio override lock poisoned");
+        let _override_reset = ProcessFlowOverrideReset;
+
+        let workspace = TestWorkspace::new();
+        write_process_flow_base(&workspace);
+        workspace.write_json(
+            "projects/project-a/recipes/out-of-order-process-feedback.json",
+            json!({
+                "id": "out-of-order-process-feedback",
+                "name": "乱序反馈工艺",
+                "steps": [
+                    {
+                        "id": "S010",
+                        "seq": 10,
+                        "name": "打开工艺阀",
+                        "actionId": "valve.open",
+                        "deviceId": "valve_01",
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S020",
+                        "seq": 20,
+                        "name": "启动前级泵",
+                        "actionId": "pump.start",
+                        "deviceId": "pump_01",
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S030",
+                        "seq": 30,
+                        "name": "等待工艺就绪",
+                        "actionId": "common.wait-signal",
+                        "parameters": {
+                            "signalId": "process_ready",
+                            "operator": "eq",
+                            "value": 1
+                        },
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    }
+                ]
+            }),
+        );
+
+        let manager = RecipeRuntimeManager::default();
+        let app = setup_runtime_app(&manager);
+        let gpio_writes = Arc::new(Mutex::new(Vec::<(String, u32, bool, bool)>::new()));
+        crate::craftsmanship::runtime::dispatch::set_gpio_write_override(Some(Arc::new({
+            let gpio_writes = gpio_writes.clone();
+            move |chip_path, pin, active_low, value| {
+                gpio_writes
+                    .lock()
+                    .expect("process flow gpio writes mutex poisoned")
+                    .push((chip_path.to_string(), pin, active_low, value));
+                Ok(())
+            }
+        })));
+
+        let (actor_stream, mut device_stream) = duplex(4096);
+        let stream_slot = Arc::new(Mutex::new(Some(actor_stream)));
+        crate::comm::set_tcp_stream_override(Some(Arc::new({
+            let stream_slot = stream_slot.clone();
+            move |config| {
+                assert_eq!(config.host, "127.0.0.1");
+                assert_eq!(config.port, 15090);
+                let stream = stream_slot
+                    .lock()
+                    .expect("process flow tcp stream slot mutex poisoned")
+                    .take()
+                    .ok_or_else(|| {
+                        "process flow tcp override stream already consumed".to_string()
+                    })?;
+                Ok(Box::new(stream))
+            }
+        })));
+
+        manager
+            .load_recipe(
+                None,
+                workspace.path().to_string_lossy().to_string(),
+                "project-a".to_string(),
+                "out-of-order-process-feedback".to_string(),
+            )
+            .await
+            .unwrap();
+        manager
+            .start_with_app(Some(app.handle().clone()))
+            .await
+            .unwrap();
+
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S010",
+            RecipeRuntimeStepStatus::Completed,
+        )
+        .await;
+
+        let frame = read_hmip_frame(&mut device_stream).await;
+        assert_eq!(frame.header.msg_type, 33);
+        assert_eq!(frame.header.channel, 9);
+        assert_eq!(frame.payload.as_ref(), &[0xaa, 0x55]);
+
+        let event_payload = crate::comm::proto::encode_event(&crate::comm::proto::Event {
+            event_id: 91,
+            timestamp_ms: 1601,
+            body: Bytes::new(),
+        });
+        let event_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::EVENT,
+            flags: 0,
+            channel: 9,
+            seq: 2601,
+            payload: &event_payload,
+        });
+        write_hmip_frame(&mut device_stream, &event_frame).await;
+
+        let poll_started = std::time::Instant::now();
+        let mid_snapshot = loop {
+            let snapshot = manager.get_status().await;
+            assert_eq!(snapshot.status, RecipeRuntimeStatus::Running);
+            assert_eq!(snapshot.active_step_id.as_deref(), Some("S020"));
+            assert_eq!(
+                step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S020").status,
+                RecipeRuntimeStepStatus::Running
+            );
+            assert_eq!(
+                step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S030").status,
+                RecipeRuntimeStepStatus::Pending
+            );
+
+            if snapshot.signal_values.get("process_ready") == Some(&json!(1)) {
+                break snapshot;
+            }
+
+            assert!(
+                poll_started.elapsed() < Duration::from_secs(2),
+                "out-of-order process_ready feedback was not observed while S020 stayed active"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        };
+        assert_eq!(mid_snapshot.status, RecipeRuntimeStatus::Running);
+        assert_eq!(mid_snapshot.active_step_id.as_deref(), Some("S020"));
+        assert_eq!(
+            step_in_phase(&mid_snapshot, RecipeRuntimePhase::Recipe, "S020").status,
+            RecipeRuntimeStepStatus::Running
+        );
+        assert_eq!(
+            step_in_phase(&mid_snapshot, RecipeRuntimePhase::Recipe, "S030").status,
+            RecipeRuntimeStepStatus::Pending
+        );
+        assert_eq!(mid_snapshot.signal_values.get("process_ready"), Some(&json!(1)));
+
+        let response_payload = crate::comm::proto::encode_response(&crate::comm::proto::Response {
+            request_id: 1602,
+            status: 0,
+            body: Bytes::new(),
+        });
+        let response_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::RESPONSE,
+            flags: 0,
+            channel: 9,
+            seq: 2602,
+            payload: &response_payload,
+        });
+        write_hmip_frame(&mut device_stream, &response_frame).await;
+
+        let snapshot = wait_for_terminal_status(&manager).await;
+        assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S010").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S020").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S030").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            gpio_writes
+                .lock()
+                .expect("process flow gpio writes mutex poisoned")
+                .as_slice(),
+            &[("/dev/gpiochip-process".to_string(), 23, false, true)]
+        );
+        assert_eq!(
+            snapshot.runtime_values.get("device.pump_01.running"),
+            Some(&json!(true))
+        );
+        assert_eq!(snapshot.signal_values.get("process_ready"), Some(&json!(1)));
+
+        let comm_state = app.state::<crate::comm::CommState>();
+        crate::comm::disconnect_connection(&comm_state, "main-tcp-process")
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn process_should_not_complete_when_feedback_connection_or_channel_is_wrong() {
+        let _transport_guard = e2e_transport_lock()
+            .lock()
+            .expect("e2e transport lock poisoned");
+        let _gpio_override_guard = gpio_override_lock()
+            .lock()
+            .expect("gpio override lock poisoned");
+        let _override_reset = ProcessFlowOverrideReset;
+
+        let workspace = TestWorkspace::new();
+        write_process_flow_base(&workspace);
+        workspace.write_json(
+            "projects/project-a/signals/process_wrong_channel_probe.json",
+            json!({
+                "id": "process_wrong_channel_probe",
+                "name": "错误通道反馈探针",
+                "dataType": "number",
+                "source": "signal.process_wrong_channel_probe",
+                "enabled": true
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/feedback-mappings/process_wrong_channel_probe.json",
+            json!({
+                "id": "process-wrong-channel-probe",
+                "name": "错误通道反馈探针映射",
+                "match": {
+                    "connectionId": "main-tcp-process",
+                    "channel": 8,
+                    "summaryKind": "event",
+                    "eventId": 91
+                },
+                "target": {
+                    "signalId": "process_wrong_channel_probe",
+                    "valueFrom": "channel"
+                }
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/recipes/wrong-feedback-process.json",
+            json!({
+                "id": "wrong-feedback-process",
+                "name": "错误反馈保护工艺",
+                "steps": [
+                    {
+                        "id": "S010",
+                        "seq": 10,
+                        "name": "打开工艺阀",
+                        "actionId": "valve.open",
+                        "deviceId": "valve_01",
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S020",
+                        "seq": 20,
+                        "name": "启动前级泵",
+                        "actionId": "pump.start",
+                        "deviceId": "pump_01",
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S030",
+                        "seq": 30,
+                        "name": "等待工艺就绪",
+                        "actionId": "common.wait-signal",
+                        "parameters": {
+                            "signalId": "process_ready",
+                            "operator": "eq",
+                            "value": 1
+                        },
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    }
+                ]
+            }),
+        );
+
+        let manager = RecipeRuntimeManager::default();
+        let app = setup_runtime_app(&manager);
+        let gpio_writes = Arc::new(Mutex::new(Vec::<(String, u32, bool, bool)>::new()));
+        crate::craftsmanship::runtime::dispatch::set_gpio_write_override(Some(Arc::new({
+            let gpio_writes = gpio_writes.clone();
+            move |chip_path, pin, active_low, value| {
+                gpio_writes
+                    .lock()
+                    .expect("process flow gpio writes mutex poisoned")
+                    .push((chip_path.to_string(), pin, active_low, value));
+                Ok(())
+            }
+        })));
+
+        let (actor_stream, mut device_stream) = duplex(4096);
+        let stream_slot = Arc::new(Mutex::new(Some(actor_stream)));
+        crate::comm::set_tcp_stream_override(Some(Arc::new({
+            let stream_slot = stream_slot.clone();
+            move |config| {
+                assert_eq!(config.host, "127.0.0.1");
+                assert_eq!(config.port, 15090);
+                let stream = stream_slot
+                    .lock()
+                    .expect("process flow tcp stream slot mutex poisoned")
+                    .take()
+                    .ok_or_else(|| {
+                        "process flow tcp override stream already consumed".to_string()
+                    })?;
+                Ok(Box::new(stream))
+            }
+        })));
+
+        manager
+            .load_recipe(
+                None,
+                workspace.path().to_string_lossy().to_string(),
+                "project-a".to_string(),
+                "wrong-feedback-process".to_string(),
+            )
+            .await
+            .unwrap();
+        manager
+            .start_with_app(Some(app.handle().clone()))
+            .await
+            .unwrap();
+
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S010",
+            RecipeRuntimeStepStatus::Completed,
+        )
+        .await;
+
+        let frame = read_hmip_frame(&mut device_stream).await;
+        assert_eq!(frame.header.msg_type, 33);
+        assert_eq!(frame.header.channel, 9);
+        assert_eq!(frame.payload.as_ref(), &[0xaa, 0x55]);
+
+        let response_payload = crate::comm::proto::encode_response(&crate::comm::proto::Response {
+            request_id: 1701,
+            status: 0,
+            body: Bytes::new(),
+        });
+        let response_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::RESPONSE,
+            flags: 0,
+            channel: 9,
+            seq: 2701,
+            payload: &response_payload,
+        });
+        write_hmip_frame(&mut device_stream, &response_frame).await;
+
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S020",
+            RecipeRuntimeStepStatus::Completed,
+        )
+        .await;
+        let waiting_snapshot = wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S030",
+            RecipeRuntimeStepStatus::Running,
+        )
+        .await;
+
+        assert_eq!(waiting_snapshot.active_step_id.as_deref(), Some("S030"));
+        assert_eq!(waiting_snapshot.signal_values.get("process_ready"), None);
+
+        let wrong_event_payload = crate::comm::proto::encode_event(&crate::comm::proto::Event {
+            event_id: 91,
+            timestamp_ms: 1701,
+            body: Bytes::new(),
+        });
+        let wrong_event_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::EVENT,
+            flags: 0,
+            channel: 8,
+            seq: 2702,
+            payload: &wrong_event_payload,
+        });
+        write_hmip_frame(&mut device_stream, &wrong_event_frame).await;
+
+        let wrong_probe_started = std::time::Instant::now();
+        let guarded_snapshot = loop {
+            let snapshot = manager.get_status().await;
+            assert_eq!(snapshot.status, RecipeRuntimeStatus::Running);
+            assert_eq!(snapshot.active_step_id.as_deref(), Some("S030"));
+            assert_eq!(
+                step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S030").status,
+                RecipeRuntimeStepStatus::Running
+            );
+            assert_eq!(snapshot.signal_values.get("process_ready"), None);
+
+            if snapshot.signal_values.get("process_wrong_channel_probe") == Some(&json!(8)) {
+                break snapshot;
+            }
+
+            assert!(
+                wrong_probe_started.elapsed() < Duration::from_secs(2),
+                "wrong-channel HMIP frame was not observed while S030 stayed active"
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        };
+
+        assert_eq!(
+            step_in_phase(&guarded_snapshot, RecipeRuntimePhase::Recipe, "S010").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&guarded_snapshot, RecipeRuntimePhase::Recipe, "S020").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&guarded_snapshot, RecipeRuntimePhase::Recipe, "S030").status,
+            RecipeRuntimeStepStatus::Running
+        );
+        assert_eq!(guarded_snapshot.signal_values.get("process_ready"), None);
+        assert_eq!(
+            guarded_snapshot.signal_values.get("process_wrong_channel_probe"),
+            Some(&json!(8))
+        );
+
+        let correct_event_payload = crate::comm::proto::encode_event(&crate::comm::proto::Event {
+            event_id: 91,
+            timestamp_ms: 1702,
+            body: Bytes::new(),
+        });
+        let correct_event_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::EVENT,
+            flags: 0,
+            channel: 9,
+            seq: 2703,
+            payload: &correct_event_payload,
+        });
+        write_hmip_frame(&mut device_stream, &correct_event_frame).await;
+
+        let snapshot = wait_for_terminal_status(&manager).await;
+        assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+        assert!(snapshot
+            .recipe_steps
+            .iter()
+            .all(|step| step.status == RecipeRuntimeStepStatus::Completed));
+        assert_eq!(snapshot.signal_values.get("process_ready"), Some(&json!(1)));
+        assert_eq!(
+            snapshot.runtime_values.get("device.pump_01.running"),
+            Some(&json!(true))
+        );
+        assert_eq!(
+            gpio_writes
+                .lock()
+                .expect("process flow gpio writes mutex poisoned")
+                .as_slice(),
+            &[("/dev/gpiochip-process".to_string(), 23, false, true)]
+        );
+
+        let comm_state = app.state::<crate::comm::CommState>();
+        crate::comm::disconnect_connection(&comm_state, "main-tcp-process")
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn process_should_continue_after_ignored_dispatch_send_failure_and_complete_following_steps()
+    {
+        let _transport_guard = e2e_transport_lock()
+            .lock()
+            .expect("e2e transport lock poisoned");
+        let _gpio_override_guard = gpio_override_lock()
+            .lock()
+            .expect("gpio override lock poisoned");
+        let _override_reset = ProcessFlowOverrideReset;
+
+        let workspace = TestWorkspace::new();
+        write_process_flow_base(&workspace);
+        workspace.write_json(
+            "projects/project-a/recipes/ignore-dispatch-send-failure-process.json",
+            json!({
+                "id": "ignore-dispatch-send-failure-process",
+                "name": "忽略发送失败并继续",
+                "steps": [
+                    {
+                        "id": "S010",
+                        "seq": 10,
+                        "name": "启动前级泵",
+                        "actionId": "pump.start",
+                        "deviceId": "pump_01",
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S020",
+                        "seq": 20,
+                        "name": "等待连接关闭",
+                        "actionId": "common.delay",
+                        "parameters": {
+                            "durationMs": 80
+                        },
+                        "timeoutMs": 200,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S030",
+                        "seq": 30,
+                        "name": "发送泵心跳",
+                        "actionId": "pump.ping",
+                        "deviceId": "pump_01",
+                        "timeoutMs": 200,
+                        "onError": "ignore"
+                    },
+                    {
+                        "id": "S040",
+                        "seq": 40,
+                        "name": "打开工艺阀",
+                        "actionId": "valve.open",
+                        "deviceId": "valve_01",
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S050",
+                        "seq": 50,
+                        "name": "停泵收尾",
+                        "actionId": "pump.stop",
+                        "deviceId": "pump_01",
+                        "timeoutMs": 200,
+                        "onError": "stop"
+                    }
+                ]
+            }),
+        );
+
+        let manager = RecipeRuntimeManager::default();
+        let app = setup_runtime_app(&manager);
+        let gpio_writes = Arc::new(Mutex::new(Vec::<(String, u32, bool, bool)>::new()));
+        let runtime_events = Arc::new(Mutex::new(Vec::<String>::new()));
+        crate::craftsmanship::runtime::dispatch::set_gpio_write_override(Some(Arc::new({
+            let gpio_writes = gpio_writes.clone();
+            move |chip_path, pin, active_low, value| {
+                gpio_writes
+                    .lock()
+                    .expect("process flow gpio writes mutex poisoned")
+                    .push((chip_path.to_string(), pin, active_low, value));
+                Ok(())
+            }
+        })));
+        let runtime_listener = app.listen_any(
+            crate::craftsmanship::runtime::RECIPE_RUNTIME_EVENT_NAME,
+            {
+                let runtime_events = runtime_events.clone();
+                move |event| {
+                    runtime_events
+                        .lock()
+                        .expect("runtime event collector mutex poisoned")
+                        .push(event.payload().to_string());
+                }
+            },
+        );
+
+        let (actor_stream, mut device_stream) = duplex(4096);
+        let stream_slot = Arc::new(Mutex::new(Some(actor_stream)));
+        crate::comm::set_tcp_stream_override(Some(Arc::new({
+            let stream_slot = stream_slot.clone();
+            move |config| {
+                assert_eq!(config.host, "127.0.0.1");
+                assert_eq!(config.port, 15090);
+                let stream = stream_slot
+                    .lock()
+                    .expect("process flow tcp stream slot mutex poisoned")
+                    .take()
+                    .ok_or_else(|| "process flow tcp override stream already consumed".to_string())?;
+                Ok(Box::new(stream))
+            }
+        })));
+
+        manager
+            .load_recipe(
+                None,
+                workspace.path().to_string_lossy().to_string(),
+                "project-a".to_string(),
+                "ignore-dispatch-send-failure-process".to_string(),
+            )
+            .await
+            .unwrap();
+        manager
+            .start_with_app(Some(app.handle().clone()))
+            .await
+            .unwrap();
+
+        let frame = read_hmip_frame(&mut device_stream).await;
+        assert_eq!(frame.header.msg_type, 33);
+        assert_eq!(frame.header.channel, 9);
+        assert_eq!(frame.payload.as_ref(), &[0xaa, 0x55]);
+
+        let response_payload = crate::comm::proto::encode_response(&crate::comm::proto::Response {
+            request_id: 1801,
+            status: 0,
+            body: Bytes::new(),
+        });
+        let response_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::RESPONSE,
+            flags: 0,
+            channel: 9,
+            seq: 2801,
+            payload: &response_payload,
+        });
+        write_hmip_frame(&mut device_stream, &response_frame).await;
+
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S010",
+            RecipeRuntimeStepStatus::Completed,
+        )
+        .await;
+
+        drop(device_stream);
+
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S020",
+            RecipeRuntimeStepStatus::Completed,
+        )
+        .await;
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S030",
+            RecipeRuntimeStepStatus::Failed,
+        )
+        .await;
+
+        let failed_step_event = runtime_events
+            .lock()
+            .expect("runtime event collector mutex poisoned")
+            .iter()
+            .filter_map(|payload| {
+                serde_json::from_str::<super::super::types::RecipeRuntimeEvent>(payload).ok()
+            })
+            .find(|event| {
+                event.kind == super::super::types::RecipeRuntimeEventKind::StepChanged
+                    && event.snapshot.active_step_id.is_none()
+                    && step_in_phase(&event.snapshot, RecipeRuntimePhase::Recipe, "S030").status
+                        == RecipeRuntimeStepStatus::Failed
+            })
+            .expect("missing failed-step runtime event for ignored S030 step")
+            .snapshot;
+        assert_eq!(
+            failed_step_event
+                .last_error
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("dispatch_send_failed")
+        );
+
+        let snapshot = wait_for_terminal_status(&manager).await;
+        app.unlisten(runtime_listener);
+        assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S010").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S020").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S030").status,
+            RecipeRuntimeStepStatus::Failed
+        );
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S040").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S050").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            gpio_writes
+                .lock()
+                .expect("process flow gpio writes mutex poisoned")
+                .as_slice(),
+            &[("/dev/gpiochip-process".to_string(), 23, false, true)]
+        );
+
+        let comm_state = app.state::<crate::comm::CommState>();
+        crate::comm::disconnect_connection(&comm_state, "main-tcp-process")
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn process_should_enter_safe_stop_after_mid_process_dispatch_failure_and_finish_safe_stop_chain()
+    {
+        let _transport_guard = e2e_transport_lock()
+            .lock()
+            .expect("e2e transport lock poisoned");
+        let _gpio_override_guard = gpio_override_lock()
+            .lock()
+            .expect("gpio override lock poisoned");
+        let _override_reset = ProcessFlowOverrideReset;
+
+        let workspace = TestWorkspace::new();
+        write_process_flow_base(&workspace);
+        workspace.write_json(
+            "system/actions/valve.close.json",
+            json!({
+                "id": "valve.close",
+                "name": "关阀",
+                "targetMode": "required",
+                "allowedDeviceTypes": ["valve"],
+                "parameters": [],
+                "dispatch": {
+                    "kind": "gpioWrite",
+                    "value": false
+                }
+            }),
+        );
+        workspace.write_json(
+            "system/device-types/valve.json",
+            json!({
+                "id": "valve",
+                "name": "阀",
+                "allowedActions": ["valve.open", "valve.close"]
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/safety/safe-stop.json",
+            json!({
+                "id": "safe-stop",
+                "name": "安全停机",
+                "steps": [
+                    {
+                        "seq": 10,
+                        "actionId": "valve.close",
+                        "deviceId": "valve_01",
+                        "timeoutMs": 200
+                    }
+                ]
+            }),
+        );
+        workspace.write_json(
+            "projects/project-a/recipes/safe-stop-dispatch-send-failure-process.json",
+            json!({
+                "id": "safe-stop-dispatch-send-failure-process",
+                "name": "发送失败后进入安全停机",
+                "steps": [
+                    {
+                        "id": "S010",
+                        "seq": 10,
+                        "name": "等待前置条件",
+                        "actionId": "common.delay",
+                        "parameters": {
+                            "durationMs": 20
+                        },
+                        "timeoutMs": 200,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S020",
+                        "seq": 20,
+                        "name": "启动前级泵",
+                        "actionId": "pump.start",
+                        "deviceId": "pump_01",
+                        "timeoutMs": 500,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S030",
+                        "seq": 30,
+                        "name": "等待连接关闭",
+                        "actionId": "common.delay",
+                        "parameters": {
+                            "durationMs": 80
+                        },
+                        "timeoutMs": 200,
+                        "onError": "stop"
+                    },
+                    {
+                        "id": "S040",
+                        "seq": 40,
+                        "name": "发送泵心跳",
+                        "actionId": "pump.ping",
+                        "deviceId": "pump_01",
+                        "timeoutMs": 200,
+                        "onError": "safe-stop"
+                    }
+                ]
+            }),
+        );
+
+        let manager = RecipeRuntimeManager::default();
+        let app = setup_runtime_app(&manager);
+        let gpio_writes = Arc::new(Mutex::new(Vec::<(String, u32, bool, bool)>::new()));
+        crate::craftsmanship::runtime::dispatch::set_gpio_write_override(Some(Arc::new({
+            let gpio_writes = gpio_writes.clone();
+            move |chip_path, pin, active_low, value| {
+                gpio_writes
+                    .lock()
+                    .expect("process flow gpio writes mutex poisoned")
+                    .push((chip_path.to_string(), pin, active_low, value));
+                Ok(())
+            }
+        })));
+        let (actor_stream, mut device_stream) = duplex(4096);
+        let stream_slot = Arc::new(Mutex::new(Some(actor_stream)));
+        crate::comm::set_tcp_stream_override(Some(Arc::new({
+            let stream_slot = stream_slot.clone();
+            move |config| {
+                assert_eq!(config.host, "127.0.0.1");
+                assert_eq!(config.port, 15090);
+                let stream = stream_slot
+                    .lock()
+                    .expect("process flow tcp stream slot mutex poisoned")
+                    .take()
+                    .ok_or_else(|| "process flow tcp override stream already consumed".to_string())?;
+                Ok(Box::new(stream))
+            }
+        })));
+
+        manager
+            .load_recipe(
+                None,
+                workspace.path().to_string_lossy().to_string(),
+                "project-a".to_string(),
+                "safe-stop-dispatch-send-failure-process".to_string(),
+            )
+            .await
+            .unwrap();
+        manager
+            .start_with_app(Some(app.handle().clone()))
+            .await
+            .unwrap();
+
+        let frame = read_hmip_frame(&mut device_stream).await;
+        assert_eq!(frame.header.msg_type, 33);
+        assert_eq!(frame.header.channel, 9);
+        assert_eq!(frame.payload.as_ref(), &[0xaa, 0x55]);
+
+        let response_payload = crate::comm::proto::encode_response(&crate::comm::proto::Response {
+            request_id: 1901,
+            status: 0,
+            body: Bytes::new(),
+        });
+        let response_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+            msg_type: crate::comm::proto::msg_type::RESPONSE,
+            flags: 0,
+            channel: 9,
+            seq: 2901,
+            payload: &response_payload,
+        });
+        write_hmip_frame(&mut device_stream, &response_frame).await;
+
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S020",
+            RecipeRuntimeStepStatus::Completed,
+        )
+        .await;
+
+        drop(device_stream);
+
+        wait_until_step(
+            &manager,
+            RecipeRuntimePhase::Recipe,
+            "S030",
+            RecipeRuntimeStepStatus::Completed,
+        )
+        .await;
+
+        let started = std::time::Instant::now();
+        loop {
+            let snapshot = manager.get_status().await;
+            if snapshot.phase == RecipeRuntimePhase::SafeStop {
+                break;
+            }
+            assert!(
+                started.elapsed() < Duration::from_secs(2),
+                "runtime did not enter safe-stop in time"
+            );
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+
+        let snapshot = wait_for_terminal_status(&manager).await;
+        assert_eq!(snapshot.status, RecipeRuntimeStatus::Stopped);
+        assert_eq!(snapshot.phase, RecipeRuntimePhase::SafeStop);
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S010").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S020").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S030").status,
+            RecipeRuntimeStepStatus::Completed
+        );
+        assert_eq!(
+            step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S040").status,
+            RecipeRuntimeStepStatus::Failed
+        );
+        assert_eq!(snapshot.safe_stop_steps[0].status, RecipeRuntimeStepStatus::Completed);
+        assert_eq!(
+            snapshot
+                .last_error
+                .as_ref()
+                .map(|failure| failure.code.as_str()),
+            Some("dispatch_send_failed")
+        );
+        assert_eq!(
+            gpio_writes
+                .lock()
+                .expect("process flow gpio writes mutex poisoned")
+                .as_slice(),
+            &[("/dev/gpiochip-process".to_string(), 23, false, false)]
+        );
+
+        let comm_state = app.state::<crate::comm::CommState>();
+        crate::comm::disconnect_connection(&comm_state, "main-tcp-process")
+            .await
+            .unwrap();
+    }
 }

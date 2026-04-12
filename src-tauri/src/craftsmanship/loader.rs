@@ -1,5 +1,7 @@
 use super::types::*;
-use super::validation::{validate_project_resources, validate_system_bundle};
+use super::validation::{
+    validate_project_resources, validate_system_bundle, validate_workspace_projects,
+};
 use serde::de::DeserializeOwned;
 use std::collections::HashSet;
 use std::fs;
@@ -18,6 +20,7 @@ pub fn scan_workspace(workspace_root: &str) -> Result<CraftsmanshipWorkspaceSumm
         diagnostics.extend(bundle.diagnostics);
         projects.push(bundle.project);
     }
+    diagnostics.extend(validate_workspace_projects(&projects));
 
     Ok(CraftsmanshipWorkspaceSummary {
         workspace_root: path_to_string(&root),
@@ -486,19 +489,31 @@ fn list_json_file_paths(path: &Path) -> Result<Vec<String>, String> {
 fn find_project_dir(workspace_root: &Path, project_id: &str) -> Result<PathBuf, String> {
     let projects_dir = require_directory(&workspace_root.join("projects"), "projects")?;
     let project_dir = projects_dir.join(project_id);
+    let child_dirs = read_child_directories(&projects_dir)?;
     let mut direct_dir_mismatch = None;
+    let mut direct_parse_error = None;
+    let mut matching_dirs = Vec::new();
+
     if project_dir.exists() && project_dir.is_dir() {
         let project_json = project_dir.join("project.json");
         if project_json.exists() {
-            let project = read_json_file::<ProjectDefinition>(&project_json, "project definition")?;
-            if project.id == project_id {
-                return Ok(project_dir);
+            match read_json_file::<ProjectDefinition>(&project_json, "project definition") {
+                Ok(project) => {
+                    if project.id == project_id {
+                        matching_dirs.push(project_dir.clone());
+                    } else {
+                        direct_dir_mismatch = Some(project.id);
+                    }
+                }
+                Err(error) => {
+                    direct_parse_error = Some(error);
+                }
             }
-            direct_dir_mismatch = Some(project.id);
         }
     }
 
-    let child_dirs = read_child_directories(&projects_dir)?;
+    let mut sibling_parse_error = None;
+
     for child_dir in child_dirs {
         if child_dir == project_dir {
             continue;
@@ -507,10 +522,33 @@ fn find_project_dir(workspace_root: &Path, project_id: &str) -> Result<PathBuf, 
         if !project_json.exists() {
             continue;
         }
-        let project = read_json_file::<ProjectDefinition>(&project_json, "project definition")?;
-        if project.id == project_id {
-            return Ok(child_dir);
+        match read_json_file::<ProjectDefinition>(&project_json, "project definition") {
+            Ok(project) => {
+                if project.id == project_id {
+                    matching_dirs.push(child_dir);
+                }
+            }
+            Err(error) => {
+                if sibling_parse_error.is_none() {
+                    sibling_parse_error = Some(error);
+                }
+            }
         }
+    }
+
+    if matching_dirs.len() > 1 {
+        let matching_paths = matching_dirs
+            .iter()
+            .map(|path| path.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Err(format!(
+            "project `{project_id}` is ambiguous; multiple directories declare this id: {matching_paths}"
+        ));
+    }
+
+    if let Some(project_dir) = matching_dirs.into_iter().next() {
+        return Ok(project_dir);
     }
 
     if let Some(actual_id) = direct_dir_mismatch {
@@ -518,6 +556,14 @@ fn find_project_dir(workspace_root: &Path, project_id: &str) -> Result<PathBuf, 
             "project directory `{}` exists, but project.json declares id `{actual_id}` instead of `{project_id}`",
             project_dir.display()
         ));
+    }
+
+    if let Some(error) = direct_parse_error {
+        return Err(error);
+    }
+
+    if let Some(error) = sibling_parse_error {
+        return Err(error);
     }
 
     Err(format!(

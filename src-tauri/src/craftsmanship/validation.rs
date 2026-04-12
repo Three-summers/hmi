@@ -6,11 +6,13 @@ pub(super) fn validate_system_bundle(
     system: &CraftsmanshipSystemBundle,
 ) -> Vec<CraftsmanshipDiagnostic> {
     let mut diagnostics = Vec::new();
+    let mut seen_action_ids = HashSet::new();
     let action_ids = system
         .actions
         .iter()
         .map(|action| action.id.as_str())
         .collect::<HashSet<_>>();
+    let mut seen_device_type_ids = HashSet::new();
     let device_type_ids = system
         .device_types
         .iter()
@@ -18,6 +20,15 @@ pub(super) fn validate_system_bundle(
         .collect::<HashSet<_>>();
 
     for action in &system.actions {
+        if !seen_action_ids.insert(action.id.as_str()) {
+            diagnostics.push(diagnostic_error(
+                "duplicate_action_id",
+                format!("system defines duplicate action `{}`", action.id),
+                Some(action.source_path.clone()),
+                Some(action.id.clone()),
+            ));
+        }
+
         if let Some(target_mode) = action.target_mode.as_deref() {
             if !is_valid_target_mode(target_mode) {
                 diagnostics.push(diagnostic_error(
@@ -74,6 +85,15 @@ pub(super) fn validate_system_bundle(
     }
 
     for device_type in &system.device_types {
+        if !seen_device_type_ids.insert(device_type.id.as_str()) {
+            diagnostics.push(diagnostic_error(
+                "duplicate_device_type_id",
+                format!("system defines duplicate device type `{}`", device_type.id),
+                Some(device_type.source_path.clone()),
+                Some(device_type.id.clone()),
+            ));
+        }
+
         for action_id in &device_type.allowed_actions {
             if !action_ids.contains(action_id.as_str()) {
                 diagnostics.push(diagnostic_error(
@@ -86,6 +106,26 @@ pub(super) fn validate_system_bundle(
                     Some(device_type.id.clone()),
                 ));
             }
+        }
+    }
+
+    diagnostics
+}
+
+pub(super) fn validate_workspace_projects(
+    projects: &[ProjectDefinition],
+) -> Vec<CraftsmanshipDiagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen_project_ids = HashSet::new();
+
+    for project in projects {
+        if !seen_project_ids.insert(project.id.as_str()) {
+            diagnostics.push(diagnostic_error(
+                "duplicate_project_id",
+                format!("workspace defines duplicate project `{}`", project.id),
+                Some(project.source_path.clone()),
+                Some(project.id.clone()),
+            ));
         }
     }
 
@@ -260,6 +300,21 @@ pub(super) fn validate_project_resources(
                     ));
                 }
             }
+
+            if let Some(on_violation) = rule.on_violation.as_deref() {
+                if !is_valid_interlock_on_violation(on_violation) {
+                    diagnostics.push(diagnostic_error(
+                        "interlock_invalid_on_violation",
+                        format!(
+                            "interlock rule `{}` uses unsupported onViolation `{}`",
+                            rule.id, on_violation
+                        ),
+                        Some(interlocks.source_path.clone()),
+                        Some(rule.id.clone()),
+                    ));
+                }
+            }
+
             validate_interlock_condition(
                 &rule.condition,
                 &signal_map,
@@ -312,6 +367,20 @@ pub(super) fn validate_project_resources(
                     Some(recipe.source_path.clone()),
                     Some(step.id.clone()),
                 ));
+            }
+
+            if let Some(on_error) = step.on_error.as_deref() {
+                if !is_valid_recipe_on_error(on_error) {
+                    diagnostics.push(diagnostic_error(
+                        "recipe_invalid_on_error",
+                        format!(
+                            "recipe `{}` step `{}` uses unsupported onError `{}`",
+                            recipe.id, step.id, on_error
+                        ),
+                        Some(recipe.source_path.clone()),
+                        Some(step.id.clone()),
+                    ));
+                }
             }
 
             used_action_ids.insert(step.action_id.as_str());
@@ -1117,6 +1186,64 @@ fn validate_connection_definition(
                     Some(connection.id.clone()),
                 ));
             }
+
+            if serial.baud_rate.is_some_and(|baud_rate| baud_rate == 0) {
+                diagnostics.push(diagnostic_error(
+                    "connection_invalid_serial_baud_rate",
+                    format!(
+                        "connection `{}` declares invalid serial `baudRate`; expected a value greater than 0",
+                        connection.id
+                    ),
+                    Some(connection.source_path.clone()),
+                    Some(connection.id.clone()),
+                ));
+            }
+
+            if serial
+                .data_bits
+                .is_some_and(|data_bits| !is_valid_serial_data_bits(data_bits))
+            {
+                diagnostics.push(diagnostic_error(
+                    "connection_invalid_serial_data_bits",
+                    format!(
+                        "connection `{}` declares invalid serial `dataBits`; expected one of 5, 6, 7, or 8",
+                        connection.id
+                    ),
+                    Some(connection.source_path.clone()),
+                    Some(connection.id.clone()),
+                ));
+            }
+
+            if serial
+                .stop_bits
+                .is_some_and(|stop_bits| !is_valid_serial_stop_bits(stop_bits))
+            {
+                diagnostics.push(diagnostic_error(
+                    "connection_invalid_serial_stop_bits",
+                    format!(
+                        "connection `{}` declares invalid serial `stopBits`; expected 1 or 2",
+                        connection.id
+                    ),
+                    Some(connection.source_path.clone()),
+                    Some(connection.id.clone()),
+                ));
+            }
+
+            if serial
+                .parity
+                .as_deref()
+                .is_some_and(|parity| !is_valid_serial_parity(parity))
+            {
+                diagnostics.push(diagnostic_error(
+                    "connection_invalid_serial_parity",
+                    format!(
+                        "connection `{}` declares invalid serial `parity`; expected `none`, `even`, or `odd`",
+                        connection.id
+                    ),
+                    Some(connection.source_path.clone()),
+                    Some(connection.id.clone()),
+                ));
+            }
         }
         Some(other) => diagnostics.push(diagnostic_error(
             "connection_invalid_kind",
@@ -1696,6 +1823,28 @@ fn is_valid_parameter_type(value: &str) -> bool {
 
 fn is_valid_compare_operator(value: &str) -> bool {
     matches!(value, "eq" | "ne" | "gt" | "ge" | "lt" | "le")
+}
+
+fn is_valid_recipe_on_error(value: &str) -> bool {
+    matches!(value, "stop" | "ignore" | "safe-stop")
+}
+
+fn is_valid_interlock_on_violation(value: &str) -> bool {
+    matches!(value, "block" | "alarm")
+}
+
+fn is_valid_serial_data_bits(value: u8) -> bool {
+    matches!(value, 5..=8)
+}
+
+fn is_valid_serial_stop_bits(value: u8) -> bool {
+    matches!(value, 1 | 2)
+}
+
+fn is_valid_serial_parity(value: &str) -> bool {
+    value.eq_ignore_ascii_case("none")
+        || value.eq_ignore_ascii_case("even")
+        || value.eq_ignore_ascii_case("odd")
 }
 
 fn is_valid_hex_payload(value: &str) -> bool {

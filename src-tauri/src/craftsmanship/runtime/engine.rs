@@ -8,6 +8,8 @@ use serde_json::Value;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Runtime};
 
+const DEFAULT_SAFE_STOP_TIMEOUT_MS: u64 = 5000;
+
 pub(super) async fn run_recipe<R: Runtime>(
     manager: RecipeRuntimeManager,
     app: Option<AppHandle<R>>,
@@ -102,7 +104,7 @@ pub(super) async fn run_recipe<R: Runtime>(
                         manager
                             .finish_run(
                                 app.as_ref(),
-                                RecipeRuntimeStatus::Failed,
+                                RecipeRuntimeStatus::Stopped,
                                 RecipeRuntimePhase::SafeStop,
                                 Some(format!(
                                     "safe-stop failed after `{}`: {} ({})",
@@ -149,6 +151,7 @@ async fn execute_recipe_steps<R: Runtime>(
                     RecipeRuntimePhase::Recipe,
                     step.id.as_str(),
                     Some(failure.message.clone()),
+                    Some(failure.clone()),
                 )
                 .await;
             return Err(failure);
@@ -185,6 +188,7 @@ async fn execute_recipe_steps<R: Runtime>(
                         RecipeRuntimePhase::Recipe,
                         step.id.as_str(),
                         Some(format!("step failed but ignored: {}", failure.message)),
+                        Some(failure),
                     )
                     .await;
             }
@@ -195,6 +199,7 @@ async fn execute_recipe_steps<R: Runtime>(
                         RecipeRuntimePhase::Recipe,
                         step.id.as_str(),
                         Some(failure.message.clone()),
+                        Some(failure.clone()),
                     )
                     .await;
                 return Err(failure);
@@ -271,6 +276,7 @@ async fn execute_safe_stop<R: Runtime>(
                         RecipeRuntimePhase::SafeStop,
                         safe_step_id.as_str(),
                         Some(failure.message.clone()),
+                        Some(failure.clone()),
                     )
                     .await;
                 return Err(failure);
@@ -367,7 +373,7 @@ async fn execute_safe_stop_step<R: Runtime>(
             run_control,
             action,
             step.device_id.as_deref(),
-            None,
+            Some(step.timeout_ms.unwrap_or(DEFAULT_SAFE_STOP_TIMEOUT_MS)),
             step_id,
             Some("safe-stop".to_string()),
         )
@@ -381,7 +387,7 @@ async fn execute_safe_stop_step<R: Runtime>(
         run_control,
         action,
         step.device_id.as_deref(),
-        None,
+        Some(step.timeout_ms.unwrap_or(DEFAULT_SAFE_STOP_TIMEOUT_MS)),
         step_id,
         Some("safe-stop".to_string()),
     )
