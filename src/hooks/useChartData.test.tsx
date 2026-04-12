@@ -138,6 +138,47 @@ describe("hooks/useChartData", () => {
         expect(result.current.chartError).toBeNull();
     });
 
+    it("图表隐藏时应销毁已有的小图实例", async () => {
+        const { useChartData } = await import("./useChartData");
+        const csvData = buildCsv();
+
+        const { result, rerender } = renderHook(
+            ({ isChartsVisible }) =>
+                useChartData({
+                    csvData,
+                    theme: "dark",
+                    scaleFactor: 1,
+                    isChartsVisible,
+                }),
+            {
+                initialProps: { isChartsVisible: true },
+            },
+        );
+
+        const container = document.createElement("div");
+        Object.defineProperty(container, "clientWidth", {
+            value: 400,
+            configurable: true,
+        });
+
+        act(() => {
+            result.current.setChartRef(1, container);
+        });
+
+        await act(async () => {
+            flushRaf();
+        });
+
+        const uPlotMod = await import("uplot");
+        const chart = (uPlotMod.default as any).instances[0];
+
+        expect(chart).toBeDefined();
+
+        rerender({ isChartsVisible: false });
+
+        expect(chart.destroy).toHaveBeenCalledTimes(1);
+    });
+
     it("放大图初始化异常时应进入 enlargedChartError，并支持 retryEnlargedChart 恢复", async () => {
         const { useChartData } = await import("./useChartData");
         const csvData = buildCsv();

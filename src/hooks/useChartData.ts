@@ -590,6 +590,13 @@ export function useChartData({
         };
     }, [destroyEnlargedChart, destroySmallCharts]);
 
+    useEffect(() => {
+        if (isChartsVisible) return;
+        setEnlargedColumn(null);
+        destroySmallCharts();
+        destroyEnlargedChart();
+    }, [destroyEnlargedChart, destroySmallCharts, isChartsVisible]);
+
     // 渲染小图：每个启用列一个 uPlot 实例（默认禁用拖拽交互，避免与滚动冲突）
     useEffect(() => {
         if (!csvData) return;

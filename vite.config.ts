@@ -2,6 +2,13 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
+const filesChartsModules = [
+  "/src/components/views/Files/FilesChartPreview.tsx",
+  "/src/components/views/Files/LazyFilesChartPreview.tsx",
+  "/src/components/views/Files/ChartPanel.tsx",
+  "/src/hooks/useChartData.ts",
+];
+
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -28,10 +35,33 @@ export default defineConfig({
     minify: "esbuild",
     rollupOptions: {
       output: {
-        manualChunks: {
-          react: ["react", "react-dom"],
-          i18n: ["i18next", "react-i18next"],
-          zustand: ["zustand"],
+        manualChunks(id) {
+          const normalizedId = id.split(path.sep).join("/");
+
+          if (
+            normalizedId.includes("/node_modules/uplot/") ||
+            filesChartsModules.some((moduleId) => normalizedId.endsWith(moduleId))
+          ) {
+            return "files-charts";
+          }
+
+          if (
+            normalizedId.includes("/node_modules/react/") ||
+            normalizedId.includes("/node_modules/react-dom/")
+          ) {
+            return "react";
+          }
+
+          if (
+            normalizedId.includes("/node_modules/i18next/") ||
+            normalizedId.includes("/node_modules/react-i18next/")
+          ) {
+            return "i18n";
+          }
+
+          if (normalizedId.includes("/node_modules/zustand/")) {
+            return "zustand";
+          }
         },
       },
     },
