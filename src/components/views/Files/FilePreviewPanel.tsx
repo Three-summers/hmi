@@ -25,6 +25,13 @@ export function FilePreviewPanel({
     onRetryPreview,
     chartContent,
 }: FilePreviewPanelProps) {
+    const textPreview = (
+        <div className={filesStyles.textPreview}>
+            <div className={filesStyles.textHeader}>{preview.selectedFileName}</div>
+            <pre className={filesStyles.textContent}>{preview.content}</pre>
+        </div>
+    );
+
     if (!preview.selectedFilePath) {
         return (
             <div className={filesStyles.preview}>
@@ -75,20 +82,20 @@ export function FilePreviewPanel({
         );
     }
 
-    if (preview.isCsvFile && preview.csvData && chartContent !== null) {
+    if (preview.isCsvFile && preview.csvData) {
         return (
-            <div className={filesStyles.preview}>{chartContent}</div>
+            <div className={filesStyles.preview}>
+                <div className={filesStyles.csvPreviewPane}>
+                    <div className={filesStyles.csvPreviewShell}>{textPreview}</div>
+                    {chartContent !== null && (
+                        <div className={filesStyles.chartContentRegion}>
+                            {chartContent}
+                        </div>
+                    )}
+                </div>
+            </div>
         );
     }
 
-    return (
-        <div className={filesStyles.preview}>
-            <div className={filesStyles.textPreview}>
-                <div className={filesStyles.textHeader}>
-                    {preview.selectedFileName}
-                </div>
-                <pre className={filesStyles.textContent}>{preview.content}</pre>
-            </div>
-        </div>
-    );
+    return <div className={filesStyles.preview}>{textPreview}</div>;
 }

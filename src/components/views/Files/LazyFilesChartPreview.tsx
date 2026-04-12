@@ -19,6 +19,7 @@ interface LocalErrorBoundaryProps {
     children: ReactNode;
     chartInitErrorText: string;
     resetKey: string;
+    retryText: string;
 }
 
 interface LocalErrorBoundaryState {
@@ -48,14 +49,34 @@ class LocalErrorBoundary extends Component<
         }
     }
 
+    private reset = () => {
+        this.setState({ error: null });
+    };
+
     render() {
         if (this.state.error) {
             return (
                 <div className={filesStyles.error}>
-                    <StatusIndicator
-                        status="alarm"
-                        label={this.props.chartInitErrorText}
-                    />
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 12,
+                        }}
+                    >
+                        <StatusIndicator
+                            status="alarm"
+                            label={this.props.chartInitErrorText}
+                        />
+                        <button
+                            className={filesStyles.refreshBtn}
+                            onClick={this.reset}
+                            type="button"
+                        >
+                            {this.props.retryText}
+                        </button>
+                    </div>
                 </div>
             );
         }
@@ -85,6 +106,7 @@ export function LazyFilesChartPreview({
         <LocalErrorBoundary
             chartInitErrorText={chartInitErrorText}
             resetKey={resetKey}
+            retryText={retryText}
         >
             <Suspense
                 fallback={

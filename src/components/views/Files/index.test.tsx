@@ -164,7 +164,7 @@ describe("FilesView", () => {
         expect(mocks.info).toHaveBeenCalledTimes(1);
     });
 
-    it("CSV 预览在激活视图的总览标签中渲染懒加载图表子树", () => {
+    it("激活视图中的 CSV 预览会同时保留原始文本与懒加载图表区域", () => {
         mocks.preview = {
             selectedFilePath: "/logs/demo.csv",
             selectedFileName: "demo.csv",
@@ -184,6 +184,13 @@ describe("FilesView", () => {
         renderFilesView(true);
 
         expect(screen.getByTestId("lazy-chart-preview")).toBeInTheDocument();
+        expect(
+            screen.getByText(
+                (_, element) =>
+                    element?.tagName === "PRE" &&
+                    element.textContent === "time,value\n0,1\n1,2",
+            ),
+        ).toBeInTheDocument();
     });
 
     it("已激活的 CSV 图表子树在概览与说明切换间保持挂载", () => {
