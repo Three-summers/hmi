@@ -1,0 +1,7 @@
+{
+  "id": "project-a",
+  "name": "光刻胶稀释回配演示项目",
+  "description": "用于演示当前工艺流程后端的目录组织与最小真实流程",
+  "version": "1.0.0",
+  "enabled": true
+}

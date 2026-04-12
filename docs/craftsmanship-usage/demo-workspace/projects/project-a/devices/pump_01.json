@@ -1,0 +1,14 @@
+{
+  "id": "pump_01",
+  "name": "前级泵",
+  "typeId": "pump",
+  "enabled": true,
+  "transport": {
+    "kind": "tcp",
+    "connectionId": "main-tcp-process",
+    "channel": 9
+  },
+  "tags": {
+    "running": "device.pump_01.running"
+  }
+}

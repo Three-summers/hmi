@@ -1,0 +1,13 @@
+{
+  "id": "valve.open",
+  "name": "开阀",
+  "targetMode": "required",
+  "allowedDeviceTypes": [
+    "valve"
+  ],
+  "parameters": [],
+  "dispatch": {
+    "kind": "gpioWrite",
+    "value": true
+  }
+}

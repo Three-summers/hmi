@@ -1,0 +1,13 @@
+{
+  "id": "valve_01",
+  "name": "工艺阀",
+  "typeId": "valve",
+  "enabled": true,
+  "transport": {
+    "kind": "gpio",
+    "pin": 23,
+    "activeLow": false,
+    "chipPath": "/dev/gpiochip-process"
+  },
+  "tags": {}
+}

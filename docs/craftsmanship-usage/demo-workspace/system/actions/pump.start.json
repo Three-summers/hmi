@@ -1,0 +1,20 @@
+{
+  "id": "pump.start",
+  "name": "开泵",
+  "targetMode": "required",
+  "allowedDeviceTypes": [
+    "pump"
+  ],
+  "parameters": [],
+  "dispatch": {
+    "kind": "hmipFrame",
+    "msgType": 33,
+    "payloadHex": "aa55"
+  },
+  "completion": {
+    "type": "deviceFeedback",
+    "key": "running",
+    "operator": "eq",
+    "value": true
+  }
+}

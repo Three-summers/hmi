@@ -1,0 +1,15 @@
+{
+  "id": "common.delay",
+  "name": "延时",
+  "targetMode": "none",
+  "parameters": [
+    {
+      "key": "durationMs",
+      "name": "时长",
+      "type": "number",
+      "required": true,
+      "min": 0,
+      "max": 10000
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "id": "process_ready",
+  "name": "工艺就绪",
+  "dataType": "number",
+  "source": "signal.process_ready",
+  "enabled": true
+}

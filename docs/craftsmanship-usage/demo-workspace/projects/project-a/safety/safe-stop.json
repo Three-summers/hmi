@@ -1,0 +1,12 @@
+{
+  "id": "safe-stop",
+  "name": "安全停机",
+  "steps": [
+    {
+      "seq": 10,
+      "actionId": "pump.stop",
+      "deviceId": "pump_01",
+      "timeoutMs": 1000
+    }
+  ]
+}

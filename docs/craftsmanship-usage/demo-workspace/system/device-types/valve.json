@@ -1,0 +1,7 @@
+{
+  "id": "valve",
+  "name": "阀",
+  "allowedActions": [
+    "valve.open"
+  ]
+}

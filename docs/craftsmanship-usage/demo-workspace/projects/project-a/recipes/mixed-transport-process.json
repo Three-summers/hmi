@@ -1,0 +1,38 @@
+{
+  "id": "mixed-transport-process",
+  "name": "混合通信流程工艺",
+  "description": "先开阀，再开泵，最后等待上位机给出工艺就绪信号",
+  "steps": [
+    {
+      "id": "S010",
+      "seq": 10,
+      "name": "打开工艺阀",
+      "actionId": "valve.open",
+      "deviceId": "valve_01",
+      "timeoutMs": 500,
+      "onError": "stop"
+    },
+    {
+      "id": "S020",
+      "seq": 20,
+      "name": "启动前级泵",
+      "actionId": "pump.start",
+      "deviceId": "pump_01",
+      "timeoutMs": 500,
+      "onError": "safe-stop"
+    },
+    {
+      "id": "S030",
+      "seq": 30,
+      "name": "等待工艺就绪",
+      "actionId": "common.wait-signal",
+      "parameters": {
+        "signalId": "process_ready",
+        "operator": "eq",
+        "value": 1
+      },
+      "timeoutMs": 500,
+      "onError": "stop"
+    }
+  ]
+}

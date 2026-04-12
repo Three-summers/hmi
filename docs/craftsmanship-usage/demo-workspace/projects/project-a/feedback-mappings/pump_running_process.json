@@ -1,0 +1,16 @@
+{
+  "id": "pump-running-process",
+  "name": "工艺开泵反馈",
+  "enabled": true,
+  "match": {
+    "connectionId": "main-tcp-process",
+    "channel": 9,
+    "summaryKind": "response",
+    "status": 0
+  },
+  "target": {
+    "deviceId": "pump_01",
+    "feedbackKey": "running",
+    "value": true
+  }
+}

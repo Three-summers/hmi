@@ -1,0 +1,15 @@
+{
+  "id": "process-ready-process",
+  "name": "工艺就绪反馈",
+  "enabled": true,
+  "match": {
+    "connectionId": "main-tcp-process",
+    "channel": 9,
+    "summaryKind": "event",
+    "eventId": 91
+  },
+  "target": {
+    "signalId": "process_ready",
+    "value": 1
+  }
+}

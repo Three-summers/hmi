@@ -1,0 +1,8 @@
+{
+  "id": "pump",
+  "name": "泵",
+  "allowedActions": [
+    "pump.start",
+    "pump.stop"
+  ]
+}

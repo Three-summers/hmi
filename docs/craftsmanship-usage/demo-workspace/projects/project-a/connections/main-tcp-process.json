@@ -1,0 +1,11 @@
+{
+  "id": "main-tcp-process",
+  "name": "工艺 HMIP 主控",
+  "kind": "tcp",
+  "enabled": true,
+  "tcp": {
+    "host": "127.0.0.1",
+    "port": 15090,
+    "timeoutMs": 200
+  }
+}

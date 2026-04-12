@@ -1,0 +1,9 @@
+{
+  "id": "pump.stop",
+  "name": "停泵",
+  "targetMode": "required",
+  "allowedDeviceTypes": [
+    "pump"
+  ],
+  "parameters": []
+}
