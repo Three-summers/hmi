@@ -232,8 +232,12 @@
 }
 
 .csvPreviewShell {
-    flex: 0 0 auto;
-    min-height: 10rem;
+    flex: 0 1 12rem;
+    min-height: 8rem;
+    max-height: 40%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     border-bottom: var(--border-width-1) solid var(--border-color);
 }
 
