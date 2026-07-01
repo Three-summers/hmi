@@ -2,6 +2,8 @@
 
 本目录包含项目的架构与实现相关文档：
 
+- `project_env.md`：格科光阻稀释机台项目背景与程序需求（已整合 `Dilution_程序需求.xlsx`）
+- `Dilution_程序需求.xlsx`：光阻稀释程序需求原始表格（程序设置、报表样式参考）
 - `architecture.md`：系统架构总览（宏观分层、数据流、目录结构等）
 - `implementation/README.md`：实现原理拆解（对照源码、按模块深入）
 - `implementation/11-hmip-binary-protocol.md`：HMIP 二进制协议（帧格式/CRC/消息类型/事件流）
