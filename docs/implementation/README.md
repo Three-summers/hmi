@@ -22,6 +22,7 @@
 - `10-testing-strategy.md`：单元测试与 mock 策略（Vitest/JSDOM/依赖注入）
 - `11-hmip-binary-protocol.md`：HMIP 二进制协议（帧格式/CRC/消息类型/事件流）
 - `12-craftsmanship-backend.md`：工艺流程后端（workspace 模型、diagnostics、runtime、当前边界）
+- `13-dilution-preimplementation.md`：光阻稀释预实现设计（通用后端补强、领域层、状态机、PRMS/打印/报表集成）
 
 ## 约定：如何在文档里“对照源码”
 
