@@ -36,3 +36,4 @@ src-tauri/gen/apple/
 .*
 verification.md
 tmp/
+AGENTS.md
