@@ -168,7 +168,52 @@ run_recipe()
 
 这意味着：如果现场设备控制器愿意使用 HMIP 或可通过网关转换成 HMIP，阀门/泵/粘度计等反馈能直接进入 recipe runtime。
 
-### 1.6 SECS RPC 已经有基础封装，但不是 PRMS 业务接口
+### 1.6 STM32/HMIP 网关模式已经贴合当前实现，树莓派直连设备还缺驱动层
+
+当前实现最贴合的现场拓扑是：
+
+```txt
+Rust / Tauri
+  -> comm serial / TCP
+  -> HMIP
+  -> STM32
+  -> 多个现场设备：阀、泵、流量计、搅拌机、粘度计、气泡计等
+```
+
+在这种模式下，Rust 端只需要理解 HMIP，具体设备协议、脉冲计数、实时 IO、强安全联动都可以放在 STM32 固件中完成。`craftsmanship` 的 `hmipFrame` dispatch 和 `feedback-mappings` 能自然表达“向 STM32 下发动作，等待 STM32 返回设备反馈”。
+
+但如果某些设备不经过 STM32，而是直接接在树莓派上，并使用自己的协议，当前后端还不够完整：
+
+```txt
+树莓派 serial -> 流量计 ASCII/私有二进制协议
+树莓派 RS485  -> Modbus RTU 设备
+树莓派 TCP    -> 粘度计私有协议
+树莓派 USB/串口/TCP -> 打印机 ZPL/TSPL 或厂商协议
+树莓派 GPIO input -> 限位、EMO、气泡计开关量
+```
+
+当前 `comm` 能提供 TCP/serial 原始收发、连接复用和 HMIP 编解码；`dispatch.rs` 能做 `hmipFrame` 和 `gpioWrite`。它缺少的是“非 HMIP 设备驱动层”：
+
+- 自定义协议 codec：帧头、长度、CRC、转义、ASCII 行协议等。
+- 请求/响应匹配：request id、超时、重试、乱序或重复响应处理。
+- 周期轮询：流量计、粘度计、状态寄存器等。
+- 协议解析后的统一事件：把设备原始响应转换成 signal / device feedback。
+- 直连设备的 command dispatch：让 recipe step 可以调用某个 driver 命令，而不是只能发 HMIP 固定帧。
+- GPIO 输入：当前已有 GPIO 写输出，缺少输入读取、边沿监听和去抖后的 signal 更新。
+
+因此后续架构应同时支持两种设备接入方式：
+
+```txt
+方式 A：STM32/HMIP 网关
+  - 推荐用于强实时、多 IO、阀泵联动、脉冲计数、安全停机
+  - Rust 端通过 HMIP action 控制，反馈经 feedback-mappings 进入 runtime
+
+方式 B：树莓派直连驱动
+  - 适合低实时、协议清晰、独立设备
+  - Rust 端通过 device driver 编解码设备协议，再把结果映射到 runtime
+```
+
+### 1.7 SECS RPC 已经有基础封装，但不是 PRMS 业务接口
 
 源码对应：
 
@@ -186,7 +231,7 @@ run_recipe()
 
 这些不是当前 `secs_rpc` 模块已经建好的业务方法。后续可以复用 SECS RPC 作为底层 transport，但仍然需要 `PrmsClient` 领域适配层。
 
-### 1.7 前端 Recipes 页面仍是静态 demo
+### 1.8 前端 Recipes 页面仍是静态 demo
 
 源码对应：`src/components/views/Recipes/index.tsx`
 
@@ -276,6 +321,7 @@ Tauri commands
 | - TCP / Serial / HMIP        |
 | - GPIO                       |
 | - SECS RPC                   |
+| - Device drivers/codecs      |
 | - future printer / PRMS      |
 +--------------+--------------+
                |
@@ -295,7 +341,7 @@ Tauri commands
 - Tauri commands：前端可调用的后端 API。
 - `dilution domain`：新增领域层，是批次事实的唯一写入者。
 - `craftsmanship runtime`：已有工艺运行时，是设备动作执行器，不直接理解 PRMS 或 Dilution Barcode。
-- `comm / adapters`：已有 TCP/serial/HMIP/GPIO/SECS RPC，以及后续需要新增的 PRMS、打印、报表适配。
+- `comm / adapters`：已有 TCP/serial/HMIP/GPIO/SECS RPC；后续补 direct device drivers/codecs，并新增 PRMS、打印、报表适配。
 
 **关键路径**
 
@@ -690,7 +736,184 @@ craftsmanship_runtime_apply_input(input)
 
 第一阶段可直接复用现有 `write_signal()` / `write_device_feedback()`，但文档和类型上要明确：扫码枪、粘度计、流量计 adapter 进入领域层或 runtime 时都必须带 `source` 和 timestamp，便于追溯。
 
-### 4.6 错误策略从三档扩展为可恢复事件
+### 4.6 直连设备驱动与协议适配层
+
+#### 当前缺口
+
+当前后端的通信层更像“管道”：
+
+```txt
+serial / TCP bytes
+  -> HMIP decoder
+  -> hmip-event
+  -> feedback-mappings
+```
+
+这对 STM32/HMIP 网关模式足够清晰，但对树莓派直连设备不够。直连设备需要 Rust 端直接理解设备协议，例如：
+
+- 串口 ASCII：以 `\r\n` 结尾，命令如 `READ\r\n`，响应如 `MASS=123.45g`。
+- 私有二进制：固定帧头、长度、CRC16、命令字、payload。
+- Modbus RTU/TCP：寄存器读写、功能码、从站地址、CRC。
+- 打印机协议：ZPL/TSPL 生成和发送，打印状态回读。
+- GPIO 输入：读取开关量、边沿检测、去抖。
+
+如果没有 driver 层，领域层或 recipe action 只能直接拼字节、手写解析、自己处理超时和重试，后续会快速变成不可维护的协议散落。
+
+#### 预实现方案
+
+新增通用模块：
+
+```txt
+src-tauri/src/device_drivers/
+  mod.rs
+  traits.rs
+  registry.rs
+  codecs/
+    line_ascii.rs
+    framed_binary.rs
+    modbus.rs
+  drivers/
+    flowmeter_xxx.rs
+    viscosity_xxx.rs
+    printer_zpl.rs
+    gpio_input.rs
+```
+
+核心边界：
+
+```rust
+#[async_trait]
+pub trait DeviceDriver: Send + Sync {
+    fn protocol_id(&self) -> &'static str;
+
+    async fn dispatch(
+        &self,
+        ctx: DeviceDriverContext,
+        command: DeviceDriverCommand,
+    ) -> Result<DeviceDriverDispatchResult, DeviceDriverError>;
+
+    async fn handle_rx(
+        &self,
+        ctx: DeviceDriverContext,
+        bytes: &[u8],
+    ) -> Result<Vec<DeviceDriverEvent>, DeviceDriverError>;
+}
+
+pub struct DeviceDriverCommand {
+    pub command_id: String,
+    pub device_id: String,
+    pub parameters: BTreeMap<String, Value>,
+    pub timeout_ms: Option<u64>,
+}
+
+pub enum DeviceDriverEvent {
+    Signal {
+        signal_id: String,
+        value: Value,
+        source: String,
+        timestamp_ms: u64,
+    },
+    DeviceFeedback {
+        device_id: String,
+        feedback_key: String,
+        value: Value,
+        source: String,
+        timestamp_ms: u64,
+    },
+    Measurement {
+        device_id: String,
+        measurement_key: String,
+        value: Value,
+        unit: Option<String>,
+        timestamp_ms: u64,
+    },
+}
+```
+
+`craftsmanship` dispatch 扩展：
+
+```txt
+当前：
+  hmipFrame
+  gpioWrite
+
+建议新增：
+  driverCommand
+```
+
+action 示例：
+
+```json
+{
+  "id": "flowmeter.read-total-volume",
+  "name": "读取流量计累计体积",
+  "targetMode": "required",
+  "allowedDeviceTypes": ["flowmeter"],
+  "parameters": [
+    { "key": "resetAfterRead", "name": "读取后清零", "type": "boolean", "required": true }
+  ],
+  "dispatch": {
+    "kind": "driverCommand",
+    "driverProtocol": "flowmeter.ascii.v1",
+    "commandId": "read-total-volume"
+  },
+  "completion": {
+    "type": "deviceFeedback",
+    "key": "volumeUpdated",
+    "operator": "eq",
+    "value": true
+  }
+}
+```
+
+device 示例：
+
+```json
+{
+  "id": "flowmeter_01",
+  "name": "原液流量计",
+  "typeId": "flowmeter",
+  "transport": {
+    "kind": "serial",
+    "connectionId": "flowmeter-serial"
+  },
+  "driver": {
+    "protocol": "flowmeter.ascii.v1",
+    "pollIntervalMs": 200,
+    "requestTimeoutMs": 1000
+  },
+  "tags": {
+    "volumeUpdated": "flowmeter_01.volume_updated",
+    "actualVolumeMl": "flowmeter_01.actual_volume_ml"
+  }
+}
+```
+
+需要同步扩展的类型：
+
+- `DeviceInstance` 增加 `driver` 配置。
+- `ActionDispatchDefinition` 增加 `driver_protocol`、`command_id` 或 `driver_command`。
+- `validation.rs` 校验 `driverCommand` 的 device 是否配置 driver、driver protocol 是否注册、transport kind 是否匹配。
+- `dispatch.rs` 遇到 `driverCommand` 时调用 driver registry。
+- `comm/actor.rs` 的 rx bytes 除 HMIP decoder 外，还要能转交给绑定该 connection 的 driver。
+
+#### 与 STM32/HMIP 的边界
+
+直连 driver 不是要替代 STM32。推荐规则：
+
+| 设备/能力 | 推荐接入 |
+| --- | --- |
+| 阀门、泵、脉冲计数、联锁、安全停机 | STM32/HMIP |
+| 高实时计量闭环 | STM32/HMIP |
+| 扫码枪 | Rust direct adapter 或前端键盘输入 |
+| 打印机 | Rust direct driver |
+| 低频粘度计读取 | Rust direct driver 或 STM32/HMIP 均可 |
+| Modbus 状态设备 | Rust direct driver 可行 |
+| EMO、气泡计等安全输入 | 优先 STM32，Rust 可做只读监控 |
+
+安全原则：只要动作失败可能造成设备危险状态，优先放 STM32，并让 STM32 自己具备安全停机能力。Rust direct driver 适合低频、独立、失败可恢复的设备。
+
+### 4.7 错误策略从三档扩展为可恢复事件
 
 #### 当前缺口
 
@@ -741,7 +964,7 @@ recipe step 可新增：
 
 领域异常仍放 `dilution` 状态机处理，不通过 recipe step 的 `onError` 硬编码。
 
-### 4.7 通用配置存取
+### 4.8 通用配置存取
 
 #### 当前缺口
 
@@ -1459,19 +1682,32 @@ Log/报表         -> ReportPending / Completed / PendingSync
 - runtime journal。
 - 更清晰的 external input bridge。
 - 可选人工 gate。
+- `driverCommand` dispatch 类型与 `device_drivers` registry 骨架。
 
 这一阶段让领域层可以把批次参数干净注入物理段 recipe。
 
-### 阶段 2：物理段 recipe 与设备联调
+### 阶段 2：直连设备驱动基础能力
+
+目标：
+
+- 增加 `DeviceInstance.driver` 配置和静态校验。
+- 建立 serial line ASCII、framed binary、Modbus 的 codec 基础接口。
+- 实现至少一个 fake driver 和一个真实低风险 driver，例如扫码枪或打印机。
+- 让 driver 事件能进入 `craftsmanship_runtime_apply_input()` 或现有 `write_signal()` / `write_device_feedback()`。
+- 明确哪些设备必须走 STM32/HMIP，哪些允许树莓派直连。
+
+这一阶段不要求所有设备协议一次完成，但要把“直连设备不是 HMIP，也能以统一方式进入 runtime”的骨架固定下来。
+
+### 阶段 3：物理段 recipe 与设备联调
 
 目标：
 
 - 建立稀释设备 workspace。
 - 配置阀、泵、流量计、搅拌机、粘度计、气泡计、EMO signal。
 - 将 raw-load、solvent-load、mix、viscosity、dispense 做成 segment recipes。
-- 通过 fake device 或真实控制器验证 interlock / safe-stop / feedback。
+- 通过 fake device、STM32/HMIP 控制器或 Rust direct driver 验证 interlock / safe-stop / feedback。
 
-### 阶段 3：PRMS、打印、报表真实接口
+### 阶段 4：PRMS、打印、报表真实接口
 
 目标：
 
@@ -1481,7 +1717,7 @@ Log/报表         -> ReportPending / Completed / PendingSync
 - 接入打印机并处理重打。
 - 接入报表系统并实现待补传。
 
-### 阶段 4：生产硬化
+### 阶段 5：生产硬化
 
 目标：
 
@@ -1503,6 +1739,9 @@ Log/报表         -> ReportPending / Completed / PendingSync
 - journal：步骤开始/完成/失败都写入 JSONL。
 - gate：等待、确认、拒绝、stop。
 - external input bridge：signal/device feedback 都能推进 wait/completion。
+- `driverCommand` dispatch：能调用 fake driver，并把 driver event 转成 signal/device feedback。
+- driver codec：ASCII 行协议、二进制帧拆包粘包、CRC 错误、超时重试。
+- GPIO input：开关量读取、去抖、边沿事件到 signal 的映射。
 
 ### dilution 单元测试
 
@@ -1524,7 +1763,8 @@ Log/报表         -> ReportPending / Completed / PendingSync
 建议 fake 三类外部系统：
 
 - fake PRMS：返回单浓度、多浓度、mapping 失败、barcode 数量不匹配。
-- fake device runtime：模拟计量完成、粘度值、气泡异常。
+- fake STM32/HMIP device runtime：模拟计量完成、粘度值、气泡异常。
+- fake direct driver：模拟直连流量计/粘度计/打印机协议响应。
 - fake printer/report：模拟成功、失败、重试成功。
 
 最小集成流程：
