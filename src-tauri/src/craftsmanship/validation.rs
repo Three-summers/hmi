@@ -973,18 +973,6 @@ fn validate_action_dispatch_definition(
 ) {
     match dispatch.kind.as_deref() {
         Some("hmipFrame") => {
-            if !action.parameters.is_empty() {
-                diagnostics.push(diagnostic_error(
-                    "action_dispatch_parameters_not_supported",
-                    format!(
-                        "action `{}` uses HMIP dispatch; only fixed payload dispatch is supported so action parameters are not allowed",
-                        action.id
-                    ),
-                    Some(action.source_path.clone()),
-                    Some(action.id.clone()),
-                ));
-            }
-
             if !matches!(action.target_mode.as_deref(), Some("required")) {
                 diagnostics.push(diagnostic_error(
                     "action_dispatch_requires_device_target",
@@ -1011,6 +999,18 @@ fn validate_action_dispatch_definition(
 
             match dispatch.payload_mode.as_deref().unwrap_or("fixedHex") {
                 "fixedHex" => {
+                    if !action.parameters.is_empty() {
+                        diagnostics.push(diagnostic_error(
+                            "action_dispatch_parameters_not_supported",
+                            format!(
+                                "action `{}` uses fixed HMIP payload dispatch, so action parameters are not allowed",
+                                action.id
+                            ),
+                            Some(action.source_path.clone()),
+                            Some(action.id.clone()),
+                        ));
+                    }
+
                     if dispatch.payload_hex.as_deref().is_none() {
                         diagnostics.push(diagnostic_error(
                             "action_missing_dispatch_payload_hex",
@@ -1034,6 +1034,9 @@ fn validate_action_dispatch_definition(
                             ));
                         }
                     }
+                }
+                "templateHex" => {
+                    validate_payload_template_definition(action, dispatch, diagnostics);
                 }
                 other => diagnostics.push(diagnostic_error(
                     "action_invalid_dispatch_payload_mode",
@@ -1116,6 +1119,136 @@ fn validate_action_dispatch_definition(
             Some(action.id.clone()),
         )),
     }
+}
+
+fn validate_payload_template_definition(
+    action: &ActionDefinition,
+    dispatch: &ActionDispatchDefinition,
+    diagnostics: &mut Vec<CraftsmanshipDiagnostic>,
+) {
+    let Some(template) = dispatch.payload_template.as_ref() else {
+        diagnostics.push(diagnostic_error(
+            "action_missing_dispatch_payload_template",
+            format!(
+                "action `{}` declares HMIP dispatch with `templateHex`, but `payloadTemplate` is missing",
+                action.id
+            ),
+            Some(action.source_path.clone()),
+            Some(action.id.clone()),
+        ));
+        return;
+    };
+
+    if let Some(endian) = template.endian.as_deref() {
+        if !matches!(endian, "little" | "big") {
+            diagnostics.push(diagnostic_error(
+                "action_invalid_dispatch_payload_template_endian",
+                format!(
+                    "action `{}` payloadTemplate declares unsupported endian `{endian}`",
+                    action.id
+                ),
+                Some(action.source_path.clone()),
+                Some(action.id.clone()),
+            ));
+        }
+    }
+
+    if template.fields.is_empty() {
+        diagnostics.push(diagnostic_error(
+            "action_empty_dispatch_payload_template",
+            format!(
+                "action `{}` payloadTemplate must define at least one field",
+                action.id
+            ),
+            Some(action.source_path.clone()),
+            Some(action.id.clone()),
+        ));
+    }
+
+    for (index, field) in template.fields.iter().enumerate() {
+        if !is_valid_payload_template_field_type(field.field_type.as_str()) {
+            diagnostics.push(diagnostic_error(
+                "action_invalid_dispatch_payload_template_field_type",
+                format!(
+                    "action `{}` payloadTemplate field {index} declares unsupported type `{}`",
+                    action.id, field.field_type
+                ),
+                Some(action.source_path.clone()),
+                Some(action.id.clone()),
+            ));
+        }
+
+        if field.from.is_none() && field.value.is_none() {
+            diagnostics.push(diagnostic_error(
+                "action_missing_dispatch_payload_template_field_value",
+                format!(
+                    "action `{}` payloadTemplate field {index} must define `from` or `value`",
+                    action.id
+                ),
+                Some(action.source_path.clone()),
+                Some(action.id.clone()),
+            ));
+        }
+
+        if let Some(path) = field.from.as_deref() {
+            validate_payload_template_path(action, index, path, diagnostics);
+        }
+
+        if field.field_type == "enumU8" && field.map.is_empty() {
+            diagnostics.push(diagnostic_error(
+                "action_missing_dispatch_payload_template_enum_map",
+                format!(
+                    "action `{}` payloadTemplate field {index} uses `enumU8` but `map` is empty",
+                    action.id
+                ),
+                Some(action.source_path.clone()),
+                Some(action.id.clone()),
+            ));
+        }
+    }
+}
+
+fn validate_payload_template_path(
+    action: &ActionDefinition,
+    index: usize,
+    path: &str,
+    diagnostics: &mut Vec<CraftsmanshipDiagnostic>,
+) {
+    if let Some(parameter_key) = path.strip_prefix("parameters.") {
+        if !action
+            .parameters
+            .iter()
+            .any(|parameter| parameter.key == parameter_key)
+        {
+            diagnostics.push(diagnostic_error(
+                "action_unknown_dispatch_payload_template_parameter",
+                format!(
+                    "action `{}` payloadTemplate field {index} references unknown parameter `{parameter_key}`",
+                    action.id
+                ),
+                Some(action.source_path.clone()),
+                Some(action.id.clone()),
+            ));
+        }
+        return;
+    }
+
+    if path.starts_with("runInputs.")
+        || path.starts_with("runtimeValues.")
+        || path.starts_with("signalValues.")
+    {
+        return;
+    }
+
+    diagnostics.push(diagnostic_error(
+        "action_invalid_dispatch_payload_template_path",
+        format!(
+            "action `{}` payloadTemplate field {index} references unsupported path `{path}`",
+            action.id
+        ),
+        Some(action.source_path.clone()),
+        Some(action.id.clone()),
+    ));
 }
 
 fn validate_connection_definition(
@@ -1823,6 +1956,13 @@ fn is_valid_parameter_type(value: &str) -> bool {
 
 fn is_valid_compare_operator(value: &str) -> bool {
     matches!(value, "eq" | "ne" | "gt" | "ge" | "lt" | "le")
+}
+
+fn is_valid_payload_template_field_type(value: &str) -> bool {
+    matches!(
+        value,
+        "u8" | "u16" | "u32" | "i8" | "i16" | "i32" | "f32" | "f64" | "enumU8" | "hex"
+    )
 }
 
 fn is_valid_recipe_on_error(value: &str) -> bool {

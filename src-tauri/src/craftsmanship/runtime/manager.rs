@@ -1,7 +1,8 @@
 use super::engine;
 use super::types::{
-    update_step_snapshot, RecipeRuntimeEvent, RecipeRuntimeEventKind, RecipeRuntimeFailure,
-    RecipeRuntimePhase, RecipeRuntimeSnapshot, RecipeRuntimeStatus, RecipeRuntimeStepStatus,
+    update_step_snapshot, RecipeRuntimeEvent, RecipeRuntimeEventKind, RecipeRuntimeExternalInput,
+    RecipeRuntimeFailure, RecipeRuntimePhase, RecipeRuntimeRunInput, RecipeRuntimeSnapshot,
+    RecipeRuntimeStatus, RecipeRuntimeStepStatus,
 };
 use crate::craftsmanship::{
     get_recipe_bundle, ActionDefinition, ConnectionDefinition, CraftsmanshipRecipeBundle,
@@ -200,6 +201,22 @@ impl RecipeRuntimeManager {
         &self,
         app: Option<AppHandle<R>>,
     ) -> Result<RecipeRuntimeSnapshot, String> {
+        self.start_with_input_with_app(app, None).await
+    }
+
+    pub async fn start_with_input(
+        &self,
+        app: Option<AppHandle>,
+        input: RecipeRuntimeRunInput,
+    ) -> Result<RecipeRuntimeSnapshot, String> {
+        self.start_with_input_with_app(app, Some(input)).await
+    }
+
+    pub async fn start_with_input_with_app<R: Runtime>(
+        &self,
+        app: Option<AppHandle<R>>,
+        input: Option<RecipeRuntimeRunInput>,
+    ) -> Result<RecipeRuntimeSnapshot, String> {
         let (loaded, run_control, snapshot) = {
             let mut state = self.inner.lock().await;
             let Some(loaded) = state.loaded.clone() else {
@@ -225,7 +242,7 @@ impl RecipeRuntimeManager {
             state.next_run_id = state.next_run_id.saturating_add(1);
             let run_id = state.next_run_id;
             let run_control = RuntimeRunControl::new();
-            state.snapshot.reset_for_run(run_id, now_ms());
+            state.snapshot.reset_for_run(run_id, now_ms(), input);
             state.run_control = Some(run_control.clone());
             (loaded, run_control, state.snapshot.clone())
         };
@@ -300,6 +317,18 @@ impl RecipeRuntimeManager {
         signal_id: String,
         value: Value,
     ) -> Result<RecipeRuntimeSnapshot, String> {
+        self.write_signal_with_metadata_with_app(app, signal_id, value, None, None)
+            .await
+    }
+
+    async fn write_signal_with_metadata_with_app<R: Runtime>(
+        &self,
+        app: Option<&AppHandle<R>>,
+        signal_id: String,
+        value: Value,
+        input_source: Option<String>,
+        input_timestamp_ms: Option<u64>,
+    ) -> Result<RecipeRuntimeSnapshot, String> {
         let snapshot = {
             let mut state = self.inner.lock().await;
             let source = state
@@ -316,8 +345,29 @@ impl RecipeRuntimeManager {
                 .snapshot
                 .signal_values
                 .insert(signal_id.clone(), value.clone());
+            let runtime_key = source.clone().or_else(|| {
+                if input_source.is_some() || input_timestamp_ms.is_some() {
+                    Some(signal_id.clone())
+                } else {
+                    None
+                }
+            });
             if let Some(source) = source {
                 state.snapshot.runtime_values.insert(source, value.clone());
+            }
+            if let Some(runtime_key) = runtime_key {
+                if let Some(input_source) = input_source {
+                    state
+                        .snapshot
+                        .input_sources
+                        .insert(runtime_key.clone(), input_source);
+                }
+                if let Some(input_timestamp_ms) = input_timestamp_ms {
+                    state
+                        .snapshot
+                        .input_timestamps_ms
+                        .insert(runtime_key, input_timestamp_ms);
+                }
             }
             state.snapshot.last_message = Some(format!("signal `{signal_id}` updated"));
             state.snapshot.clone()
@@ -354,6 +404,19 @@ impl RecipeRuntimeManager {
         key: String,
         value: Value,
     ) -> Result<RecipeRuntimeSnapshot, String> {
+        self.write_device_feedback_with_metadata_with_app(app, device_id, key, value, None, None)
+            .await
+    }
+
+    async fn write_device_feedback_with_metadata_with_app<R: Runtime>(
+        &self,
+        app: Option<&AppHandle<R>>,
+        device_id: String,
+        key: String,
+        value: Value,
+        input_source: Option<String>,
+        input_timestamp_ms: Option<u64>,
+    ) -> Result<RecipeRuntimeSnapshot, String> {
         let (snapshot, runtime_key) = {
             let mut state = self.inner.lock().await;
             let (runtime_key, signal_id) = {
@@ -381,6 +444,18 @@ impl RecipeRuntimeManager {
                     .signal_values
                     .insert(signal_id, value.clone());
             }
+            if let Some(input_source) = input_source {
+                state
+                    .snapshot
+                    .input_sources
+                    .insert(runtime_key.clone(), input_source);
+            }
+            if let Some(input_timestamp_ms) = input_timestamp_ms {
+                state
+                    .snapshot
+                    .input_timestamps_ms
+                    .insert(runtime_key.clone(), input_timestamp_ms);
+            }
             state.snapshot.last_message =
                 Some(format!("device feedback `{device_id}.{key}` updated"));
             (state.snapshot.clone(), runtime_key)
@@ -397,6 +472,55 @@ impl RecipeRuntimeManager {
         );
 
         Ok(snapshot)
+    }
+
+    pub async fn apply_external_input(
+        &self,
+        app: Option<&AppHandle>,
+        input: RecipeRuntimeExternalInput,
+    ) -> Result<RecipeRuntimeSnapshot, String> {
+        self.apply_external_input_with_app(app, input).await
+    }
+
+    pub async fn apply_external_input_with_app<R: Runtime>(
+        &self,
+        app: Option<&AppHandle<R>>,
+        input: RecipeRuntimeExternalInput,
+    ) -> Result<RecipeRuntimeSnapshot, String> {
+        match input {
+            RecipeRuntimeExternalInput::Signal {
+                signal_id,
+                value,
+                source,
+                timestamp_ms,
+            } => {
+                self.write_signal_with_metadata_with_app(
+                    app,
+                    signal_id,
+                    value,
+                    Some(source),
+                    Some(timestamp_ms),
+                )
+                .await
+            }
+            RecipeRuntimeExternalInput::DeviceFeedback {
+                device_id,
+                feedback_key,
+                value,
+                source,
+                timestamp_ms,
+            } => {
+                self.write_device_feedback_with_metadata_with_app(
+                    app,
+                    device_id,
+                    feedback_key,
+                    value,
+                    Some(source),
+                    Some(timestamp_ms),
+                )
+                .await
+            }
+        }
     }
 
     pub async fn apply_hmip_feedback(

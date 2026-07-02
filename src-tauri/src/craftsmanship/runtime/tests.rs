@@ -1,4 +1,5 @@
 use super::manager::RecipeRuntimeManager;
+use super::types::{RecipeRuntimeDomainContext, RecipeRuntimeExternalInput, RecipeRuntimeRunInput};
 use super::types::{RecipeRuntimePhase, RecipeRuntimeStatus, RecipeRuntimeStepStatus};
 use bytes::Bytes;
 use serde_json::{json, Value};
@@ -441,6 +442,74 @@ async fn runtime_should_complete_delay_recipe() {
 }
 
 #[tokio::test]
+async fn runtime_should_store_run_input_on_start() {
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "projects/project-a/recipes/delay-with-input.json",
+        json!({
+            "id": "delay-with-input",
+            "name": "带运行输入的延时工艺",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "延时",
+                    "actionId": "common.delay",
+                    "parameters": {
+                        "durationMs": 10
+                    },
+                    "timeoutMs": 200,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "delay-with-input".to_string(),
+        )
+        .await
+        .unwrap();
+
+    let mut parameters = std::collections::BTreeMap::new();
+    parameters.insert("targetMassG".to_string(), json!(1200.5));
+    parameters.insert("rawBarcode".to_string(), json!("RAW-20260702-001"));
+    let input = RecipeRuntimeRunInput {
+        correlation_id: Some("batch-20260702-001".to_string()),
+        operator_id: Some("op-007".to_string()),
+        reviewer_ids: vec!["qa-011".to_string()],
+        parameters,
+        domain: Some(RecipeRuntimeDomainContext {
+            domain_name: "dilution".to_string(),
+            entity_id: "batch-20260702-001".to_string(),
+            entity_kind: "batch".to_string(),
+        }),
+    };
+
+    let started = manager.start_with_input(None, input.clone()).await.unwrap();
+    assert_eq!(
+        started.correlation_id.as_deref(),
+        Some("batch-20260702-001")
+    );
+    assert_eq!(started.run_input.as_ref(), Some(&input));
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+    assert_eq!(
+        snapshot.correlation_id.as_deref(),
+        Some("batch-20260702-001")
+    );
+    assert_eq!(snapshot.run_input.as_ref(), Some(&input));
+}
+
+#[tokio::test]
 async fn runtime_should_resume_when_signal_is_written() {
     let workspace = TestWorkspace::new();
     write_system_bundle(&workspace);
@@ -500,6 +569,144 @@ async fn runtime_should_resume_when_signal_is_written() {
 }
 
 #[tokio::test]
+async fn runtime_should_apply_external_signal_input_with_metadata() {
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "projects/project-a/recipes/wait-external-pressure.json",
+        json!({
+            "id": "wait-external-pressure",
+            "name": "等待外部腔压",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "等待腔压到位",
+                    "actionId": "common.wait-signal",
+                    "parameters": {
+                        "signalId": "chamber_pressure",
+                        "operator": "lt",
+                        "value": 10
+                    },
+                    "timeoutMs": 500,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "wait-external-pressure".to_string(),
+        )
+        .await
+        .unwrap();
+    manager.start(None).await.unwrap();
+
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    manager
+        .apply_external_input(
+            None,
+            RecipeRuntimeExternalInput::Signal {
+                signal_id: "chamber_pressure".to_string(),
+                value: json!(5),
+                source: "flowmeter-adapter".to_string(),
+                timestamp_ms: 1_783_078_400_123,
+            },
+        )
+        .await
+        .unwrap();
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+    assert_eq!(
+        snapshot.signal_values.get("chamber_pressure"),
+        Some(&json!(5))
+    );
+    assert_eq!(
+        snapshot.runtime_values.get("signal.chamber_pressure"),
+        Some(&json!(5))
+    );
+    assert_eq!(
+        snapshot.input_sources.get("signal.chamber_pressure"),
+        Some(&"flowmeter-adapter".to_string())
+    );
+    assert_eq!(
+        snapshot.input_timestamps_ms.get("signal.chamber_pressure"),
+        Some(&1_783_078_400_123)
+    );
+}
+
+#[tokio::test]
+async fn runtime_should_not_create_runtime_value_for_source_less_signal_write() {
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "projects/project-a/signals/manual_ready_level.json",
+        json!({
+            "id": "manual_ready_level",
+            "name": "人工就绪等级",
+            "dataType": "number",
+            "enabled": true
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/wait-manual-ready.json",
+        json!({
+            "id": "wait-manual-ready",
+            "name": "等待人工就绪",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "等待人工就绪等级",
+                    "actionId": "common.wait-signal",
+                    "parameters": {
+                        "signalId": "manual_ready_level",
+                        "operator": "eq",
+                        "value": 1
+                    },
+                    "timeoutMs": 500,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "wait-manual-ready".to_string(),
+        )
+        .await
+        .unwrap();
+    manager.start(None).await.unwrap();
+
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    manager
+        .write_signal(None, "manual_ready_level".to_string(), json!(1))
+        .await
+        .unwrap();
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+    assert_eq!(
+        snapshot.signal_values.get("manual_ready_level"),
+        Some(&json!(1))
+    );
+    assert_eq!(snapshot.runtime_values.get("manual_ready_level"), None);
+}
+
+#[tokio::test]
 async fn runtime_should_complete_device_action_after_feedback() {
     let workspace = TestWorkspace::new();
     write_system_bundle(&workspace);
@@ -556,6 +763,74 @@ async fn runtime_should_complete_device_action_after_feedback() {
     assert_eq!(
         snapshot.runtime_values.get("device.pump_01.running"),
         Some(&json!(true))
+    );
+}
+
+#[tokio::test]
+async fn runtime_should_apply_external_device_feedback_with_metadata() {
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "projects/project-a/recipes/pump-start-external-feedback.json",
+        json!({
+            "id": "pump-start-external-feedback",
+            "name": "外部反馈开泵",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "开泵",
+                    "actionId": "pump.start",
+                    "deviceId": "pump_01",
+                    "parameters": {},
+                    "timeoutMs": 500,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "pump-start-external-feedback".to_string(),
+        )
+        .await
+        .unwrap();
+    manager.start(None).await.unwrap();
+
+    tokio::time::sleep(Duration::from_millis(40)).await;
+    manager
+        .apply_external_input(
+            None,
+            RecipeRuntimeExternalInput::DeviceFeedback {
+                device_id: "pump_01".to_string(),
+                feedback_key: "running".to_string(),
+                value: json!(true),
+                source: "metering-controller".to_string(),
+                timestamp_ms: 1_783_078_400_456,
+            },
+        )
+        .await
+        .unwrap();
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+    assert_eq!(
+        snapshot.runtime_values.get("device.pump_01.running"),
+        Some(&json!(true))
+    );
+    assert_eq!(
+        snapshot.input_sources.get("device.pump_01.running"),
+        Some(&"metering-controller".to_string())
+    );
+    assert_eq!(
+        snapshot.input_timestamps_ms.get("device.pump_01.running"),
+        Some(&1_783_078_400_456)
     );
 }
 
@@ -2330,6 +2605,241 @@ async fn runtime_should_run_recipe_over_fake_tcp_transport_end_to_end() {
     assert_eq!(
         snapshot.signal_values.get("chamber_pressure"),
         Some(&json!(3))
+    );
+
+    let comm_state = app.state::<crate::comm::CommState>();
+    crate::comm::disconnect_connection(&comm_state, "main-tcp")
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn runtime_should_dispatch_template_hex_payload_from_step_and_run_context() {
+    let _transport_guard = e2e_transport_lock()
+        .lock()
+        .expect("e2e transport lock poisoned");
+    let _override_reset = CommOverrideReset;
+
+    let workspace = TestWorkspace::new();
+    write_system_bundle(&workspace);
+    write_project_base(&workspace);
+    workspace.write_json(
+        "system/actions/metering.start-target-mass.json",
+        json!({
+            "id": "metering.start-target-mass",
+            "name": "按目标质量启动计量",
+            "targetMode": "required",
+            "allowedDeviceTypes": ["pump"],
+            "parameters": [
+                {
+                    "key": "materialLine",
+                    "name": "物料管路",
+                    "type": "enum",
+                    "required": true,
+                    "options": ["raw", "pgmea", "output"]
+                },
+                {
+                    "key": "targetMassG",
+                    "name": "目标质量",
+                    "type": "number",
+                    "required": true,
+                    "min": 0
+                },
+                {
+                    "key": "toleranceG",
+                    "name": "允许误差",
+                    "type": "number",
+                    "required": true,
+                    "min": 0
+                }
+            ],
+            "dispatch": {
+                "kind": "hmipFrame",
+                "msgType": 16,
+                "flags": 1,
+                "priority": "high",
+                "payloadMode": "templateHex",
+                "payloadTemplate": {
+                    "endian": "little",
+                    "fields": [
+                        { "type": "u16", "value": 101 },
+                        {
+                            "type": "enumU8",
+                            "from": "parameters.materialLine",
+                            "map": { "raw": 1, "pgmea": 2, "output": 3 }
+                        },
+                        { "type": "f32", "from": "runInputs.targetMassG" },
+                        { "type": "f32", "from": "parameters.toleranceG" }
+                    ]
+                }
+            },
+            "completion": {
+                "type": "deviceFeedback",
+                "key": "running",
+                "operator": "eq",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "system/device-types/pump.json",
+        json!({
+            "id": "pump",
+            "name": "泵",
+            "allowedActions": ["pump.start", "pump.stop", "metering.start-target-mass"]
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/connections/main_tcp.json",
+        json!({
+            "id": "main-tcp",
+            "name": "主控 TCP",
+            "kind": "tcp",
+            "tcp": {
+                "host": "127.0.0.1",
+                "port": 15061,
+                "timeoutMs": 200
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/devices/pump_01.json",
+        json!({
+            "id": "pump_01",
+            "name": "计量控制器",
+            "typeId": "pump",
+            "enabled": true,
+            "transport": {
+                "kind": "tcp",
+                "connectionId": "main-tcp",
+                "channel": 3
+            },
+            "tags": {
+                "running": "device.pump_01.running"
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/feedback-mappings/metering_done.json",
+        json!({
+            "id": "metering-done-feedback",
+            "name": "计量完成反馈",
+            "match": {
+                "connectionId": "main-tcp",
+                "channel": 3,
+                "summaryKind": "response",
+                "status": 0
+            },
+            "target": {
+                "deviceId": "pump_01",
+                "feedbackKey": "running",
+                "value": true
+            }
+        }),
+    );
+    workspace.write_json(
+        "projects/project-a/recipes/template-payload.json",
+        json!({
+            "id": "template-payload",
+            "name": "动态计量 payload",
+            "steps": [
+                {
+                    "id": "S010",
+                    "seq": 10,
+                    "name": "启动原液计量",
+                    "actionId": "metering.start-target-mass",
+                    "deviceId": "pump_01",
+                    "parameters": {
+                        "materialLine": "raw",
+                        "targetMassG": 0,
+                        "toleranceG": 2.5
+                    },
+                    "timeoutMs": 500,
+                    "onError": "stop"
+                }
+            ]
+        }),
+    );
+
+    let manager = RecipeRuntimeManager::default();
+    let app = setup_runtime_app(&manager);
+    let (actor_stream, mut device_stream) = duplex(4096);
+    let stream_slot = Arc::new(Mutex::new(Some(actor_stream)));
+    crate::comm::set_tcp_stream_override(Some(Arc::new({
+        let stream_slot = stream_slot.clone();
+        move |config| {
+            assert_eq!(config.host, "127.0.0.1");
+            assert_eq!(config.port, 15061);
+            let stream = stream_slot
+                .lock()
+                .expect("template tcp stream slot mutex poisoned")
+                .take()
+                .ok_or_else(|| "template tcp override stream already consumed".to_string())?;
+            Ok(Box::new(stream))
+        }
+    })));
+
+    manager
+        .load_recipe(
+            None,
+            workspace.path().to_string_lossy().to_string(),
+            "project-a".to_string(),
+            "template-payload".to_string(),
+        )
+        .await
+        .unwrap();
+
+    let mut parameters = std::collections::BTreeMap::new();
+    parameters.insert("targetMassG".to_string(), json!(1234.5));
+    manager
+        .start_with_input_with_app(
+            Some(app.handle().clone()),
+            Some(RecipeRuntimeRunInput {
+                correlation_id: Some("batch-template-001".to_string()),
+                operator_id: Some("op-007".to_string()),
+                reviewer_ids: Vec::new(),
+                parameters,
+                domain: None,
+            }),
+        )
+        .await
+        .unwrap();
+
+    let device_task = tokio::spawn(async move {
+        let frame = read_hmip_frame(&mut device_stream).await;
+        assert_eq!(frame.header.msg_type, 16);
+        assert_eq!(frame.header.flags, 1);
+        assert_eq!(frame.header.channel, 3);
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&101u16.to_le_bytes());
+        expected.push(1);
+        expected.extend_from_slice(&1234.5f32.to_le_bytes());
+        expected.extend_from_slice(&2.5f32.to_le_bytes());
+        assert_eq!(frame.payload.as_ref(), expected.as_slice());
+
+        let response_payload = crate::comm::proto::encode_response(&crate::comm::proto::Response {
+            request_id: 99,
+            status: 0,
+            body: Bytes::new(),
+        });
+        let response_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 3,
+                seq: 701,
+                payload: &response_payload,
+            });
+        write_hmip_frame(&mut device_stream, &response_frame).await;
+    });
+
+    let snapshot = wait_for_terminal_status(&manager).await;
+    device_task.await.unwrap();
+
+    assert_eq!(snapshot.status, RecipeRuntimeStatus::Completed);
+    assert_eq!(
+        snapshot.runtime_values.get("device.pump_01.running"),
+        Some(&json!(true))
     );
 
     let comm_state = app.state::<crate::comm::CommState>();
@@ -4832,7 +5342,9 @@ mod process_flow_tests {
                     .lock()
                     .expect("process flow tcp stream slot mutex poisoned")
                     .take()
-                    .ok_or_else(|| "process flow tcp override stream already consumed".to_string())?;
+                    .ok_or_else(|| {
+                        "process flow tcp override stream already consumed".to_string()
+                    })?;
                 Ok(Box::new(stream))
             }
         })));
@@ -4868,13 +5380,14 @@ mod process_flow_tests {
             status: 0,
             body: Bytes::new(),
         });
-        let response_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
-            msg_type: crate::comm::proto::msg_type::RESPONSE,
-            flags: 0,
-            channel: 9,
-            seq: 1501,
-            payload: &response_payload,
-        });
+        let response_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 9,
+                seq: 1501,
+                payload: &response_payload,
+            });
         write_hmip_frame(&mut device_stream, &response_frame).await;
 
         wait_until_step(
@@ -5155,7 +5668,9 @@ mod process_flow_tests {
             RecipeRuntimeStepStatus::Running
         );
         assert_eq!(
-            isolated_snapshot.runtime_values.get("device.pump_01.running"),
+            isolated_snapshot
+                .runtime_values
+                .get("device.pump_01.running"),
             None
         );
         assert_eq!(
@@ -5367,20 +5882,24 @@ mod process_flow_tests {
             step_in_phase(&mid_snapshot, RecipeRuntimePhase::Recipe, "S030").status,
             RecipeRuntimeStepStatus::Pending
         );
-        assert_eq!(mid_snapshot.signal_values.get("process_ready"), Some(&json!(1)));
+        assert_eq!(
+            mid_snapshot.signal_values.get("process_ready"),
+            Some(&json!(1))
+        );
 
         let response_payload = crate::comm::proto::encode_response(&crate::comm::proto::Response {
             request_id: 1602,
             status: 0,
             body: Bytes::new(),
         });
-        let response_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
-            msg_type: crate::comm::proto::msg_type::RESPONSE,
-            flags: 0,
-            channel: 9,
-            seq: 2602,
-            payload: &response_payload,
-        });
+        let response_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 9,
+                seq: 2602,
+                payload: &response_payload,
+            });
         write_hmip_frame(&mut device_stream, &response_frame).await;
 
         let snapshot = wait_for_terminal_status(&manager).await;
@@ -5560,13 +6079,14 @@ mod process_flow_tests {
             status: 0,
             body: Bytes::new(),
         });
-        let response_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
-            msg_type: crate::comm::proto::msg_type::RESPONSE,
-            flags: 0,
-            channel: 9,
-            seq: 2701,
-            payload: &response_payload,
-        });
+        let response_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 9,
+                seq: 2701,
+                payload: &response_payload,
+            });
         write_hmip_frame(&mut device_stream, &response_frame).await;
 
         wait_until_step(
@@ -5592,13 +6112,14 @@ mod process_flow_tests {
             timestamp_ms: 1701,
             body: Bytes::new(),
         });
-        let wrong_event_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
-            msg_type: crate::comm::proto::msg_type::EVENT,
-            flags: 0,
-            channel: 8,
-            seq: 2702,
-            payload: &wrong_event_payload,
-        });
+        let wrong_event_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::EVENT,
+                flags: 0,
+                channel: 8,
+                seq: 2702,
+                payload: &wrong_event_payload,
+            });
         write_hmip_frame(&mut device_stream, &wrong_event_frame).await;
 
         let wrong_probe_started = std::time::Instant::now();
@@ -5637,7 +6158,9 @@ mod process_flow_tests {
         );
         assert_eq!(guarded_snapshot.signal_values.get("process_ready"), None);
         assert_eq!(
-            guarded_snapshot.signal_values.get("process_wrong_channel_probe"),
+            guarded_snapshot
+                .signal_values
+                .get("process_wrong_channel_probe"),
             Some(&json!(8))
         );
 
@@ -5646,13 +6169,14 @@ mod process_flow_tests {
             timestamp_ms: 1702,
             body: Bytes::new(),
         });
-        let correct_event_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
-            msg_type: crate::comm::proto::msg_type::EVENT,
-            flags: 0,
-            channel: 9,
-            seq: 2703,
-            payload: &correct_event_payload,
-        });
+        let correct_event_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::EVENT,
+                flags: 0,
+                channel: 9,
+                seq: 2703,
+                payload: &correct_event_payload,
+            });
         write_hmip_frame(&mut device_stream, &correct_event_frame).await;
 
         let snapshot = wait_for_terminal_status(&manager).await;
@@ -5681,8 +6205,8 @@ mod process_flow_tests {
     }
 
     #[tokio::test]
-    async fn process_should_continue_after_ignored_dispatch_send_failure_and_complete_following_steps()
-    {
+    async fn process_should_continue_after_ignored_dispatch_send_failure_and_complete_following_steps(
+    ) {
         let _transport_guard = e2e_transport_lock()
             .lock()
             .expect("e2e transport lock poisoned");
@@ -5764,9 +6288,8 @@ mod process_flow_tests {
                 Ok(())
             }
         })));
-        let runtime_listener = app.listen_any(
-            crate::craftsmanship::runtime::RECIPE_RUNTIME_EVENT_NAME,
-            {
+        let runtime_listener =
+            app.listen_any(crate::craftsmanship::runtime::RECIPE_RUNTIME_EVENT_NAME, {
                 let runtime_events = runtime_events.clone();
                 move |event| {
                     runtime_events
@@ -5774,8 +6297,7 @@ mod process_flow_tests {
                         .expect("runtime event collector mutex poisoned")
                         .push(event.payload().to_string());
                 }
-            },
-        );
+            });
 
         let (actor_stream, mut device_stream) = duplex(4096);
         let stream_slot = Arc::new(Mutex::new(Some(actor_stream)));
@@ -5788,7 +6310,9 @@ mod process_flow_tests {
                     .lock()
                     .expect("process flow tcp stream slot mutex poisoned")
                     .take()
-                    .ok_or_else(|| "process flow tcp override stream already consumed".to_string())?;
+                    .ok_or_else(|| {
+                        "process flow tcp override stream already consumed".to_string()
+                    })?;
                 Ok(Box::new(stream))
             }
         })));
@@ -5817,13 +6341,14 @@ mod process_flow_tests {
             status: 0,
             body: Bytes::new(),
         });
-        let response_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
-            msg_type: crate::comm::proto::msg_type::RESPONSE,
-            flags: 0,
-            channel: 9,
-            seq: 2801,
-            payload: &response_payload,
-        });
+        let response_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 9,
+                seq: 2801,
+                payload: &response_payload,
+            });
         write_hmip_frame(&mut device_stream, &response_frame).await;
 
         wait_until_step(
@@ -5912,8 +6437,8 @@ mod process_flow_tests {
     }
 
     #[tokio::test]
-    async fn process_should_enter_safe_stop_after_mid_process_dispatch_failure_and_finish_safe_stop_chain()
-    {
+    async fn process_should_enter_safe_stop_after_mid_process_dispatch_failure_and_finish_safe_stop_chain(
+    ) {
         let _transport_guard = e2e_transport_lock()
             .lock()
             .expect("e2e transport lock poisoned");
@@ -6035,7 +6560,9 @@ mod process_flow_tests {
                     .lock()
                     .expect("process flow tcp stream slot mutex poisoned")
                     .take()
-                    .ok_or_else(|| "process flow tcp override stream already consumed".to_string())?;
+                    .ok_or_else(|| {
+                        "process flow tcp override stream already consumed".to_string()
+                    })?;
                 Ok(Box::new(stream))
             }
         })));
@@ -6064,13 +6591,14 @@ mod process_flow_tests {
             status: 0,
             body: Bytes::new(),
         });
-        let response_frame = crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
-            msg_type: crate::comm::proto::msg_type::RESPONSE,
-            flags: 0,
-            channel: 9,
-            seq: 2901,
-            payload: &response_payload,
-        });
+        let response_frame =
+            crate::comm::proto::encode_frame(crate::comm::proto::EncodeFrameParams {
+                msg_type: crate::comm::proto::msg_type::RESPONSE,
+                flags: 0,
+                channel: 9,
+                seq: 2901,
+                payload: &response_payload,
+            });
         write_hmip_frame(&mut device_stream, &response_frame).await;
 
         wait_until_step(
@@ -6123,7 +6651,10 @@ mod process_flow_tests {
             step_in_phase(&snapshot, RecipeRuntimePhase::Recipe, "S040").status,
             RecipeRuntimeStepStatus::Failed
         );
-        assert_eq!(snapshot.safe_stop_steps[0].status, RecipeRuntimeStepStatus::Completed);
+        assert_eq!(
+            snapshot.safe_stop_steps[0].status,
+            RecipeRuntimeStepStatus::Completed
+        );
         assert_eq!(
             snapshot
                 .last_error

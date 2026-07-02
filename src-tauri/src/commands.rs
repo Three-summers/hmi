@@ -62,6 +62,16 @@ pub async fn craftsmanship_runtime_start(
     state.start(Some(app)).await
 }
 
+/// 使用本次运行输入启动已加载的 recipe runtime。
+#[tauri::command]
+pub async fn craftsmanship_runtime_start_with_input(
+    app: AppHandle,
+    state: State<'_, craftsmanship::RecipeRuntimeManager>,
+    input: craftsmanship::RecipeRuntimeRunInput,
+) -> Result<craftsmanship::RecipeRuntimeSnapshot, String> {
+    state.start_with_input(Some(app), input).await
+}
+
 /// 请求停止当前 recipe runtime。
 #[tauri::command]
 pub async fn craftsmanship_runtime_stop(
@@ -103,6 +113,16 @@ pub async fn craftsmanship_runtime_write_device_feedback(
     state
         .write_device_feedback(Some(&app), device_id, key, value)
         .await
+}
+
+/// 从外部 adapter 写入统一运行输入，并记录 source/timestamp 元数据。
+#[tauri::command]
+pub async fn craftsmanship_runtime_apply_input(
+    app: AppHandle,
+    state: State<'_, craftsmanship::RecipeRuntimeManager>,
+    input: craftsmanship::RecipeRuntimeExternalInput,
+) -> Result<craftsmanship::RecipeRuntimeSnapshot, String> {
+    state.apply_external_input(Some(&app), input).await
 }
 
 /// 获取 Log 目录路径

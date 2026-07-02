@@ -33,6 +33,32 @@ pub struct ActionCompletionDefinition {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct PayloadTemplateDefinition {
+    #[serde(default)]
+    pub endian: Option<String>,
+    #[serde(default)]
+    pub fields: Vec<PayloadTemplateFieldDefinition>,
+    #[serde(flatten, default)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PayloadTemplateFieldDefinition {
+    #[serde(rename = "type")]
+    pub field_type: String,
+    #[serde(default)]
+    pub from: Option<String>,
+    #[serde(default)]
+    pub value: Option<Value>,
+    #[serde(default)]
+    pub map: BTreeMap<String, Value>,
+    #[serde(flatten, default)]
+    pub extra: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct ActionDispatchDefinition {
     #[serde(default)]
     pub kind: Option<String>,
@@ -46,6 +72,8 @@ pub struct ActionDispatchDefinition {
     pub payload_mode: Option<String>,
     #[serde(default)]
     pub payload_hex: Option<String>,
+    #[serde(default)]
+    pub payload_template: Option<PayloadTemplateDefinition>,
     #[serde(default)]
     pub value: Option<bool>,
     #[serde(flatten, default)]

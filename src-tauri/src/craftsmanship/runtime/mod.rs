@@ -5,7 +5,8 @@ mod types;
 
 pub use manager::{RecipeRuntimeManager, RECIPE_RUNTIME_EVENT_NAME};
 pub use types::{
-    RecipeRuntimeEvent, RecipeRuntimeEventKind, RecipeRuntimeFailure, RecipeRuntimePhase,
+    RecipeRuntimeDomainContext, RecipeRuntimeEvent, RecipeRuntimeEventKind,
+    RecipeRuntimeExternalInput, RecipeRuntimeFailure, RecipeRuntimePhase, RecipeRuntimeRunInput,
     RecipeRuntimeSnapshot, RecipeRuntimeStatus, RecipeRuntimeStepSnapshot, RecipeRuntimeStepStatus,
 };
 

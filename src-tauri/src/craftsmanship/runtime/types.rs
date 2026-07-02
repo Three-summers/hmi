@@ -85,6 +85,57 @@ pub struct RecipeRuntimeStepSnapshot {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
+pub struct RecipeRuntimeRunInput {
+    #[serde(default)]
+    pub correlation_id: Option<String>,
+    #[serde(default)]
+    pub operator_id: Option<String>,
+    #[serde(default)]
+    pub reviewer_ids: Vec<String>,
+    #[serde(default)]
+    pub parameters: BTreeMap<String, Value>,
+    #[serde(default)]
+    pub domain: Option<RecipeRuntimeDomainContext>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RecipeRuntimeDomainContext {
+    pub domain_name: String,
+    pub entity_id: String,
+    pub entity_kind: String,
+}
+
+impl PartialEq for RecipeRuntimeRunInput {
+    fn eq(&self, other: &Self) -> bool {
+        self.correlation_id == other.correlation_id
+            && self.operator_id == other.operator_id
+            && self.reviewer_ids == other.reviewer_ids
+            && self.parameters == other.parameters
+            && self.domain == other.domain
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "type")]
+pub enum RecipeRuntimeExternalInput {
+    Signal {
+        signal_id: String,
+        value: Value,
+        source: String,
+        timestamp_ms: u64,
+    },
+    DeviceFeedback {
+        device_id: String,
+        feedback_key: String,
+        value: Value,
+        source: String,
+        timestamp_ms: u64,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct RecipeRuntimeSnapshot {
     pub status: RecipeRuntimeStatus,
     pub phase: RecipeRuntimePhase,
@@ -99,6 +150,10 @@ pub struct RecipeRuntimeSnapshot {
     #[serde(default)]
     pub recipe_name: Option<String>,
     pub run_id: u64,
+    #[serde(default)]
+    pub correlation_id: Option<String>,
+    #[serde(default)]
+    pub run_input: Option<RecipeRuntimeRunInput>,
     #[serde(default)]
     pub started_at_ms: Option<u64>,
     #[serde(default)]
@@ -115,6 +170,10 @@ pub struct RecipeRuntimeSnapshot {
     pub signal_values: BTreeMap<String, Value>,
     #[serde(default)]
     pub runtime_values: BTreeMap<String, Value>,
+    #[serde(default)]
+    pub input_sources: BTreeMap<String, String>,
+    #[serde(default)]
+    pub input_timestamps_ms: BTreeMap<String, u64>,
     #[serde(default)]
     pub diagnostics: Vec<CraftsmanshipDiagnostic>,
     #[serde(default)]
@@ -147,6 +206,8 @@ impl RecipeRuntimeSnapshot {
             recipe_id: Some(bundle.recipe.id.clone()),
             recipe_name: Some(bundle.recipe.name.clone()),
             run_id: 0,
+            correlation_id: None,
+            run_input: None,
             started_at_ms: None,
             finished_at_ms: None,
             active_step_id: None,
@@ -170,22 +231,35 @@ impl RecipeRuntimeSnapshot {
                 .unwrap_or_default(),
             signal_values: BTreeMap::new(),
             runtime_values: BTreeMap::new(),
+            input_sources: BTreeMap::new(),
+            input_timestamps_ms: BTreeMap::new(),
             diagnostics: bundle.diagnostics.clone(),
             last_error: None,
             last_message: Some("recipe loaded".to_string()),
         }
     }
 
-    pub fn reset_for_run(&mut self, run_id: u64, started_at_ms: u64) {
+    pub fn reset_for_run(
+        &mut self,
+        run_id: u64,
+        started_at_ms: u64,
+        input: Option<RecipeRuntimeRunInput>,
+    ) {
         self.status = RecipeRuntimeStatus::Running;
         self.phase = RecipeRuntimePhase::Recipe;
         self.run_id = run_id;
+        self.correlation_id = input
+            .as_ref()
+            .and_then(|input| input.correlation_id.clone());
+        self.run_input = input;
         self.started_at_ms = Some(started_at_ms);
         self.finished_at_ms = None;
         self.active_step_id = None;
         self.active_step_phase = None;
         self.signal_values.clear();
         self.runtime_values.clear();
+        self.input_sources.clear();
+        self.input_timestamps_ms.clear();
         self.last_error = None;
         self.last_message = Some("recipe runtime started".to_string());
         reset_step_collection(&mut self.recipe_steps);

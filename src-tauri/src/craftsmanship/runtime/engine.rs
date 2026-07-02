@@ -311,8 +311,9 @@ async fn execute_recipe_step<R: Runtime>(
         "common.delay" => execute_delay_step(manager, run_control, step).await,
         "common.wait-signal" => execute_wait_signal_step(manager, run_control, step).await,
         _ if action.dispatch.is_some() => {
+            let snapshot = manager.snapshot().await;
             let dispatch_message =
-                dispatch::dispatch_recipe_action(app, loaded, step, action).await?;
+                dispatch::dispatch_recipe_action(app, loaded, step, action, &snapshot).await?;
             let completion_message = execute_action_completion(
                 manager,
                 loaded,
@@ -364,9 +365,16 @@ async fn execute_safe_stop_step<R: Runtime>(
     })?;
 
     if action.dispatch.is_some() {
-        let dispatch_message =
-            dispatch::dispatch_safe_stop_action(app, loaded, step, step_id.as_str(), action)
-                .await?;
+        let snapshot = manager.snapshot().await;
+        let dispatch_message = dispatch::dispatch_safe_stop_action(
+            app,
+            loaded,
+            step,
+            step_id.as_str(),
+            action,
+            &snapshot,
+        )
+        .await?;
         let completion_message = execute_action_completion(
             manager,
             loaded,

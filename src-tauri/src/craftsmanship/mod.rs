@@ -6,8 +6,9 @@ mod validation;
 pub use loader::{get_project_bundle, get_recipe_bundle, scan_workspace};
 #[allow(unused_imports)]
 pub use runtime::{
-    RecipeRuntimeEvent, RecipeRuntimeEventKind, RecipeRuntimeFailure, RecipeRuntimeManager,
-    RecipeRuntimePhase, RecipeRuntimeSnapshot, RecipeRuntimeStatus, RecipeRuntimeStepSnapshot,
+    RecipeRuntimeDomainContext, RecipeRuntimeEvent, RecipeRuntimeEventKind,
+    RecipeRuntimeExternalInput, RecipeRuntimeFailure, RecipeRuntimeManager, RecipeRuntimePhase,
+    RecipeRuntimeRunInput, RecipeRuntimeSnapshot, RecipeRuntimeStatus, RecipeRuntimeStepSnapshot,
     RecipeRuntimeStepStatus, RECIPE_RUNTIME_EVENT_NAME,
 };
 pub use types::*;

@@ -1,12 +1,13 @@
 use super::manager::{now_ms, LoadedRecipeRuntime};
-use super::types::RecipeRuntimeFailure;
+use super::types::{RecipeRuntimeFailure, RecipeRuntimeSnapshot};
 use crate::comm::actor::CommPriority;
 use crate::comm::{self, HmipOutboundFrame};
 use crate::craftsmanship::{
     ActionDefinition, ActionDispatchDefinition, ConnectionDefinition, RecipeStep, SafeStopStep,
 };
 use gpio_cdev::{Chip, LineHandle, LineRequestFlags};
-use std::collections::HashMap;
+use serde_json::Value;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, OnceLock};
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -46,12 +47,15 @@ pub(super) async fn dispatch_recipe_action<R: Runtime>(
     loaded: &LoadedRecipeRuntime,
     step: &RecipeStep,
     action: &ActionDefinition,
+    snapshot: &RecipeRuntimeSnapshot,
 ) -> Result<String, RecipeRuntimeFailure> {
     dispatch_action(
         app,
         loaded,
         action,
         step.device_id.as_deref(),
+        &step.parameters,
+        snapshot,
         Some(step.id.as_str()),
         Some(step.action_id.as_str()),
         step.on_error.clone(),
@@ -65,12 +69,16 @@ pub(super) async fn dispatch_safe_stop_action<R: Runtime>(
     step: &SafeStopStep,
     step_id: &str,
     action: &ActionDefinition,
+    snapshot: &RecipeRuntimeSnapshot,
 ) -> Result<String, RecipeRuntimeFailure> {
+    let parameters = BTreeMap::new();
     dispatch_action(
         app,
         loaded,
         action,
         step.device_id.as_deref(),
+        &parameters,
+        snapshot,
         Some(step_id),
         Some(step.action_id.as_str()),
         Some("safe-stop".to_string()),
@@ -83,6 +91,8 @@ async fn dispatch_action<R: Runtime>(
     loaded: &LoadedRecipeRuntime,
     action: &ActionDefinition,
     device_id: Option<&str>,
+    step_parameters: &BTreeMap<String, Value>,
+    snapshot: &RecipeRuntimeSnapshot,
     step_id: Option<&str>,
     action_id: Option<&str>,
     on_error: Option<String>,
@@ -100,7 +110,16 @@ async fn dispatch_action<R: Runtime>(
     match dispatch.kind.as_deref() {
         Some("hmipFrame") => {
             dispatch_hmip_frame(
-                app, loaded, action, dispatch, device_id, step_id, action_id, on_error,
+                app,
+                loaded,
+                action,
+                dispatch,
+                device_id,
+                step_parameters,
+                snapshot,
+                step_id,
+                action_id,
+                on_error,
             )
             .await
         }
@@ -137,6 +156,8 @@ async fn dispatch_hmip_frame<R: Runtime>(
     action: &ActionDefinition,
     dispatch: &ActionDispatchDefinition,
     device_id: Option<&str>,
+    step_parameters: &BTreeMap<String, Value>,
+    snapshot: &RecipeRuntimeSnapshot,
     step_id: Option<&str>,
     action_id: Option<&str>,
     on_error: Option<String>,
@@ -211,7 +232,15 @@ async fn dispatch_hmip_frame<R: Runtime>(
         )
     })?;
 
-    let payload = build_hmip_payload(action, dispatch, step_id, action_id, on_error.clone())?;
+    let payload = build_hmip_payload(
+        action,
+        dispatch,
+        step_parameters,
+        snapshot,
+        step_id,
+        action_id,
+        on_error.clone(),
+    )?;
     let frame = HmipOutboundFrame {
         msg_type: dispatch.msg_type.ok_or_else(|| {
             dispatch_failure(
@@ -429,6 +458,8 @@ async fn dispatch_gpio_write(
 fn build_hmip_payload(
     action: &ActionDefinition,
     dispatch: &ActionDispatchDefinition,
+    step_parameters: &BTreeMap<String, Value>,
+    snapshot: &RecipeRuntimeSnapshot,
     step_id: Option<&str>,
     action_id: Option<&str>,
     on_error: Option<String>,
@@ -454,6 +485,34 @@ fn build_hmip_payload(
                 )
             })
         }
+        "templateHex" => {
+            let template = dispatch.payload_template.as_ref().ok_or_else(|| {
+                dispatch_failure(
+                    "missing_dispatch_payload_template",
+                    format!(
+                        "action `{}` dispatch uses `templateHex` but `payloadTemplate` is missing",
+                        action.id
+                    ),
+                    step_id,
+                    action_id,
+                    on_error.clone(),
+                )
+            })?;
+            build_template_hex_payload(action, template, step_parameters, snapshot).map_err(
+                |message| {
+                    dispatch_failure(
+                        "invalid_dispatch_payload_template",
+                        format!(
+                            "action `{}` payloadTemplate is invalid: {message}",
+                            action.id
+                        ),
+                        step_id,
+                        action_id,
+                        on_error,
+                    )
+                },
+            )
+        }
         other => Err(dispatch_failure(
             "unsupported_dispatch_payload_mode",
             format!(
@@ -465,6 +524,196 @@ fn build_hmip_payload(
             on_error,
         )),
     }
+}
+
+fn build_template_hex_payload(
+    action: &ActionDefinition,
+    template: &crate::craftsmanship::PayloadTemplateDefinition,
+    step_parameters: &BTreeMap<String, Value>,
+    snapshot: &RecipeRuntimeSnapshot,
+) -> Result<Vec<u8>, String> {
+    let little_endian = match template.endian.as_deref().unwrap_or("big") {
+        "little" => true,
+        "big" => false,
+        other => return Err(format!("unsupported payloadTemplate endian `{other}`")),
+    };
+    let mut payload = Vec::new();
+
+    for (index, field) in template.fields.iter().enumerate() {
+        let value =
+            resolve_template_field_value(field, step_parameters, snapshot).ok_or_else(|| {
+                format!("field {index} is missing both `value` and resolvable `from`")
+            })?;
+
+        match field.field_type.as_str() {
+            "u8" => payload.push(value_to_u8(&value, index)?),
+            "u16" => {
+                let number = value_to_u16(&value, index)?;
+                payload.extend_from_slice(&if little_endian {
+                    number.to_le_bytes()
+                } else {
+                    number.to_be_bytes()
+                });
+            }
+            "u32" => {
+                let number = value_to_u32(&value, index)?;
+                payload.extend_from_slice(&if little_endian {
+                    number.to_le_bytes()
+                } else {
+                    number.to_be_bytes()
+                });
+            }
+            "i8" => payload.extend_from_slice(&value_to_i8(&value, index)?.to_ne_bytes()),
+            "i16" => {
+                let number = value_to_i16(&value, index)?;
+                payload.extend_from_slice(&if little_endian {
+                    number.to_le_bytes()
+                } else {
+                    number.to_be_bytes()
+                });
+            }
+            "i32" => {
+                let number = value_to_i32(&value, index)?;
+                payload.extend_from_slice(&if little_endian {
+                    number.to_le_bytes()
+                } else {
+                    number.to_be_bytes()
+                });
+            }
+            "f32" => {
+                let number = value
+                    .as_f64()
+                    .ok_or_else(|| format!("field {index} expects numeric f32 value"))?
+                    as f32;
+                payload.extend_from_slice(&if little_endian {
+                    number.to_le_bytes()
+                } else {
+                    number.to_be_bytes()
+                });
+            }
+            "f64" => {
+                let number = value
+                    .as_f64()
+                    .ok_or_else(|| format!("field {index} expects numeric f64 value"))?;
+                payload.extend_from_slice(&if little_endian {
+                    number.to_le_bytes()
+                } else {
+                    number.to_be_bytes()
+                });
+            }
+            "enumU8" => payload.push(resolve_enum_u8(field, &value, index)?),
+            "hex" => {
+                let raw = value
+                    .as_str()
+                    .ok_or_else(|| format!("field {index} expects string hex value"))?;
+                payload.extend_from_slice(&decode_hex_payload(raw)?);
+            }
+            other => {
+                return Err(format!(
+                    "field {index} in action `{}` uses unsupported type `{other}`",
+                    action.id
+                ));
+            }
+        }
+    }
+
+    Ok(payload)
+}
+
+fn resolve_template_field_value(
+    field: &crate::craftsmanship::PayloadTemplateFieldDefinition,
+    step_parameters: &BTreeMap<String, Value>,
+    snapshot: &RecipeRuntimeSnapshot,
+) -> Option<Value> {
+    if let Some(path) = field.from.as_deref() {
+        return resolve_template_path(path, step_parameters, snapshot).cloned();
+    }
+
+    field.value.clone()
+}
+
+fn resolve_template_path<'a>(
+    path: &str,
+    step_parameters: &'a BTreeMap<String, Value>,
+    snapshot: &'a RecipeRuntimeSnapshot,
+) -> Option<&'a Value> {
+    if let Some(key) = path.strip_prefix("parameters.") {
+        return step_parameters.get(key);
+    }
+    if let Some(key) = path.strip_prefix("runInputs.") {
+        return snapshot
+            .run_input
+            .as_ref()
+            .and_then(|input| input.parameters.get(key));
+    }
+    if let Some(key) = path.strip_prefix("runtimeValues.") {
+        return snapshot.runtime_values.get(key);
+    }
+    if let Some(key) = path.strip_prefix("signalValues.") {
+        return snapshot.signal_values.get(key);
+    }
+
+    None
+}
+
+fn resolve_enum_u8(
+    field: &crate::craftsmanship::PayloadTemplateFieldDefinition,
+    value: &Value,
+    index: usize,
+) -> Result<u8, String> {
+    let key = value
+        .as_str()
+        .map(str::to_string)
+        .or_else(|| value.as_i64().map(|number| number.to_string()))
+        .or_else(|| value.as_u64().map(|number| number.to_string()))
+        .ok_or_else(|| format!("field {index} enumU8 source must be string or integer"))?;
+    let mapped = field
+        .map
+        .get(key.as_str())
+        .ok_or_else(|| format!("field {index} enumU8 has no mapping for `{key}`"))?;
+    value_to_u8(mapped, index)
+}
+
+fn value_to_u8(value: &Value, index: usize) -> Result<u8, String> {
+    let number = value
+        .as_u64()
+        .ok_or_else(|| format!("field {index} expects unsigned integer u8 value"))?;
+    u8::try_from(number).map_err(|_| format!("field {index} value {number} overflows u8"))
+}
+
+fn value_to_u16(value: &Value, index: usize) -> Result<u16, String> {
+    let number = value
+        .as_u64()
+        .ok_or_else(|| format!("field {index} expects unsigned integer u16 value"))?;
+    u16::try_from(number).map_err(|_| format!("field {index} value {number} overflows u16"))
+}
+
+fn value_to_u32(value: &Value, index: usize) -> Result<u32, String> {
+    let number = value
+        .as_u64()
+        .ok_or_else(|| format!("field {index} expects unsigned integer u32 value"))?;
+    u32::try_from(number).map_err(|_| format!("field {index} value {number} overflows u32"))
+}
+
+fn value_to_i8(value: &Value, index: usize) -> Result<i8, String> {
+    let number = value
+        .as_i64()
+        .ok_or_else(|| format!("field {index} expects signed integer i8 value"))?;
+    i8::try_from(number).map_err(|_| format!("field {index} value {number} overflows i8"))
+}
+
+fn value_to_i16(value: &Value, index: usize) -> Result<i16, String> {
+    let number = value
+        .as_i64()
+        .ok_or_else(|| format!("field {index} expects signed integer i16 value"))?;
+    i16::try_from(number).map_err(|_| format!("field {index} value {number} overflows i16"))
+}
+
+fn value_to_i32(value: &Value, index: usize) -> Result<i32, String> {
+    let number = value
+        .as_i64()
+        .ok_or_else(|| format!("field {index} expects signed integer i32 value"))?;
+    i32::try_from(number).map_err(|_| format!("field {index} value {number} overflows i32"))
 }
 
 fn decode_hex_payload(raw: &str) -> Result<Vec<u8>, String> {
