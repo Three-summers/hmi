@@ -2,6 +2,7 @@ import { lazy, type LazyExoticComponent } from "react";
 import type { ViewId } from "@/types";
 
 const JobsView = lazy(() => import("@/components/views/Jobs"));
+const DilutionView = lazy(() => import("@/components/views/Dilution"));
 const RecipesView = lazy(() => import("@/components/views/Recipes"));
 const FilesView = lazy(() => import("@/components/views/Files"));
 const SetupView = lazy(() => import("@/components/views/Setup"));
@@ -13,6 +14,7 @@ export const HMI_VIEW_COMPONENTS: Record<
     LazyExoticComponent<() => JSX.Element>
 > = {
     jobs: JobsView,
+    run: DilutionView,
     recipes: RecipesView,
     files: FilesView,
     setup: SetupView,

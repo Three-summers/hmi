@@ -1,5 +1,7 @@
 use crate::comm::{actor::CommPriority, serial, tcp, CommState, HmipOutboundFrame};
 use crate::craftsmanship;
+use crate::dilution;
+use crate::log_paths;
 use crate::secs_rpc::{self, SecsRpcTarget};
 use crate::system;
 use base64::{engine::general_purpose, Engine as _};
@@ -125,27 +127,81 @@ pub async fn craftsmanship_runtime_apply_input(
     state.apply_external_input(Some(&app), input).await
 }
 
+/// 创建一个光阻稀释批次。外部 PRMS/设备由后端 adapter 提供，当前默认注入 mock adapter。
+#[tauri::command]
+pub fn dilution_create_batch(
+    state: State<'_, dilution::DilutionManager>,
+    request: dilution::CreateBatchRequest,
+) -> Result<dilution::Batch, String> {
+    state.create_batch(request)
+}
+
+/// 读取单个光阻稀释批次。
+#[tauri::command]
+pub fn dilution_get_batch(
+    state: State<'_, dilution::DilutionManager>,
+    batch_id: String,
+) -> Result<dilution::Batch, String> {
+    state.get_batch(batch_id.as_str())
+}
+
+/// 列出当前进程内的光阻稀释批次。
+#[tauri::command]
+pub fn dilution_list_batches(
+    state: State<'_, dilution::DilutionManager>,
+) -> Result<Vec<dilution::Batch>, String> {
+    state.list_batches()
+}
+
+/// 读取已完成批次的报表数据。
+#[tauri::command]
+pub fn dilution_get_report(
+    state: State<'_, dilution::DilutionManager>,
+    batch_id: String,
+) -> Result<dilution::DilutionReport, String> {
+    state.get_report(batch_id.as_str())
+}
+
+/// 扫描原液 barcode，并通过 PRMS adapter 返回 mapping。
+#[tauri::command]
+pub fn dilution_scan_raw_resist(
+    state: State<'_, dilution::DilutionManager>,
+    request: dilution::ScanRawResistRequest,
+) -> Result<dilution::Batch, String> {
+    state.scan_raw_resist(request)
+}
+
+/// 多浓度 mapping 下选择稀释浓度并锁定 recipe。
+#[tauri::command]
+pub fn dilution_select_concentration(
+    state: State<'_, dilution::DilutionManager>,
+    request: dilution::SelectConcentrationRequest,
+) -> Result<dilution::Batch, String> {
+    state.select_concentration(request)
+}
+
+/// 执行一条完整批次。当前默认 adapter 使用虚拟 PRMS/设备数据，真实设备接入后复用此入口。
+#[tauri::command]
+pub fn dilution_run_batch(
+    state: State<'_, dilution::DilutionManager>,
+    request: dilution::RunBatchRequest,
+) -> Result<dilution::Batch, String> {
+    state.run_batch(request)
+}
+
+/// 兼容旧前端命令名：内部仍走通用批次执行入口。
+#[tauri::command]
+pub fn dilution_run_mock_batch(
+    state: State<'_, dilution::DilutionManager>,
+    request: dilution::RunMockBatchRequest,
+) -> Result<dilution::Batch, String> {
+    state.run_batch(request)
+}
+
 /// 获取 Log 目录路径
 #[tauri::command]
 pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
-    // 获取日志目录：开发模式使用工程根目录下的 Log；发布模式使用资源目录同级的 Log
-    let log_dir: PathBuf = if cfg!(debug_assertions) {
-        // 开发模式：使用编译期的 CARGO_MANIFEST_DIR
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Log")
-    } else {
-        // 发布模式：使用资源目录同级的 Log（找不到父目录则退化到资源目录下）
-        let exe_dir = app.path().resource_dir().map_err(|e| e.to_string())?;
-        exe_dir
-            .parent()
-            .map(|p| p.join("Log"))
-            .unwrap_or_else(|| exe_dir.join("Log"))
-    };
-
-    // 目录不存在则创建
-    if !log_dir.exists() {
-        std::fs::create_dir_all(&log_dir)
-            .map_err(|e| format!("Failed to create Log directory: {}", e))?;
-    }
+    let log_dir = log_paths::ensure_log_dir(log_paths::resolve_log_dir(Some(&app))?)?;
 
     log_dir
         .to_str()

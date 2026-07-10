@@ -5,6 +5,7 @@ describe("HMI_VIEW_COMPONENTS", () => {
     it("exposes loaders for every HMI view", () => {
         expect(Object.keys(HMI_VIEW_COMPONENTS)).toEqual([
             "jobs",
+            "run",
             "recipes",
             "files",
             "setup",

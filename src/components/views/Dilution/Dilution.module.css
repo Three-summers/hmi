@@ -1,0 +1,659 @@
+.view {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 16.875rem minmax(0, 1fr);
+    gap: var(--space-3);
+    overflow: hidden;
+}
+
+.leftPanel,
+.rightPanel {
+    min-height: 0;
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-display);
+    box-shadow: var(--shadow-inset-panel);
+    overflow: hidden;
+}
+
+.leftPanel {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.rightPanel {
+    display: grid;
+    grid-template-rows: 3rem 1.75rem minmax(0, 1fr);
+}
+
+.batchSummary,
+.stepListSection {
+    padding: var(--space-3);
+}
+
+.batchSummary {
+    border-bottom: var(--border-width-1) solid var(--border-color);
+}
+
+.stepListSection {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.panelTitle {
+    margin-bottom: var(--space-2);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.summaryGrid {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.summaryGrid div {
+    display: grid;
+    grid-template-columns: 4.75rem minmax(0, 1fr);
+    gap: var(--space-2);
+    align-items: baseline;
+}
+
+.summaryGrid dt,
+.summaryGrid dd {
+    min-width: 0;
+    font-size: var(--font-size-xs);
+}
+
+.summaryGrid dt {
+    color: var(--text-secondary);
+}
+
+.summaryGrid dd {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stepList {
+    min-height: 0;
+    display: grid;
+    grid-auto-rows: minmax(2.25rem, 1fr);
+    gap: var(--space-1);
+}
+
+.stepItem {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 1.625rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-xs);
+    background: var(--overlay-weak);
+    color: var(--text-secondary);
+    text-align: left;
+    cursor: pointer;
+}
+
+.stepItem:hover {
+    border-color: var(--color-processing);
+    background: var(--status-bg-processing);
+}
+
+.stepItem[data-executing="true"] {
+    border-color: var(--color-processing);
+    background: var(--status-bg-processing);
+    color: var(--text-primary);
+}
+
+.stepItem[data-browsing="true"] {
+    border-style: dashed;
+    border-color: var(--color-warning);
+}
+
+.stepItem[data-state="completed"] .stepName {
+    color: var(--color-attention);
+    text-decoration: line-through;
+}
+
+.stepMark {
+    width: 1.5rem;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: var(--border-width-1) solid var(--border-color);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+}
+
+.stepItem[data-state="completed"] .stepMark {
+    color: var(--text-on-attention);
+    background: var(--color-attention);
+    border-color: var(--color-attention);
+}
+
+.stepItem[data-executing="true"] .stepMark {
+    color: var(--text-on-accent);
+    background: var(--color-processing);
+    border-color: var(--color-processing);
+}
+
+.stepText {
+    min-width: 0;
+    display: grid;
+    gap: 0.0625rem;
+}
+
+.stepName,
+.stepSummary {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stepName {
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
+    color: var(--text-primary);
+}
+
+.stepSummary {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.execTag,
+.browseTag {
+    padding: 0.0625rem var(--space-1);
+    border-radius: var(--radius-xs);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+}
+
+.execTag {
+    color: var(--color-processing);
+    border: var(--border-width-1) solid var(--color-processing);
+}
+
+.browseTag {
+    color: var(--color-warning);
+    border: var(--border-width-1) dashed var(--color-warning);
+}
+
+.browseTimer {
+    min-height: 2rem;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--space-3);
+    border-top: var(--border-width-1) solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.browseTimer[data-visible="true"] {
+    color: var(--color-warning);
+    background: var(--status-bg-warning);
+}
+
+.stepStatusBar {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0 var(--space-3);
+    border-bottom: var(--border-width-1) solid var(--border-color);
+    background: var(--bg-panel-header);
+}
+
+.stepEyebrow {
+    margin-bottom: 0.0625rem;
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.currentStepTitle {
+    min-width: 0;
+    margin: 0;
+    color: var(--text-primary);
+    font-size: var(--font-size-title);
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.statusPill {
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-pill);
+    border: var(--border-width-1) solid var(--border-color);
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+}
+
+.statusPill[data-highlight="processing"] {
+    color: var(--color-processing);
+    border-color: var(--color-processing);
+    background: var(--status-bg-processing);
+}
+
+.statusPill[data-highlight="attention"] {
+    color: var(--color-attention);
+    border-color: var(--color-attention);
+    background: var(--status-bg-attention);
+}
+
+.statusPill[data-highlight="warning"] {
+    color: var(--color-warning);
+    border-color: var(--color-warning);
+    background: var(--status-bg-warning);
+}
+
+.statusPill[data-highlight="alarm"] {
+    color: var(--color-alarm);
+    border-color: var(--color-alarm);
+    background: var(--status-bg-alarm);
+}
+
+.elapsed {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.signalBar {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-3);
+    border-bottom: var(--border-width-1) solid var(--border-color);
+    overflow: hidden;
+    background: var(--overlay-weak);
+}
+
+.signalChip {
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: 0 var(--space-2);
+    height: 1.25rem;
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-pill);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.signalChip strong {
+    min-width: 0;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.signalDot {
+    width: var(--space-2);
+    height: var(--space-2);
+    border-radius: 50%;
+    background: var(--color-neutral);
+    flex: 0 0 auto;
+}
+
+.signalChip[data-state="processing"] .signalDot {
+    background: var(--color-processing);
+    box-shadow: 0 0 var(--space-2) var(--color-processing-glow);
+}
+
+.signalChip[data-state="attention"] .signalDot {
+    background: var(--color-attention);
+    box-shadow: 0 0 var(--space-2) var(--color-attention-glow);
+}
+
+.stepContent {
+    min-height: 0;
+    padding: var(--space-3);
+    overflow: hidden;
+}
+
+.staticGrid {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: var(--space-3);
+}
+
+.staticGrid > .infoBox,
+.staticGrid > .formPanel {
+    grid-column: span 2;
+}
+
+.metricRow {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-3);
+}
+
+.metricCard {
+    min-width: 0;
+    padding: var(--space-3);
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+}
+
+.metricCard span {
+    display: block;
+    margin-bottom: var(--space-1);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+}
+
+.metricCard strong {
+    display: block;
+    min-width: 0;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-large);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tableLayout,
+.meteringLayout {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: var(--space-3);
+}
+
+.meteringLayout {
+    grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.inputLabel {
+    display: grid;
+    grid-template-columns: 8rem minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--text-secondary);
+    font-size: var(--font-size-small);
+}
+
+.input,
+.select {
+    width: 100%;
+    min-width: 0;
+    padding: var(--space-2) var(--space-3);
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-xs);
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+.select:disabled,
+.input:disabled {
+    color: var(--text-disabled);
+}
+
+.dataTable {
+    min-height: 0;
+    display: grid;
+    grid-auto-rows: 2rem;
+    align-content: start;
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-display);
+}
+
+.tableHeader,
+.tableRow {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 1fr 1.4fr 1fr 1fr;
+    gap: var(--space-2);
+    align-items: center;
+    padding: 0 var(--space-3);
+    border-bottom: var(--border-width-1) solid var(--border-color);
+}
+
+.tableHeader {
+    color: var(--text-secondary);
+    background: var(--bg-panel-header);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+}
+
+.tableRow {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-small);
+}
+
+.tableRow span,
+.tableHeader span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.progressTrack {
+    height: var(--space-3);
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+    background: var(--bg-display);
+}
+
+.progressFill {
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        var(--color-processing-dark),
+        var(--color-processing)
+    );
+}
+
+.twoColumn {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+}
+
+.formPanel,
+.infoBox {
+    min-height: 0;
+    padding: var(--space-3);
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    overflow: hidden;
+}
+
+.panelHeading {
+    margin-bottom: var(--space-2);
+    color: var(--text-primary);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
+}
+
+.recipeLockText {
+    margin-top: var(--space-3);
+    color: var(--color-attention);
+    font-size: var(--font-size-small);
+    font-weight: var(--font-weight-bold);
+}
+
+.compactForm {
+    min-height: 0;
+    display: grid;
+    gap: var(--space-2);
+}
+
+.inlineInputs {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+}
+
+.inlineInputs .inputLabel {
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    gap: var(--space-2);
+}
+
+.infoRows {
+    min-height: 0;
+    display: grid;
+    gap: var(--space-2);
+    overflow: hidden;
+}
+
+.infoRow {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(5rem, 0.45fr) minmax(0, 1fr);
+    gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-2);
+    border: var(--border-width-1) solid var(--border-subtle);
+    border-radius: var(--radius-xs);
+    background: var(--overlay-weak);
+}
+
+.infoRow span,
+.infoRow strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.infoRow span {
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+.infoRow strong {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-small);
+}
+
+.countdownLayout,
+.externalLayout {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+}
+
+.externalLayout {
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 0.9fr);
+    gap: var(--space-3);
+}
+
+.countdownCard,
+.waitingBox {
+    width: min(28rem, 100%);
+    display: grid;
+    justify-items: center;
+    gap: var(--space-3);
+    padding: var(--space-5);
+    border: var(--border-width-1) solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+}
+
+.countdownIcon,
+.waitingSpinner {
+    width: var(--space-12);
+    height: var(--space-12);
+    border-radius: 50%;
+    border: var(--border-width-2) solid var(--color-processing);
+    box-shadow: 0 0 var(--space-4) var(--color-processing-glow);
+}
+
+.waitingSpinner {
+    border-top-color: transparent;
+}
+
+.countdownValue {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 4.5rem;
+    line-height: 1;
+}
+
+.countdownLabel,
+.deviceState,
+.waitingBox {
+    color: var(--text-secondary);
+    font-size: var(--font-size-small);
+}
+
+.waitingBox strong {
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+@media (max-width: 900px) {
+    .view {
+        grid-template-columns: 1fr;
+        grid-template-rows: 17rem minmax(0, 1fr);
+    }
+
+    .leftPanel {
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+    }
+
+    .batchSummary {
+        border-bottom: none;
+        border-right: var(--border-width-1) solid var(--border-color);
+    }
+
+    .stepListSection {
+        grid-row: span 2;
+    }
+
+    .browseTimer {
+        border-top: var(--border-width-1) solid var(--border-color);
+    }
+
+    .staticGrid,
+    .metricRow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

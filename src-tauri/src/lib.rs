@@ -1,6 +1,8 @@
 mod comm;
 mod commands;
 mod craftsmanship;
+mod dilution;
+mod log_paths;
 mod secs_rpc;
 mod system;
 
@@ -47,6 +49,14 @@ pub fn run() {
             commands::craftsmanship_runtime_write_signal,
             commands::craftsmanship_runtime_write_device_feedback,
             commands::craftsmanship_runtime_apply_input,
+            commands::dilution_create_batch,
+            commands::dilution_get_batch,
+            commands::dilution_list_batches,
+            commands::dilution_get_report,
+            commands::dilution_scan_raw_resist,
+            commands::dilution_select_concentration,
+            commands::dilution_run_batch,
+            commands::dilution_run_mock_batch,
             commands::get_log_dir,
             commands::save_spectrum_screenshot,
             commands::get_serial_ports,
@@ -74,6 +84,10 @@ pub fn run() {
             app.manage(comm::CommState::default());
             // 初始化工艺运行时
             app.manage(craftsmanship::RecipeRuntimeManager::default());
+            // 初始化光阻稀释 mock 领域状态
+            let log_dir =
+                log_paths::ensure_log_dir(log_paths::resolve_log_dir(Some(app.handle()))?)?;
+            app.manage(dilution::DilutionManager::new_mock_with_log_root(log_dir));
             Ok(())
         })
         .run(tauri::generate_context!())

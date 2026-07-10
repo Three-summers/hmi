@@ -74,6 +74,7 @@ export const THEME_ORDER = [
 // 主导航视图 ID（用于列表渲染/遍历等，顺序与底部导航一致）
 export const VIEW_IDS = [
     "jobs",
+    "run",
     "recipes",
     "files",
     "setup",
@@ -90,6 +91,7 @@ export type SetupTabId = (typeof SETUP_TAB_IDS)[number];
 // 键盘快捷键：F1 / F4-F8 视图切换
 export const VIEW_HOTKEY_TO_VIEW_ID: Partial<Record<string, ViewId>> = {
     F1: "jobs",
+    F2: "run",
     F4: "alarms",
     F5: "recipes",
     F6: "setup",

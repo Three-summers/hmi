@@ -29,6 +29,15 @@ export const HMI_NAV_ITEMS: HmiNavItem[] = [
         ),
     },
     {
+        id: "run",
+        labelKey: "nav.run",
+        icon: (
+            <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8 5v14l11-7z" />
+            </svg>
+        ),
+    },
+    {
         id: "recipes",
         labelKey: "nav.recipes",
         icon: (

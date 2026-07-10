@@ -46,6 +46,7 @@
 	    },
 	    "nav": {
 	        "jobs": "Jobs",
+	        "run": "Run",
 	        "system": "System",
 	        "monitor": "Monitor",
         "recipes": "Recipes",
@@ -216,6 +217,129 @@
             "active": "ACTIVE",
             "draft": "DRAFT",
             "archived": "ARCHIVED"
+        }
+    },
+    "dilution": {
+        "batchSummary": "Batch summary",
+        "stepsTitle": "Process steps",
+        "autoFollow": "Auto-follow current step",
+        "browseTimer": "Manual browse · back in {{seconds}}s",
+        "elapsed": "Elapsed",
+        "recipeLocked": "Recipe locked",
+        "recipeWaiting": "Waiting for concentration selection or single PRMS mapping",
+        "selectConcentration": "Select concentration",
+        "reportCompleted": "Report completed",
+        "barcodeReady": "Barcode ready",
+        "barcodeWaiting": "Waiting for PRMS barcode",
+        "commands": {
+            "createBatch": "New Batch",
+            "loadLatestBatch": "Load Batch",
+            "scanRaw": "Scan Raw",
+            "selectConcentration": "Lock Conc.",
+            "runMock": "Run Mock",
+            "exportReport": "Export Report"
+        },
+        "notifications": {
+            "batchCreated": "Batch created",
+            "batchLoaded": "Batch loaded",
+            "noBatch": "No batch available",
+            "rawScanned": "Raw resist scanned",
+            "recipeLocked": "Recipe locked",
+            "mockCompleted": "Mock batch completed",
+            "reportReady": "Report ready",
+            "operationFailed": "Dilution operation failed"
+        },
+        "steps": {
+            "batch": "Batch Init",
+            "scan": "Raw Scan",
+            "recipe": "Recipe Lock",
+            "raw": "Raw Metering",
+            "solvent": "Solvent Metering",
+            "mix": "Mix",
+            "settle": "Settle",
+            "viscosity": "Viscosity Test",
+            "barcode": "Barcode Request",
+            "print": "Label Print",
+            "dispense": "Output Dispense",
+            "report": "Report Archive"
+        },
+        "stepState": {
+            "completed": "Completed",
+            "executing": "Running",
+            "pending": "Pending"
+        },
+        "badges": {
+            "exec": "exec",
+            "browse": "browse",
+            "manualBrowse": "Manual browse",
+            "autoFollow": "Auto-follow"
+        },
+        "signals": {
+            "prms": "PRMS",
+            "meter": "Meter",
+            "viscometer": "Viscometer",
+            "printer": "Printer"
+        },
+        "fields": {
+            "batchId": "Batch ID",
+            "machine": "Machine",
+            "operator": "Operator",
+            "runtime": "Runtime",
+            "plannedBottles": "Planned bottles",
+            "targetMass": "Target mass",
+            "mockBarcode": "Mock Barcode",
+            "rawLoadMode": "Load mode",
+            "rawMass": "Raw mass",
+            "rawBottleCount": "Raw bottles",
+            "viscosityA": "Visc. 1",
+            "viscosityB": "Visc. 2",
+            "barcode": "Barcode",
+            "material": "Material",
+            "result": "Result",
+            "value": "Value",
+            "device": "Device",
+            "mass": "Mass",
+            "print": "Print"
+        },
+        "metrics": {
+            "scanned": "Scanned",
+            "rawResist": "Raw resist",
+            "mapping": "Mapping",
+            "concentration": "Concentration",
+            "ratio": "Ratio",
+            "recipe": "Recipe",
+            "target": "Target",
+            "actual": "Actual",
+            "deviation": "Deviation",
+            "device": "Device",
+            "averageViscosity": "Avg viscosity",
+            "prmsResult": "PRMS result",
+            "sync": "Sync",
+            "bottles": "Bottles",
+            "printed": "Printed",
+            "totalOutput": "Total output",
+            "report": "Report",
+            "status": "Status",
+            "outputLines": "Output lines"
+        },
+        "panels": {
+            "defaultBatch": "Default batch",
+            "mockInputs": "Mock inputs",
+            "runParameters": "Run parameters",
+            "prmsOptions": "PRMS options",
+            "parameters": "Parameters",
+            "records": "Records",
+            "viscosityResult": "Viscosity result",
+            "reportBottles": "Output bottles"
+        },
+        "countdown": {
+            "mixing": "Mock mixing timer",
+            "settling": "Mock settling timer",
+            "ready": "Device state: ready"
+        },
+        "rawLoadModes": {
+            "mass": "By mass",
+            "bottleCount": "By bottles"
         }
     },
     "setup": {

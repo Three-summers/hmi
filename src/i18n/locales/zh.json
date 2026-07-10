@@ -46,6 +46,7 @@
 	    },
 	    "nav": {
 	        "jobs": "作业",
+	        "run": "运行",
 	        "system": "系统",
 	        "monitor": "监控",
         "recipes": "配方",
@@ -216,6 +217,129 @@
             "active": "启用",
             "draft": "草稿",
             "archived": "归档"
+        }
+    },
+    "dilution": {
+        "batchSummary": "批次信息摘要",
+        "stepsTitle": "工艺步骤列表",
+        "autoFollow": "自动跟随当前步骤",
+        "browseTimer": "手动浏览 · {{seconds}}s 后回到当前步骤",
+        "elapsed": "耗时",
+        "recipeLocked": "配方已锁定",
+        "recipeWaiting": "等待浓度选择或 PRMS 单一映射",
+        "selectConcentration": "选择浓度",
+        "reportCompleted": "报表完成",
+        "barcodeReady": "Barcode 已返回",
+        "barcodeWaiting": "等待 PRMS Barcode",
+        "commands": {
+            "createBatch": "新建批次",
+            "loadLatestBatch": "加载批次",
+            "scanRaw": "扫描原液",
+            "selectConcentration": "锁定浓度",
+            "runMock": "运行 Mock",
+            "exportReport": "导出报表"
+        },
+        "notifications": {
+            "batchCreated": "批次已创建",
+            "batchLoaded": "批次已加载",
+            "noBatch": "暂无可加载批次",
+            "rawScanned": "原液已扫描",
+            "recipeLocked": "配方已锁定",
+            "mockCompleted": "Mock 批次完成",
+            "reportReady": "报表已就绪",
+            "operationFailed": "稀释操作失败"
+        },
+        "steps": {
+            "batch": "批次初始化",
+            "scan": "原液扫码",
+            "recipe": "Recipe 锁定",
+            "raw": "原液计量",
+            "solvent": "溶剂计量",
+            "mix": "搅拌",
+            "settle": "静置",
+            "viscosity": "粘度检测",
+            "barcode": "Barcode 申请",
+            "print": "标签打印",
+            "dispense": "成品出料",
+            "report": "报表归档"
+        },
+        "stepState": {
+            "completed": "已完成",
+            "executing": "执行中",
+            "pending": "待执行"
+        },
+        "badges": {
+            "exec": "执行",
+            "browse": "浏览",
+            "manualBrowse": "手动浏览",
+            "autoFollow": "自动跟随"
+        },
+        "signals": {
+            "prms": "PRMS",
+            "meter": "计量",
+            "viscometer": "粘度计",
+            "printer": "打印"
+        },
+        "fields": {
+            "batchId": "批次ID",
+            "machine": "机台",
+            "operator": "操作员",
+            "runtime": "运行时长",
+            "plannedBottles": "计划瓶数",
+            "targetMass": "目标质量",
+            "mockBarcode": "Mock Barcode",
+            "rawLoadMode": "上料模式",
+            "rawMass": "原液质量",
+            "rawBottleCount": "原液瓶数",
+            "viscosityA": "粘度1",
+            "viscosityB": "粘度2",
+            "barcode": "Barcode",
+            "material": "物料",
+            "result": "结果",
+            "value": "数值",
+            "device": "设备",
+            "mass": "质量",
+            "print": "打印"
+        },
+        "metrics": {
+            "scanned": "扫码数",
+            "rawResist": "原液",
+            "mapping": "Mapping",
+            "concentration": "浓度",
+            "ratio": "比例",
+            "recipe": "Recipe",
+            "target": "目标",
+            "actual": "实际",
+            "deviation": "偏差",
+            "device": "设备",
+            "averageViscosity": "平均粘度",
+            "prmsResult": "PRMS 结果",
+            "sync": "同步记录",
+            "bottles": "瓶数",
+            "printed": "已打印",
+            "totalOutput": "总出料",
+            "report": "报表",
+            "status": "状态",
+            "outputLines": "出料明细"
+        },
+        "panels": {
+            "defaultBatch": "默认批次",
+            "mockInputs": "Mock 输入",
+            "runParameters": "运行参数",
+            "prmsOptions": "PRMS 选项",
+            "parameters": "参数",
+            "records": "记录",
+            "viscosityResult": "粘度结果",
+            "reportBottles": "成品瓶"
+        },
+        "countdown": {
+            "mixing": "Mock 搅拌计时",
+            "settling": "Mock 静置计时",
+            "ready": "设备状态：就绪"
+        },
+        "rawLoadModes": {
+            "mass": "按质量",
+            "bottleCount": "按瓶数"
         }
     },
     "setup": {

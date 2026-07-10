@@ -39,6 +39,7 @@ export type SetupViewDialogState = {
  */
 export type ViewDialogStateMap = {
     jobs: EmptyDialogState;
+    run: EmptyDialogState;
     recipes: EmptyDialogState;
     files: EmptyDialogState;
     setup: SetupViewDialogState;
@@ -161,6 +162,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
     // 未完成任务，当有对话框存在时，对应视图会显示蓝色高亮，表示未完成任务
     unfinishedTasks: {
         jobs: false,
+        run: false,
         recipes: false,
         files: false,
         setup: false,
