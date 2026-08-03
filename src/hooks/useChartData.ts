@@ -611,7 +611,6 @@ export function useChartData({
 
         const safeScaleFactor =
             Number.isFinite(scaleFactor) && scaleFactor > 0 ? scaleFactor : 1;
-        const px = (value: number) => Math.round(value * safeScaleFactor);
 
         const nextStyleKey = `${safeScaleFactor}:${chartColors.join("|")}`;
         if (
@@ -631,132 +630,18 @@ export function useChartData({
                     const UPlot = await getUPlotCtor();
                     if (cancelled) return;
 
-                    const existingCache = plotDataCacheRef.current;
-
-                    // 先销毁已禁用列的实例，避免实例长期堆积
-                    for (const [colIndex, instance] of Array.from(
-                        uplotInstances.current.entries(),
-                    )) {
-                        if (!enabledColumns.has(colIndex)) {
-                            instance.destroy();
-                            uplotInstances.current.delete(colIndex);
-                            if (
-                                existingCache &&
-                                existingCache.csvData === csvData
-                            ) {
-                                existingCache.yByCol.delete(colIndex);
-                            }
-                        }
-                    }
-
-                    // 构建/复用数据缓存：xData 只需要计算一次；yData 按列懒加载
-                    let cache = plotDataCacheRef.current;
-                    if (!cache || cache.csvData !== csvData) {
-                        cache = {
-                            csvData,
-                            xData: csvData.rows.map((row) => row[0]),
-                            yByCol: new Map<number, number[]>(),
-                        };
-                        plotDataCacheRef.current = cache;
-                    }
-
-                    // 数据不足：保持空态，不创建图表
-                    if (cache.xData.length < 2) {
-                        destroySmallCharts();
-                        lastCsvDataRef.current = csvData;
-                        return;
-                    }
-
-                    const csvChanged = lastCsvDataRef.current !== csvData;
-
-                    for (const colIndex of enabledColumns) {
-                        if (colIndex >= csvData.headers.length) continue;
-
-                        const container = chartRefs.current.get(colIndex);
-                        if (!container) continue;
-
-                        const width = container.clientWidth;
-                        if (width <= 0) continue;
-
-                        const height = px(200);
-
-                        let yData = cache.yByCol.get(colIndex);
-                        if (!yData) {
-                            yData = csvData.rows.map((row) => row[colIndex]);
-                            cache.yByCol.set(colIndex, yData);
-                        }
-
-                        const data: uPlot.AlignedData = [cache.xData, yData];
-
-                        const existing = uplotInstances.current.get(colIndex);
-                        if (!existing) {
-                            const axisFontSize = px(11);
-                            const xAxisSize = px(30);
-                            const yAxisSize = px(50);
-
-                            const color = getSeriesColor(colIndex, chartColors);
-                            const opts: uPlot.Options = {
-                                width,
-                                height,
-                                scales: {
-                                    x: { time: true },
-                                    y: { auto: true },
-                                },
-                                series: [
-                                    {},
-                                    {
-                                        label: csvData.headers[colIndex],
-                                        stroke: color,
-                                        width: 2 * safeScaleFactor,
-                                        fill: getSeriesFill(color),
-                                    },
-                                ],
-                                axes: [
-                                    {
-                                        stroke: "rgba(180, 200, 230, 0.9)",
-                                        grid: {
-                                            stroke: "rgba(100, 150, 200, 0.2)",
-                                        },
-                                        ticks: {
-                                            stroke: "rgba(100, 150, 200, 0.3)",
-                                        },
-                                        size: xAxisSize,
-                                        font: `${axisFontSize}px Arial, sans-serif`,
-                                        values: createXAxisValuesFormatter(
-                                            safeScaleFactor,
-                                        ),
-                                    },
-                                    {
-                                        stroke: "rgba(180, 200, 230, 0.9)",
-                                        grid: {
-                                            stroke: "rgba(100, 150, 200, 0.2)",
-                                        },
-                                        ticks: {
-                                            stroke: "rgba(100, 150, 200, 0.3)",
-                                        },
-                                        size: yAxisSize,
-                                        font: `${axisFontSize}px Arial, sans-serif`,
-                                    },
-                                ],
-                                cursor: {
-                                    // 小图模式禁用拖拽交互（避免误操作 & 与滚动冲突）
-                                    drag: { x: false, y: false },
-                                },
-                            };
-
-                            const chart = new UPlot(opts, data, container);
-                            uplotInstances.current.set(colIndex, chart);
-                        } else {
-                            existing.setSize({ width, height });
-                            if (csvChanged) {
-                                existing.setData(data);
-                                existing.series[1].label =
-                                    csvData.headers[colIndex];
-                            }
-                        }
-                    }
-
-                    lastCsvDataRef.current = csvData;
+                    renderSmallChartsFrame({
+                        csvData,
+                        enabledColumns,
+                        chartRefs: chartRefs.current,
+                        uplotInstances: uplotInstances.current,
+                        plotDataCacheRef,
+                        lastCsvDataRef,
+                        safeScaleFactor,
+                        chartColors,
+                        createPlot: (opts, data, target) =>
+                            new UPlot(opts, data, target),
+                    });
                 } catch (error) {
                     if (cancelled) return;
                     console.error("[Files] uPlot 小图初始化失败：", error);
@@ -800,11 +685,6 @@ export function useChartData({
         // 数据不足：不创建放大图，避免初始化失败
         if (csvData.rows.length < 2) return;
 
-        const xData = csvData.rows.map((row) => row[0]);
-        const yData = csvData.rows.map((row) => row[enlargedColumn]);
-        const alignedData: uPlot.AlignedData = [xData, yData];
-        enlargedFullXRange.current = getXRange(xData);
-
         let cancelled = false;
 
         const raf = requestAnimationFrame(() => {
@@ -813,102 +693,17 @@ export function useChartData({
                     const UPlot = await getUPlotCtor();
                     if (cancelled) return;
 
-                    const safeScaleFactor =
-                        Number.isFinite(scaleFactor) && scaleFactor > 0
-                            ? scaleFactor
-                            : 1;
-                    const px = (value: number) =>
-                        Math.round(value * safeScaleFactor);
-                    const width = container.clientWidth || px(800);
-                    const height = container.clientHeight || px(520);
-
-                    const axisFontSize = px(12);
-                    const xAxisSize = px(40);
-                    const yAxisSize = px(60);
-
-                    const color = getSeriesColor(enlargedColumn, chartColors);
-                    const opts: uPlot.Options = {
-                        width,
-                        height,
-                        scales: {
-                            x: { time: true },
-                            y: { auto: true },
-                        },
-                        series: [
-                            {},
-                            {
-                                label: csvData.headers[enlargedColumn],
-                                stroke: color,
-                                width: 2 * safeScaleFactor,
-                                fill: getSeriesFill(color),
-                            },
-                        ],
-                        axes: [
-                            {
-                                stroke: "rgba(180, 200, 230, 0.9)",
-                                grid: { stroke: "rgba(100, 150, 200, 0.2)" },
-                                ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
-                                size: xAxisSize,
-                                font: `${axisFontSize}px Arial, sans-serif`,
-                                values: createXAxisValuesFormatter(
-                                    safeScaleFactor,
-                                ),
-                            },
-                            {
-                                stroke: "rgba(180, 200, 230, 0.9)",
-                                grid: { stroke: "rgba(100, 150, 200, 0.2)" },
-                                ticks: { stroke: "rgba(100, 150, 200, 0.3)" },
-                                size: yAxisSize,
-                                font: `${axisFontSize}px Arial, sans-serif`,
-                            },
-                        ],
-                        cursor: {
-                            drag: { x: true, y: false },
-                        },
-                        select: {
-                            show: true,
-                            left: 0,
-                            top: 0,
-                            width: 0,
-                            height: 0,
-                        },
-                        hooks: {
-                            setSelect: [
-                                (u) => {
-                                    const { left, width: selectWidth } =
-                                        u.select;
-                                    if (selectWidth < 10) return;
-                                    const min = u.posToVal(left, "x");
-                                    const max = u.posToVal(
-                                        left + selectWidth,
-                                        "x",
-                                    );
-                                    if (
-                                        !Number.isFinite(min) ||
-                                        !Number.isFinite(max) ||
-                                        min === max
-                                    )
-                                        return;
-                                    u.setScale("x", {
-                                        min: Math.min(min, max),
-                                        max: Math.max(min, max),
-                                    });
-                                    u.setSelect(
-                                        {
-                                            left: 0,
-                                            top: 0,
-                                            width: 0,
-                                            height: 0,
-                                        },
-                                        false,
-                                    );
-                                },
-                            ],
-                        },
-                    };
-
-                    const chart = new UPlot(opts, alignedData, container);
+                    const { chart, fullXRange } = renderEnlargedChartFrame({
+                        csvData,
+                        enlargedColumn,
+                        container,
+                        scaleFactor,
+                        chartColors,
+                        createPlot: (opts, data, target) =>
+                            new UPlot(opts, data, target),
+                    });
                     enlargedUplotInstance.current = chart;
+                    enlargedFullXRange.current = fullXRange;
                 } catch (error) {
                     if (cancelled) return;
                     console.error("[Files] uPlot 放大图初始化失败：", error);

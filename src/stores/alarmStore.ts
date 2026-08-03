@@ -83,6 +83,38 @@ interface AlarmState {
 let alarmIdCounter = 0;
 
 /**
+ * 告警历史上限
+ *
+ * 告警列表会随 persist 全量写入 localStorage，且 TitlePanel 等组件按渲染频率遍历；
+ * 不设上限时 7x24 运行下持续通信异常会让列表无限增长，最终撞上存储配额并拖慢 UI。
+ */
+const MAX_ALARMS = 500;
+
+/**
+ * 将告警列表截断到 `MAX_ALARMS` 以内
+ *
+ * @param alarms - 告警列表（按时间倒序，索引越大越旧）
+ * @returns 截断后的列表；未超限时原样返回
+ * @description 超限时优先从最旧端丢弃“已确认”的告警，仍超限才丢弃最旧的未确认告警。
+ */
+function capAlarms(alarms: AlarmItem[]): AlarmItem[] {
+    if (alarms.length <= MAX_ALARMS) return alarms;
+
+    let excess = alarms.length - MAX_ALARMS;
+    const keptReversed: AlarmItem[] = [];
+    for (let i = alarms.length - 1; i >= 0; i--) {
+        const alarm = alarms[i];
+        if (excess > 0 && alarm.acknowledged) {
+            excess--;
+            continue;
+        }
+        keptReversed.push(alarm);
+    }
+    const kept = keptReversed.reverse();
+    return excess > 0 ? kept.slice(0, MAX_ALARMS) : kept;
+}
+
+/**
  * 统计“未确认”的告警/警告数量
  *
  * @param alarms - 告警列表
@@ -134,8 +166,9 @@ export const useAlarmStore = create<AlarmState>()(
             unacknowledgedWarningCount: 0,
 
             setAlarms: (alarms) => {
-                syncAlarmIdCounter(alarms);
-                set({ alarms, ...getUnacknowledgedCounts(alarms) });
+                const capped = capAlarms(alarms);
+                syncAlarmIdCounter(capped);
+                set({ alarms: capped, ...getUnacknowledgedCounts(capped) });
             },
 
             addAlarm: (alarm) => {
@@ -147,7 +180,7 @@ export const useAlarmStore = create<AlarmState>()(
                 };
 
                 set((state) => {
-                    const newAlarms = [newAlarm, ...state.alarms];
+                    const newAlarms = capAlarms([newAlarm, ...state.alarms]);
                     return {
                         alarms: newAlarms,
                         ...getUnacknowledgedCounts(newAlarms),

@@ -258,7 +258,26 @@ impl RecipeRuntimeManager {
 
         let manager = self.clone();
         tauri::async_runtime::spawn(async move {
-            engine::run_recipe(manager, app, loaded, run_control).await;
+            let engine_manager = manager.clone();
+            let engine_app = app.clone();
+            let engine_task = tauri::async_runtime::spawn(async move {
+                engine::run_recipe(engine_manager, engine_app, loaded, run_control).await;
+            });
+
+            // panic 兜底：引擎任务异常退出时必须清理 run_control，
+            // 否则 stop() 永远等不到状态离开 Running/Stopping，start/load 也会一直报 already active。
+            if let Err(err) = engine_task.await {
+                log::error!("recipe runtime engine task aborted unexpectedly: {err}");
+                manager
+                    .finish_run(
+                        app.as_ref(),
+                        RecipeRuntimeStatus::Failed,
+                        RecipeRuntimePhase::Idle,
+                        Some(format!("recipe runtime task aborted: {err}")),
+                        None,
+                    )
+                    .await;
+            }
         });
 
         Ok(snapshot)
@@ -285,6 +304,11 @@ impl RecipeRuntimeManager {
         // 尽快唤醒等待中的步骤，让 stop 请求不必额外等待轮询周期。
         self.value_changed.notify_waiters();
 
+        // 有界等待：安全停止链自身有步骤级超时，正常情况下远小于该上限；
+        // 超限说明引擎任务卡死，此时返回错误而不是让调用方（Tauri 命令）永久挂起。
+        const STOP_WAIT_TIMEOUT_MS: u64 = 60_000;
+        let deadline =
+            tokio::time::Instant::now() + std::time::Duration::from_millis(STOP_WAIT_TIMEOUT_MS);
         loop {
             let snapshot = self.get_status().await;
             if !matches!(
@@ -292,6 +316,12 @@ impl RecipeRuntimeManager {
                 RecipeRuntimeStatus::Running | RecipeRuntimeStatus::Stopping
             ) {
                 return Ok(snapshot);
+            }
+            if tokio::time::Instant::now() >= deadline {
+                return Err(format!(
+                    "timed out waiting for recipe runtime to stop ({}ms); stop remains requested",
+                    STOP_WAIT_TIMEOUT_MS
+                ));
             }
             tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         }
@@ -523,6 +553,7 @@ impl RecipeRuntimeManager {
         }
     }
 
+    #[cfg(test)]
     pub async fn apply_hmip_feedback(
         &self,
         app: Option<&AppHandle>,
@@ -583,24 +614,40 @@ impl RecipeRuntimeManager {
             }
         }
 
-        let applied = pending_writes.len();
+        let mut applied = 0usize;
+        let mut first_error: Option<String> = None;
         for pending in pending_writes {
-            match pending {
-                PendingRuntimeWrite::Signal { signal_id, value } => {
-                    self.write_signal_with_app(app, signal_id, value).await?;
-                }
+            // 单条写失败（如 signal 不在已加载 recipe 中）不应丢弃同一帧命中的其余写入
+            let result = match pending {
+                PendingRuntimeWrite::Signal { signal_id, value } => self
+                    .write_signal_with_app(app, signal_id, value)
+                    .await
+                    .map(|_| ()),
                 PendingRuntimeWrite::DeviceFeedback {
                     device_id,
                     feedback_key,
                     value,
-                } => {
-                    self.write_device_feedback_with_app(app, device_id, feedback_key, value)
-                        .await?;
+                } => self
+                    .write_device_feedback_with_app(app, device_id, feedback_key, value)
+                    .await
+                    .map(|_| ()),
+            };
+            match result {
+                Ok(()) => applied += 1,
+                Err(error) => {
+                    log::warn!("Failed to apply HMIP feedback mapping: {error}");
+                    if first_error.is_none() {
+                        first_error = Some(error);
+                    }
                 }
             }
         }
 
-        Ok(applied)
+        match (applied, first_error) {
+            // 全部失败时向调用方报错；只要有成功写入就返回成功计数
+            (0, Some(error)) => Err(error),
+            (applied, _) => Ok(applied),
+        }
     }
 
     pub(super) fn value_changed(&self) -> Arc<Notify> {

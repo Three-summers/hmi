@@ -200,14 +200,21 @@ export function useTauriEventStream<TPayload>(
             }
         };
 
-        void setup();
+        const setupPromise = setup();
 
         return () => {
             cancelled = true;
-            if (stopCommand && isTauri()) {
-                invoke(stopCommand, stopArgsRef.current).catch(console.error);
-            }
-            unlistenFn?.();
+            // 必须等 setup 完成后再发 stop/释放监听：
+            // 否则 stopCommand 可能抢在在途的 startCommand 之前到达后端，
+            // 留下一条已启动却无人停止的数据流
+            void setupPromise.finally(() => {
+                if (stopCommand && isTauri()) {
+                    invoke(stopCommand, stopArgsRef.current).catch(
+                        console.error,
+                    );
+                }
+                unlistenFn?.();
+            });
         };
     }, [enabled, eventName, retryToken, startCommand, stopCommand]);
 

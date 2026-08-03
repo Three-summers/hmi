@@ -823,10 +823,22 @@ fn ensure_not_stopped(
     Ok(())
 }
 
-fn compare_values(actual: &Value, operator: &str, expected: &Value) -> Result<bool, String> {
+pub(super) fn compare_values(
+    actual: &Value,
+    operator: &str,
+    expected: &Value,
+) -> Result<bool, String> {
     match operator {
-        "eq" => Ok(actual == expected),
-        "ne" => Ok(actual != expected),
+        // eq/ne：两侧均为数字时用 f64 比较。
+        // serde_json 的 Number 跨变体（整数 vs 浮点）严格不相等（json!(1) != json!(1.0)），
+        // 而反馈映射产出的是整数、recipe 作者常写浮点，直接比较会让等待条件永不满足。
+        "eq" | "ne" => {
+            let equal = match (actual.as_f64(), expected.as_f64()) {
+                (Some(actual_number), Some(expected_number)) => actual_number == expected_number,
+                _ => actual == expected,
+            };
+            Ok(if operator == "eq" { equal } else { !equal })
+        }
         "gt" | "ge" | "lt" | "le" => {
             let actual_number = actual
                 .as_f64()

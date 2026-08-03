@@ -19,6 +19,7 @@ export interface FilesChartPreviewProps {
     chartInitErrorText: string;
     chartEmptyDataText: string;
     chartEmptySelectionText: string;
+    errorDetailsText: string;
 }
 
 export default function FilesChartPreview({
@@ -34,6 +35,7 @@ export default function FilesChartPreview({
     chartInitErrorText,
     chartEmptyDataText,
     chartEmptySelectionText,
+    errorDetailsText,
 }: FilesChartPreviewProps) {
     const theme = useAppStore((s) => s.theme);
     const scaleFactor = useCanvasScale(16);
@@ -76,6 +78,7 @@ export default function FilesChartPreview({
             chartInitErrorText={chartInitErrorText}
             chartEmptyDataText={chartEmptyDataText}
             chartEmptySelectionText={chartEmptySelectionText}
+            errorDetailsText={errorDetailsText}
         />
     );
 }

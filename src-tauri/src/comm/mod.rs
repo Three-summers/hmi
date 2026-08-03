@@ -55,7 +55,10 @@ struct ManagedConnectionHandle {
 enum EnsureConnectionAction {
     Reuse,
     Connect,
-    Replace(actor::CommActorHandle),
+    Replace {
+        actor: actor::CommActorHandle,
+        previous_config: ManagedConnectionConfig,
+    },
 }
 
 /// Communication state managed by Tauri
@@ -185,11 +188,13 @@ async fn plan_connection_update(
         return Ok(EnsureConnectionAction::Reuse);
     }
 
-    let old_actor = connections
+    let removed = connections
         .remove(connection_id)
-        .map(|managed| managed.actor)
         .expect("existing connection must still be present");
-    Ok(EnsureConnectionAction::Replace(old_actor))
+    Ok(EnsureConnectionAction::Replace {
+        actor: removed.actor,
+        previous_config: removed.config,
+    })
 }
 
 pub async fn ensure_tcp_connection<R: Runtime>(
@@ -199,9 +204,16 @@ pub async fn ensure_tcp_connection<R: Runtime>(
     config: tcp::TcpConfig,
 ) -> Result<(), String> {
     let managed_config = ManagedConnectionConfig::Tcp(config.clone());
+    let mut replaced_config: Option<ManagedConnectionConfig> = None;
     match plan_connection_update(state, connection_id, &managed_config).await? {
         EnsureConnectionAction::Reuse => return Ok(()),
-        EnsureConnectionAction::Replace(old_actor) => old_actor.shutdown().await,
+        EnsureConnectionAction::Replace {
+            actor,
+            previous_config,
+        } => {
+            actor.shutdown().await;
+            replaced_config = Some(previous_config);
+        }
         EnsureConnectionAction::Connect => {}
     }
 
@@ -229,7 +241,32 @@ pub async fn ensure_tcp_connection<R: Runtime>(
         return Ok(());
     }
 
-    let stream = tcp::open_stream(&config).await?;
+    let stream = match tcp::open_stream(&config).await {
+        Ok(stream) => Some(stream),
+        Err(err) => {
+            // Replace 失败恢复：旧连接已被销毁，若不重建则该设备连接凭空丢失。
+            // 用旧配置重建一个“重连中”的 actor，交由其退避重连流程恢复链路。
+            if let Some(ManagedConnectionConfig::Tcp(previous)) = replaced_config {
+                let actor = actor::spawn_tcp_actor(
+                    app.clone(),
+                    connection_id.to_string(),
+                    previous.clone(),
+                    None,
+                );
+                if let Some(old_actor) = insert_connection(
+                    state,
+                    connection_id.to_string(),
+                    ManagedConnectionConfig::Tcp(previous),
+                    actor,
+                )
+                .await
+                {
+                    old_actor.shutdown().await;
+                }
+            }
+            return Err(err);
+        }
+    };
     let actor = actor::spawn_tcp_actor(app.clone(), connection_id.to_string(), config, stream);
     if let Some(old_actor) =
         insert_connection(state, connection_id.to_string(), managed_config, actor).await
@@ -246,9 +283,16 @@ pub async fn ensure_serial_connection<R: Runtime>(
     config: serial::SerialConfig,
 ) -> Result<(), String> {
     let managed_config = ManagedConnectionConfig::Serial(config.clone());
+    let mut replaced_config: Option<ManagedConnectionConfig> = None;
     match plan_connection_update(state, connection_id, &managed_config).await? {
         EnsureConnectionAction::Reuse => return Ok(()),
-        EnsureConnectionAction::Replace(old_actor) => old_actor.shutdown().await,
+        EnsureConnectionAction::Replace {
+            actor,
+            previous_config,
+        } => {
+            actor.shutdown().await;
+            replaced_config = Some(previous_config);
+        }
         EnsureConnectionAction::Connect => {}
     }
 
@@ -276,7 +320,31 @@ pub async fn ensure_serial_connection<R: Runtime>(
         return Ok(());
     }
 
-    let stream = serial::open_stream(&config)?;
+    let stream = match serial::open_stream(&config) {
+        Ok(stream) => Some(stream),
+        Err(err) => {
+            // Replace 失败恢复：同 TCP，用旧配置重建带自动重连的 actor
+            if let Some(ManagedConnectionConfig::Serial(previous)) = replaced_config {
+                let actor = actor::spawn_serial_actor(
+                    app.clone(),
+                    connection_id.to_string(),
+                    previous.clone(),
+                    None,
+                );
+                if let Some(old_actor) = insert_connection(
+                    state,
+                    connection_id.to_string(),
+                    ManagedConnectionConfig::Serial(previous),
+                    actor,
+                )
+                .await
+                {
+                    old_actor.shutdown().await;
+                }
+            }
+            return Err(err);
+        }
+    };
     let actor = actor::spawn_serial_actor(app.clone(), connection_id.to_string(), config, stream);
     if let Some(old_actor) =
         insert_connection(state, connection_id.to_string(), managed_config, actor).await
@@ -319,7 +387,8 @@ pub async fn connect_tcp<R: Runtime>(
     }
 
     let stream = tcp::open_stream(&config).await?;
-    let actor = actor::spawn_tcp_actor(app.clone(), connection_id.to_string(), config, stream);
+    let actor =
+        actor::spawn_tcp_actor(app.clone(), connection_id.to_string(), config, Some(stream));
     if let Some(old_actor) =
         insert_connection(state, connection_id.to_string(), managed_config, actor).await
     {
@@ -361,7 +430,8 @@ pub async fn connect_serial<R: Runtime>(
     }
 
     let stream = serial::open_stream(&config)?;
-    let actor = actor::spawn_serial_actor(app.clone(), connection_id.to_string(), config, stream);
+    let actor =
+        actor::spawn_serial_actor(app.clone(), connection_id.to_string(), config, Some(stream));
     if let Some(old_actor) =
         insert_connection(state, connection_id.to_string(), managed_config, actor).await
     {
@@ -556,7 +626,9 @@ mod tests {
         .unwrap();
 
         match action {
-            EnsureConnectionAction::Replace(old_actor) => old_actor.shutdown().await,
+            EnsureConnectionAction::Replace { actor: old_actor, .. } => {
+                old_actor.shutdown().await
+            }
             _ => panic!("expected stale serial connection to be replaced"),
         }
         assert!(!state.connections.lock().await.contains_key("main-serial"));
@@ -889,7 +961,7 @@ mod tests {
             app.handle().clone(),
             "serial-real".to_string(),
             config.clone(),
-            actor_stream,
+            Some(actor_stream),
         );
 
         insert_connection(

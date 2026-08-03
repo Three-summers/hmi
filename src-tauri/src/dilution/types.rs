@@ -682,6 +682,13 @@ impl DilutionManager {
         batch.metering_records.push(raw_record);
 
         batch.status = BatchStatus::SolventLoading;
+        // ratio 来自 PRMS mapping，不可信；raw<=0 时直接除法会得到 inf/NaN 质量并写入计量记录
+        if !(recipe.ratio.raw > 0.0) {
+            return Err(format!(
+                "recipe `{}` has invalid ratio.raw {} (must be > 0)",
+                recipe.id, recipe.ratio.raw
+            ));
+        }
         let solvent_mass = actual_raw_mass_g * recipe.ratio.solvent / recipe.ratio.raw;
         batch
             .metering_records
@@ -753,6 +760,10 @@ impl DilutionManager {
         batch.status = BatchStatus::Dispensing;
         batch.output_bottles.clear();
         for dispensed in dispensed_bottles {
+            // index 由 gateway 返回，约定从 1 开始；0 会在 debug 构建下因下溢 panic
+            if dispensed.index == 0 {
+                return Err("dispense gateway returned bottle index 0 (expected 1-based)".to_string());
+            }
             let barcode = barcodes
                 .get((dispensed.index - 1) as usize)
                 .cloned()

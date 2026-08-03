@@ -140,12 +140,17 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
     // 当前视图
     currentView: "jobs",
     setCurrentView: (view) =>
-        set((state) => ({
-            // 这里是直接替换
-            currentView: view,
-            // 记录历史：将“切换前的视图”压栈，并限制历史长度，避免无限增长。
-            viewHistory: [...state.viewHistory, state.currentView].slice(-10),
-        })),
+        set((state) => {
+            // 重复选择当前视图时不压栈，否则 goBack 会“按了没反应”
+            if (view === state.currentView) return state;
+            return {
+                currentView: view,
+                // 记录历史：将“切换前的视图”压栈，并限制历史长度，避免无限增长。
+                viewHistory: [...state.viewHistory, state.currentView].slice(
+                    -10,
+                ),
+            };
+        }),
 
     viewHistory: [],
     // 返回到上一个视图

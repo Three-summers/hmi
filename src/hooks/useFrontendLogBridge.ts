@@ -210,14 +210,16 @@ export function useFrontendLogBridge() {
             if (queue.length === 0) return;
 
             inFlush = true;
+            const batch = queue.splice(0, MAX_BATCH_SIZE);
             try {
-                const batch = queue.splice(0, MAX_BATCH_SIZE);
                 await invoke<void>("frontend_log_batch", { entries: batch });
             } catch {
-                // 转发失败时静默丢弃，避免影响业务
-                queue.length = 0;
+                // 转发失败时仅丢弃当前批次，避免误删 flush 期间新入队的日志
             } finally {
                 inFlush = false;
+                // flush 期间可能有新日志入队（或本批达阈值时机被 inFlush 拦掉），
+                // 这里补一次调度，避免剩余日志滞留到下一条日志到来
+                if (queue.length > 0) scheduleFlush();
             }
         };
 

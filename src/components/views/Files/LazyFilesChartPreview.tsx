@@ -99,6 +99,7 @@ export function LazyFilesChartPreview({
     retryText,
     chartEmptyDataText,
     chartEmptySelectionText,
+    errorDetailsText,
 }: LazyFilesChartPreviewProps) {
     const resetKey = `${title}:${csvData.headers.join("|")}:${csvData.rows.length}`;
 
@@ -131,6 +132,7 @@ export function LazyFilesChartPreview({
                     chartInitErrorText={chartInitErrorText}
                     chartEmptyDataText={chartEmptyDataText}
                     chartEmptySelectionText={chartEmptySelectionText}
+                    errorDetailsText={errorDetailsText}
                 />
             </Suspense>
         </LocalErrorBoundary>

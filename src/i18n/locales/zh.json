@@ -621,7 +621,8 @@
     "zoomHint": "滚轮缩放，拖拽平移，双击复位",
     "initError": "图表初始化失败",
     "emptyData": "CSV 无有效数据（至少需要 2 行）",
-    "emptySelection": "未选择数据列"
+    "emptySelection": "未选择数据列",
+    "errorDetails": "查看错误详情"
   },
         "info": {
             "zoomTip": "图表支持滚轮缩放与拖拽平移",
@@ -676,5 +677,19 @@
         "alarmHistoryCleared": "报警历史已清除",
         "helpRefreshed": "已刷新",
         "helpContentRefreshed": "帮助内容已刷新"
+    },
+    "errors": {
+        "renderFailed": "页面渲染失败",
+        "renderFallbackHint": "已进入降级模式。你可以点击“重试”或切换到其他视图。",
+        "viewRenderFailed": "视图渲染失败",
+        "viewRenderFailedDegraded": "视图渲染失败（已降级）",
+        "currentView": "当前视图：{{view}}",
+        "viewRenderPossibleCauses": "可能原因：视图组件异常 / Canvas 绘制环境不支持 / 数据异常等。",
+        "backToJobs": "返回 Jobs",
+        "errorDetails": "查看错误详情",
+        "commError": "通信异常({{transport}})：{{message}}",
+        "protocolDecodeFailed": "协议解码失败({{transport}})：{{message}}",
+        "protocolError": "协议错误({{transport}})：code={{code}} {{message}}",
+        "commTimeout": "通信操作超时（command={{command}}, timeoutMs={{timeoutMs}}ms）"
     }
 }

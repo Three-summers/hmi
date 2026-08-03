@@ -62,6 +62,7 @@ describe("LazyFilesChartPreview", () => {
                 retryText="重试"
                 chartEmptyDataText="无数据"
                 chartEmptySelectionText="未选择列"
+                errorDetailsText="查看错误详情"
             />,
         );
 

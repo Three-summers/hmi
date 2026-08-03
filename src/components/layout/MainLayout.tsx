@@ -17,6 +17,7 @@
  */
 
 import { memo, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/shallow";
 import { TitlePanel } from "./TitlePanel";
 import { InfoPanel } from "./InfoPanel";
@@ -60,6 +61,8 @@ export function MainLayout() {
 
     const commandPanelPosition = useAppStore((state) => state.commandPanelPosition);
 
+    const { t } = useTranslation();
+
     // 安装全局键盘快捷键（如 Ctrl+K 打开命令面板）
     useKeyboardShortcuts();
 
@@ -85,9 +88,12 @@ export function MainLayout() {
 
     const handleViewRenderError = useCallback(
         (error: Error) => {
-            notifyError("视图渲染失败", `当前视图：${currentView}\n${error.message}`);
+            notifyError(
+                t("errors.viewRenderFailed"),
+                `${t("errors.currentView", { view: currentView })}\n${error.message}`,
+            );
         },
-        [currentView, notifyError],
+        [currentView, notifyError, t],
     );
 
     return (
@@ -119,7 +125,9 @@ export function MainLayout() {
                                         }}
                                     >
                                         <h2 style={{ margin: 0 }}>
-                                            视图渲染失败（已降级）
+                                            {t(
+                                                "errors.viewRenderFailedDegraded",
+                                            )}
                                         </h2>
                                         <p
                                             style={{
@@ -127,9 +135,13 @@ export function MainLayout() {
                                                     "var(--sp-sm-rem, 0.75rem) 0 0",
                                             }}
                                         >
-                                            当前视图：{currentView}
+                                            {t("errors.currentView", {
+                                                view: currentView,
+                                            })}
                                             <br />
-                                            可能原因：视图组件异常 / Canvas 绘制环境不支持 / 数据异常等。
+                                            {t(
+                                                "errors.viewRenderPossibleCauses",
+                                            )}
                                         </p>
                                         <div
                                             style={{
@@ -144,7 +156,7 @@ export function MainLayout() {
                                                 type="button"
                                                 onClick={reset}
                                             >
-                                                重试
+                                                {t("common.retry")}
                                             </button>
                                             <button
                                                 type="button"
@@ -153,7 +165,7 @@ export function MainLayout() {
                                                     reset();
                                                 }}
                                             >
-                                                返回 Jobs
+                                                {t("errors.backToJobs")}
                                             </button>
                                         </div>
                                         <details
@@ -162,7 +174,9 @@ export function MainLayout() {
                                                     "var(--sp-sm-rem, 0.75rem)",
                                             }}
                                         >
-                                            <summary>查看错误详情</summary>
+                                            <summary>
+                                                {t("errors.errorDetails")}
+                                            </summary>
                                             <pre
                                                 style={{
                                                     marginTop:

@@ -4,41 +4,52 @@ use crate::dilution;
 use crate::log_paths;
 use crate::secs_rpc::{self, SecsRpcTarget};
 use crate::system;
-use base64::{engine::general_purpose, Engine as _};
 use serde::Deserialize;
-use std::path::PathBuf;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 
 #[tauri::command]
-pub fn get_system_overview() -> Result<system::SystemOverview, String> {
-    system::read_system_overview()
+pub async fn get_system_overview() -> Result<system::SystemOverview, String> {
+    // CPU 采样内部包含 120ms 睡眠 + df 子进程，必须放到阻塞线程池，避免卡 UI/异步线程
+    tauri::async_runtime::spawn_blocking(system::read_system_overview)
+        .await
+        .map_err(|e| format!("system overview task failed: {e}"))?
 }
 
 /// 扫描工艺 workspace，读取系统目录与项目摘要。
 #[tauri::command]
-pub fn craftsmanship_scan_workspace(
+pub async fn craftsmanship_scan_workspace(
     workspace_root: String,
 ) -> Result<craftsmanship::CraftsmanshipWorkspaceSummary, String> {
-    craftsmanship::scan_workspace(&workspace_root)
+    tauri::async_runtime::spawn_blocking(move || craftsmanship::scan_workspace(&workspace_root))
+        .await
+        .map_err(|e| format!("workspace scan task failed: {e}"))?
 }
 
 /// 读取单个项目的完整工艺资源包。
 #[tauri::command]
-pub fn craftsmanship_get_project_bundle(
+pub async fn craftsmanship_get_project_bundle(
     workspace_root: String,
     project_id: String,
 ) -> Result<craftsmanship::CraftsmanshipProjectBundle, String> {
-    craftsmanship::get_project_bundle(&workspace_root, &project_id)
+    tauri::async_runtime::spawn_blocking(move || {
+        craftsmanship::get_project_bundle(&workspace_root, &project_id)
+    })
+    .await
+    .map_err(|e| format!("project bundle task failed: {e}"))?
 }
 
 /// 读取单个工艺文件及其关联资源。
 #[tauri::command]
-pub fn craftsmanship_get_recipe_bundle(
+pub async fn craftsmanship_get_recipe_bundle(
     workspace_root: String,
     project_id: String,
     recipe_id: String,
 ) -> Result<craftsmanship::CraftsmanshipRecipeBundle, String> {
-    craftsmanship::get_recipe_bundle(&workspace_root, &project_id, &recipe_id)
+    tauri::async_runtime::spawn_blocking(move || {
+        craftsmanship::get_recipe_bundle(&workspace_root, &project_id, &recipe_id)
+    })
+    .await
+    .map_err(|e| format!("recipe bundle task failed: {e}"))?
 }
 
 /// 加载一个 recipe 到运行时，并重置当前运行快照。
@@ -163,8 +174,10 @@ pub fn dilution_get_report(
 }
 
 /// 扫描原液 barcode，并通过 PRMS adapter 返回 mapping。
+///
+/// async：adapter 调用（未来为真实 PRMS/设备 IO）不应占用 UI 主线程。
 #[tauri::command]
-pub fn dilution_scan_raw_resist(
+pub async fn dilution_scan_raw_resist(
     state: State<'_, dilution::DilutionManager>,
     request: dilution::ScanRawResistRequest,
 ) -> Result<dilution::Batch, String> {
@@ -181,8 +194,10 @@ pub fn dilution_select_concentration(
 }
 
 /// 执行一条完整批次。当前默认 adapter 使用虚拟 PRMS/设备数据，真实设备接入后复用此入口。
+///
+/// async：批次执行包含 adapter 顺序调用与多次写盘，不应占用 UI 主线程。
 #[tauri::command]
-pub fn dilution_run_batch(
+pub async fn dilution_run_batch(
     state: State<'_, dilution::DilutionManager>,
     request: dilution::RunBatchRequest,
 ) -> Result<dilution::Batch, String> {
@@ -191,7 +206,7 @@ pub fn dilution_run_batch(
 
 /// 兼容旧前端命令名：内部仍走通用批次执行入口。
 #[tauri::command]
-pub fn dilution_run_mock_batch(
+pub async fn dilution_run_mock_batch(
     state: State<'_, dilution::DilutionManager>,
     request: dilution::RunMockBatchRequest,
 ) -> Result<dilution::Batch, String> {
@@ -209,67 +224,17 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
         .ok_or_else(|| "Invalid path encoding".to_string())
 }
 
-/// 保存频谱分析仪截图到系统下载目录
-///
-/// 说明：
-/// - 由前端传入 PNG 的 base64（DataURL 去掉前缀部分）
-/// - 默认保存到系统下载目录；若无法获取下载目录则回退到 Log 目录
-/// - 后端负责写盘，避免前端引入额外 FS 依赖导致入口 chunk 膨胀
-#[tauri::command]
-pub fn save_spectrum_screenshot(
-    app: AppHandle,
-    filename: String,
-    data_base64: String,
-    directory: Option<String>,
-) -> Result<String, String> {
-    if filename.trim().is_empty() {
-        return Err("filename is empty".to_string());
-    }
-
-    // 简单约束：避免 filename 带路径分隔符导致写入到意外位置
-    if filename.contains('/') || filename.contains('\\') {
-        return Err("filename contains invalid path separator".to_string());
-    }
-
-    let base_dir: PathBuf = if let Some(dir) = directory {
-        let trimmed = dir.trim();
-        if trimmed.is_empty() {
-            return Err("directory is empty".to_string());
-        }
-        PathBuf::from(trimmed)
-    } else {
-        let app_clone = app.clone();
-        app.path()
-            .download_dir()
-            .map_err(|e| e.to_string())
-            .or_else(|_| get_log_dir(app_clone).map(PathBuf::from))?
-    };
-
-    // 若目录不存在则创建（用户选择目录一般已存在，但这里做兜底）
-    if !base_dir.exists() {
-        std::fs::create_dir_all(&base_dir)
-            .map_err(|e| format!("Failed to create screenshot directory: {}", e))?;
-    }
-
-    let file_path = base_dir.join(&filename);
-
-    let png_bytes = general_purpose::STANDARD
-        .decode(data_base64.as_bytes())
-        .map_err(|e| format!("Failed to decode screenshot base64: {}", e))?;
-
-    std::fs::write(&file_path, png_bytes)
-        .map_err(|e| format!("Failed to write screenshot file: {}", e))?;
-
-    file_path
-        .to_str()
-        .map(|s| s.to_string())
-        .ok_or_else(|| "Invalid path encoding".to_string())
-}
+// 注：save_spectrum_screenshot 已随频谱功能一并移除。
+// 本分支前端已无截图入口；该命令等价于由 WebView 任意指定目录/文件名/内容的
+// 写文件原语，属于无调用方的攻击面。
 
 /// 获取可用串口列表
 #[tauri::command]
 pub async fn get_serial_ports() -> Result<Vec<String>, String> {
-    serial::list_ports()
+    // 串口枚举是阻塞调用，放入阻塞线程池执行
+    tauri::async_runtime::spawn_blocking(serial::list_ports)
+        .await
+        .map_err(|e| format!("serial port scan task failed: {e}"))?
 }
 
 /// 连接串口

@@ -120,6 +120,7 @@ export default function FilesView() {
                   chartInitErrorText={t("files.chart.initError")}
                   chartEmptyDataText={t("files.chart.emptyData")}
                   chartEmptySelectionText={t("files.chart.emptySelection")}
+                  errorDetailsText={t("files.chart.errorDetails")}
               />
           )
         : null;

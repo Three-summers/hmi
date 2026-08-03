@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     AddIcon,
@@ -238,38 +238,46 @@ export default function DilutionView() {
         return () => window.clearInterval(timer);
     }, [browseId]);
 
-    const runAction = async (
-        action: () => Promise<DilutionBatch>,
-        successTitle: string,
-    ) => {
-        setBusy(true);
-        try {
-            const nextBatch = await action();
-            setBatch(nextBatch);
-            success(successTitle, nextBatch.id);
-        } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            error(t("dilution.notifications.operationFailed"), message);
-        } finally {
-            setBusy(false);
-        }
-    };
+    const runAction = useCallback(
+        async (action: () => Promise<DilutionBatch>, successTitle: string) => {
+            setBusy(true);
+            try {
+                const nextBatch = await action();
+                setBatch(nextBatch);
+                success(successTitle, nextBatch.id);
+            } catch (err) {
+                const message =
+                    err instanceof Error ? err.message : String(err);
+                error(t("dilution.notifications.operationFailed"), message);
+            } finally {
+                setBusy(false);
+            }
+        },
+        [success, error, t],
+    );
 
-    const handleCreateBatch = () =>
-        runAction(
-            () => dilutionCreateBatch(DEFAULT_BATCH),
-            t("dilution.notifications.batchCreated"),
-        );
+    const handleCreateBatch = useCallback(
+        () =>
+            runAction(
+                () => dilutionCreateBatch(DEFAULT_BATCH),
+                t("dilution.notifications.batchCreated"),
+            ),
+        [runAction, t],
+    );
 
-    const handleLoadLatestBatch = () =>
-        runAction(async () => {
-            const batches = await dilutionListBatches();
-            const latest = batches[batches.length - 1];
-            if (!latest) throw new Error(t("dilution.notifications.noBatch"));
-            return latest;
-        }, t("dilution.notifications.batchLoaded"));
+    const handleLoadLatestBatch = useCallback(
+        () =>
+            runAction(async () => {
+                const batches = await dilutionListBatches();
+                const latest = batches[batches.length - 1];
+                if (!latest)
+                    throw new Error(t("dilution.notifications.noBatch"));
+                return latest;
+            }, t("dilution.notifications.batchLoaded")),
+        [runAction, t],
+    );
 
-    const handleScan = () => {
+    const handleScan = useCallback(() => {
         if (!batch) return;
         void runAction(
             () =>
@@ -280,9 +288,9 @@ export default function DilutionView() {
                 }),
             t("dilution.notifications.rawScanned"),
         );
-    };
+    }, [batch, runAction, scanBarcode, t]);
 
-    const handleSelectConcentration = () => {
+    const handleSelectConcentration = useCallback(() => {
         if (!batch) return;
         void runAction(
             () =>
@@ -292,9 +300,9 @@ export default function DilutionView() {
                 }),
             t("dilution.notifications.recipeLocked"),
         );
-    };
+    }, [batch, runAction, selectedConcentration, t]);
 
-    const handleRunMock = () => {
+    const handleRunMock = useCallback(() => {
         if (!batch) return;
         const rawLoad: RawLoadRequest =
             rawLoadMode === "mass"
@@ -309,9 +317,18 @@ export default function DilutionView() {
                 }),
             t("dilution.notifications.mockCompleted"),
         );
-    };
+    }, [
+        batch,
+        rawBottleCount,
+        rawLoadMode,
+        runAction,
+        t,
+        targetRawMassG,
+        viscosityA,
+        viscosityB,
+    ]);
 
-    const handleExportReport = async () => {
+    const handleExportReport = useCallback(async () => {
         if (!batch?.report) return;
         try {
             const report = await dilutionGetReport(batch.id);
@@ -320,7 +337,7 @@ export default function DilutionView() {
             const message = err instanceof Error ? err.message : String(err);
             error(t("dilution.notifications.operationFailed"), message);
         }
-    };
+    }, [batch, error, info, t]);
 
     const commandList = useMemo<CommandButtonConfig[]>(
         () => [
@@ -404,7 +421,7 @@ export default function DilutionView() {
     const stepStatus = getStepState(viewStepId, execId);
     const statusLabel =
         batch?.status === "completed"
-            ? "Completed"
+            ? t("dilution.stepState.completed")
             : t(`dilution.stepState.${stepStatus}`);
 
     return (
@@ -1151,7 +1168,11 @@ function ReportContent({ batch }: { batch: DilutionBatch | null }) {
             />
             <MetricCard
                 label={t("dilution.metrics.status")}
-                value={batch?.status === "completed" ? "Completed" : (batch?.status ?? "--")}
+                value={
+                    batch?.status === "completed"
+                        ? t("dilution.stepState.completed")
+                        : (batch?.status ?? "--")
+                }
             />
             <MetricCard
                 label={t("dilution.metrics.averageViscosity")}

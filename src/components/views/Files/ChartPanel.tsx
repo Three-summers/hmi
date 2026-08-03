@@ -24,6 +24,7 @@ export interface ChartPanelProps {
     chartInitErrorText: string;
     chartEmptyDataText: string;
     chartEmptySelectionText: string;
+    errorDetailsText: string;
     chartError: Error | null;
     onRetryCharts: () => void;
     enlargedChartError: Error | null;
@@ -62,6 +63,7 @@ export function ChartPanel({
     chartInitErrorText,
     chartEmptyDataText,
     chartEmptySelectionText,
+    errorDetailsText,
     chartError,
     onRetryCharts,
     enlargedChartError,
@@ -133,7 +135,7 @@ export function ChartPanel({
                                     {retryText}
                                 </button>
                                 <details style={{ maxWidth: 520 }}>
-                                    <summary>查看错误详情</summary>
+                                    <summary>{errorDetailsText}</summary>
                                     <pre
                                         style={{
                                             marginTop: 8,
@@ -248,7 +250,7 @@ export function ChartPanel({
                                             {retryText}
                                         </button>
                                         <details style={{ maxWidth: 560 }}>
-                                            <summary>查看错误详情</summary>
+                                            <summary>{errorDetailsText}</summary>
                                             <pre
                                                 style={{
                                                     marginTop: 8,

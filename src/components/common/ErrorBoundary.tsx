@@ -10,6 +10,7 @@
  */
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import i18n from "@/i18n";
 
 export type ErrorBoundaryFallbackRender = (args: {
     /** 捕获到的错误对象 */
@@ -96,17 +97,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
         return (
             <div style={{ padding: "var(--sp-md-rem, 1rem)" }}>
-                <h2 style={{ margin: 0 }}>页面渲染失败</h2>
+                <h2 style={{ margin: 0 }}>{i18n.t("errors.renderFailed")}</h2>
                 <p style={{ margin: "var(--sp-sm-rem, 0.75rem) 0 0" }}>
-                    已进入降级模式。你可以点击“重试”或切换到其他视图。
+                    {i18n.t("errors.renderFallbackHint")}
                 </p>
                 <div style={{ marginTop: "var(--sp-sm-rem, 0.75rem)" }}>
                     <button type="button" onClick={this.reset}>
-                        重试
+                        {i18n.t("common.retry")}
                     </button>
                 </div>
                 <details style={{ marginTop: "var(--sp-sm-rem, 0.75rem)" }}>
-                    <summary>查看错误详情</summary>
+                    <summary>{i18n.t("errors.errorDetails")}</summary>
                     <pre
                         style={{
                             marginTop: "var(--sp-xs-rem, 0.5rem)",

@@ -305,8 +305,8 @@ describe("DilutionView", () => {
 
         fireEvent.click(screen.getByRole("button", { name: "运行 Mock" }));
 
-        await screen.findAllByText("Completed");
-        expect(screen.getAllByText("Completed").length).toBeGreaterThan(0);
+        await screen.findAllByText("已完成");
+        expect(screen.getAllByText("已完成").length).toBeGreaterThan(0);
         expect(screen.getAllByText("5.3 cP").length).toBeGreaterThan(0);
         expect(screen.getAllByText("report").length).toBeGreaterThan(0);
         expect(screen.getAllByText(/DIL-DIL-/).length).toBeGreaterThan(0);

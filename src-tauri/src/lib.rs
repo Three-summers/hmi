@@ -58,7 +58,6 @@ pub fn run() {
             commands::dilution_run_batch,
             commands::dilution_run_mock_batch,
             commands::get_log_dir,
-            commands::save_spectrum_screenshot,
             commands::get_serial_ports,
             commands::connect_serial,
             commands::disconnect_serial,

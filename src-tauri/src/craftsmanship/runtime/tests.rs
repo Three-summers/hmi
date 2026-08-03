@@ -2274,7 +2274,7 @@ async fn runtime_should_fail_dispatched_action_when_app_handle_is_missing() {
 async fn runtime_should_dispatch_gpio_action_to_configured_pin() {
     let _gpio_override_guard = gpio_override_lock()
         .lock()
-        .expect("gpio override lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let workspace = TestWorkspace::new();
     let gpio_root = workspace.path().join("mock-gpio");
     let gpio_dir = gpio_root.join("gpio17");
@@ -2393,7 +2393,7 @@ async fn runtime_should_dispatch_gpio_action_to_configured_pin() {
 async fn runtime_should_run_recipe_over_fake_tcp_transport_end_to_end() {
     let _transport_guard = e2e_transport_lock()
         .lock()
-        .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _override_reset = CommOverrideReset;
 
     let workspace = TestWorkspace::new();
@@ -2617,7 +2617,7 @@ async fn runtime_should_run_recipe_over_fake_tcp_transport_end_to_end() {
 async fn runtime_should_dispatch_template_hex_payload_from_step_and_run_context() {
     let _transport_guard = e2e_transport_lock()
         .lock()
-        .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _override_reset = CommOverrideReset;
 
     let workspace = TestWorkspace::new();
@@ -2852,7 +2852,7 @@ async fn runtime_should_dispatch_template_hex_payload_from_step_and_run_context(
 async fn runtime_should_recover_on_second_run_after_fake_tcp_connect_failure() {
     let _transport_guard = e2e_transport_lock()
         .lock()
-        .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _override_reset = CommOverrideReset;
 
     let workspace = TestWorkspace::new();
@@ -3062,7 +3062,7 @@ async fn runtime_should_recover_on_second_run_after_fake_tcp_connect_failure() {
 async fn runtime_should_run_recipe_over_fake_serial_transport_end_to_end() {
     let _transport_guard = e2e_transport_lock()
         .lock()
-        .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _override_reset = CommOverrideReset;
 
     let workspace = TestWorkspace::new();
@@ -3288,7 +3288,7 @@ async fn runtime_should_run_recipe_over_fake_serial_transport_end_to_end() {
 async fn runtime_should_recover_on_second_run_after_fake_serial_connect_failure() {
     let _transport_guard = e2e_transport_lock()
         .lock()
-        .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _override_reset = CommOverrideReset;
 
     let workspace = TestWorkspace::new();
@@ -3500,7 +3500,7 @@ async fn runtime_should_recover_on_second_run_after_fake_serial_connect_failure(
 async fn runtime_should_run_recipe_over_fake_multi_transport_multi_device_end_to_end() {
     let _transport_guard = e2e_transport_lock()
         .lock()
-        .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     let _override_reset = CommOverrideReset;
 
     let workspace = TestWorkspace::new();
@@ -3891,7 +3891,7 @@ async fn runtime_should_run_recipe_over_fake_multi_transport_multi_device_end_to
 async fn runtime_should_run_recipe_over_real_tcp_transport_end_to_end() {
     let _transport_guard = e2e_transport_lock()
         .lock()
-        .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     let workspace = TestWorkspace::new();
     write_system_bundle(&workspace);
@@ -4124,7 +4124,7 @@ async fn runtime_should_run_recipe_over_real_serial_transport_end_to_end() {
 
     let _transport_guard = e2e_transport_lock()
         .lock()
-        .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     let workspace = TestWorkspace::new();
     write_system_bundle(&workspace);
@@ -4409,7 +4409,7 @@ async fn runtime_should_run_recipe_over_real_multi_transport_multi_device_end_to
 
     let _transport_guard = e2e_transport_lock()
         .lock()
-        .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     let workspace = TestWorkspace::new();
     write_system_bundle(&workspace);
@@ -5269,10 +5269,10 @@ mod process_flow_tests {
     async fn mixed_transport_process_should_complete_over_gpio_then_hmip_then_wait_signal() {
         let _transport_guard = e2e_transport_lock()
             .lock()
-            .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _gpio_override_guard = gpio_override_lock()
             .lock()
-            .expect("gpio override lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _override_reset = ProcessFlowOverrideReset;
 
         let workspace = TestWorkspace::new();
@@ -5459,7 +5459,7 @@ mod process_flow_tests {
     async fn multi_device_process_should_complete_with_cross_transport_feedback_isolation() {
         let _transport_guard = e2e_transport_lock()
             .lock()
-            .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _override_reset = ProcessFlowOverrideReset;
 
         let workspace = TestWorkspace::new();
@@ -5726,10 +5726,10 @@ mod process_flow_tests {
     async fn process_should_complete_when_feedback_arrives_out_of_order_but_matches_correct_step() {
         let _transport_guard = e2e_transport_lock()
             .lock()
-            .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _gpio_override_guard = gpio_override_lock()
             .lock()
-            .expect("gpio override lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _override_reset = ProcessFlowOverrideReset;
 
         let workspace = TestWorkspace::new();
@@ -5939,10 +5939,10 @@ mod process_flow_tests {
     async fn process_should_not_complete_when_feedback_connection_or_channel_is_wrong() {
         let _transport_guard = e2e_transport_lock()
             .lock()
-            .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _gpio_override_guard = gpio_override_lock()
             .lock()
-            .expect("gpio override lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _override_reset = ProcessFlowOverrideReset;
 
         let workspace = TestWorkspace::new();
@@ -6209,10 +6209,10 @@ mod process_flow_tests {
     ) {
         let _transport_guard = e2e_transport_lock()
             .lock()
-            .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _gpio_override_guard = gpio_override_lock()
             .lock()
-            .expect("gpio override lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _override_reset = ProcessFlowOverrideReset;
 
         let workspace = TestWorkspace::new();
@@ -6441,10 +6441,10 @@ mod process_flow_tests {
     ) {
         let _transport_guard = e2e_transport_lock()
             .lock()
-            .expect("e2e transport lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _gpio_override_guard = gpio_override_lock()
             .lock()
-            .expect("gpio override lock poisoned");
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
         let _override_reset = ProcessFlowOverrideReset;
 
         let workspace = TestWorkspace::new();
@@ -6675,4 +6675,25 @@ mod process_flow_tests {
             .await
             .unwrap();
     }
+}
+
+#[test]
+fn compare_values_should_treat_integer_and_float_json_numbers_as_equal() {
+    use super::engine::compare_values;
+
+    // 反馈映射常产出整数（如 header.channel），而 recipe 作者常写浮点：
+    // serde_json 的 Number 跨变体严格不相等，eq 必须走数值比较
+    assert_eq!(compare_values(&json!(1), "eq", &json!(1.0)), Ok(true));
+    assert_eq!(compare_values(&json!(1.0), "eq", &json!(1)), Ok(true));
+    assert_eq!(compare_values(&json!(1), "ne", &json!(1.0)), Ok(false));
+    assert_eq!(compare_values(&json!(2), "eq", &json!(1.0)), Ok(false));
+    assert_eq!(compare_values(&json!(2), "ne", &json!(1.0)), Ok(true));
+
+    // 非数值仍走结构相等
+    assert_eq!(compare_values(&json!(true), "eq", &json!(true)), Ok(true));
+    assert_eq!(compare_values(&json!("a"), "eq", &json!("b")), Ok(false));
+    assert_eq!(
+        compare_values(&json!(null), "ne", &json!("x")),
+        Ok(true)
+    );
 }
