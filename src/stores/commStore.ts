@@ -14,6 +14,7 @@
  */
 
 import { create } from "zustand";
+import i18n from "@/i18n";
 import { COMM_CONFIG } from "@/constants";
 import { invoke } from "@/platform/invoke";
 import { withTimeout } from "@/utils/async";
@@ -205,7 +206,10 @@ async function invokeWithTimeout<TResult>(
         invoke<TResult>(command, args),
         timeoutMs,
         {
-            timeoutMessage: `通信操作超时（command=${command}, timeoutMs=${timeoutMs}ms）`,
+            timeoutMessage: i18n.t("errors.commTimeout", {
+                command,
+                timeoutMs,
+            }),
         },
     );
 }

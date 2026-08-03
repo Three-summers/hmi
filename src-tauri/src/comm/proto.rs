@@ -320,6 +320,7 @@ pub enum Role {
 }
 
 impl Role {
+    #[cfg(test)]
     pub fn as_u8(self) -> u8 {
         self as u8
     }
@@ -524,6 +525,7 @@ fn decode_error(payload: &[u8]) -> Result<ProtoError, MessageDecodeError> {
     Ok(ProtoError { code, message })
 }
 
+#[cfg(test)]
 pub fn encode_hello(hello: &Hello) -> Vec<u8> {
     // role(1) + capabilities(4) + name_len(1) + name
     let name_bytes = hello.name.as_bytes();
@@ -536,47 +538,12 @@ pub fn encode_hello(hello: &Hello) -> Vec<u8> {
     out
 }
 
-pub fn encode_hello_ack(ack: &HelloAck) -> Vec<u8> {
-    let name_bytes = ack.name.as_bytes();
-    let name_len = name_bytes.len().min(255);
-    let mut out = Vec::with_capacity(4 + 1 + name_len);
-    out.extend_from_slice(&ack.capabilities.to_le_bytes());
-    out.push(name_len as u8);
-    out.extend_from_slice(&name_bytes[..name_len]);
-    out
-}
-
+#[cfg(test)]
 pub fn encode_heartbeat(hb: &Heartbeat) -> Vec<u8> {
     hb.timestamp_ms.to_le_bytes().to_vec()
 }
 
-pub fn encode_request(req: &Request) -> Vec<u8> {
-    let mut out = Vec::with_capacity(8 + req.body.len());
-    out.extend_from_slice(&req.request_id.to_le_bytes());
-    out.extend_from_slice(&req.method.to_le_bytes());
-    out.extend_from_slice(&0u16.to_le_bytes()); // reserved
-    out.extend_from_slice(&req.body);
-    out
-}
-
-pub fn encode_response(resp: &Response) -> Vec<u8> {
-    let mut out = Vec::with_capacity(8 + resp.body.len());
-    out.extend_from_slice(&resp.request_id.to_le_bytes());
-    out.extend_from_slice(&resp.status.to_le_bytes());
-    out.extend_from_slice(&0u16.to_le_bytes()); // reserved
-    out.extend_from_slice(&resp.body);
-    out
-}
-
-pub fn encode_event(ev: &Event) -> Vec<u8> {
-    let mut out = Vec::with_capacity(12 + ev.body.len());
-    out.extend_from_slice(&ev.event_id.to_le_bytes());
-    out.extend_from_slice(&0u16.to_le_bytes()); // reserved
-    out.extend_from_slice(&ev.timestamp_ms.to_le_bytes());
-    out.extend_from_slice(&ev.body);
-    out
-}
-
+#[cfg(test)]
 pub fn encode_error(err: &ProtoError) -> Vec<u8> {
     let msg_bytes = err.message.as_bytes();
     let msg_len = msg_bytes.len().min(u16::MAX as usize);

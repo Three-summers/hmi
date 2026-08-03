@@ -231,6 +231,31 @@ enum ConnectionExit {
     IoError(String),
 }
 
+/// 串口连续 0 字节读取的容忍上限。
+///
+/// 单次空读在 PTY/部分驱动下属正常现象，不应立即断线重连；
+/// 但持续空读（每次间隔 10ms）通常意味着设备被拔出或对端已关闭而驱动以 EOF 表达，
+/// 此时必须升级为 IoError 进入既有重连流程，否则链路会静默空转、永不恢复。
+const SERIAL_ZERO_READ_LIMIT: u32 = 200; // 约 2s
+
+/// 丢弃断线期间积压的待发帧。
+///
+/// 断线期间 try_send 入队的控制帧在重连成功后若原样补发，
+/// 对工业设备等价于重放过期动作指令，风险高于丢帧；因此重连前统一清空。
+fn drain_pending_frames(
+    high_rx: &mut mpsc::Receiver<Vec<u8>>,
+    normal_rx: &mut mpsc::Receiver<Vec<u8>>,
+) -> usize {
+    let mut dropped = 0usize;
+    while high_rx.try_recv().is_ok() {
+        dropped += 1;
+    }
+    while normal_rx.try_recv().is_ok() {
+        dropped += 1;
+    }
+    dropped
+}
+
 async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
     app: &AppHandle,
     transport: &str,
@@ -242,6 +267,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
     let (mut reader, mut writer) = tokio::io::split(stream);
     let mut buf = vec![0u8; READ_BUFFER_SIZE];
     let mut hmip_decoder = proto::FrameDecoder::new(proto::DecoderConfig::default());
+    let mut serial_zero_reads: u32 = 0;
 
     loop {
         tokio::select! {
@@ -261,9 +287,8 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                             size,
                             timestamp_ms: now_ms(),
                         };
-                        if !emit_event(app, &event) {
-                            return ConnectionExit::Shutdown;
-                        }
+                        // emit 失败（如窗口暂不可用）只记录告警，不终止设备连接
+                        emit_event(app, &event);
                     }
                     Ok(Err(err)) => {
                         return ConnectionExit::IoError(format!("Write failed: {}", err));
@@ -283,9 +308,8 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                             size,
                             timestamp_ms: now_ms(),
                         };
-                        if !emit_event(app, &event) {
-                            return ConnectionExit::Shutdown;
-                        }
+                        // emit 失败（如窗口暂不可用）只记录告警，不终止设备连接
+                        emit_event(app, &event);
                     }
                     Ok(Err(err)) => {
                         return ConnectionExit::IoError(format!("Write failed: {}", err));
@@ -299,9 +323,24 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
             read_res = reader.read(&mut buf) => {
                 match read_res {
                     Ok(0) => {
+                        if transport == "serial" {
+                            // 串口链路上 0 字节读取并不等价于对端关闭，
+                            // 在 PTY/部分驱动下可能只是一次空读，不能直接触发断线重连。
+                            // 但连续空读超过阈值说明链路已死（拔出/对端关闭），需升级重连。
+                            serial_zero_reads = serial_zero_reads.saturating_add(1);
+                            if serial_zero_reads >= SERIAL_ZERO_READ_LIMIT {
+                                return ConnectionExit::IoError(format!(
+                                    "Serial read returned EOF {} times in a row",
+                                    serial_zero_reads
+                                ));
+                            }
+                            tokio::time::sleep(Duration::from_millis(10)).await;
+                            continue;
+                        }
                         return ConnectionExit::IoError("Remote closed".to_string());
                     }
                     Ok(n) => {
+                        serial_zero_reads = 0;
                         let bytes = &buf[..n];
                         let event = CommEvent::Rx {
                             transport: transport.to_string(),
@@ -310,9 +349,8 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                             size: n,
                             timestamp_ms: now_ms(),
                         };
-                        if !emit_event(app, &event) {
-                            return ConnectionExit::Shutdown;
-                        }
+                        // emit 失败（如窗口暂不可用）只记录告警，不终止设备连接
+                        emit_event(app, &event);
 
                         // HMIP：bytes → frames → messages
                         if let Err(err) = hmip_decoder.push(bytes) {
@@ -322,9 +360,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                                 dropped_bytes: err.dropped_bytes,
                                 timestamp_ms: now_ms(),
                             };
-                            if !emit_hmip_event(app, &ev) {
-                                return ConnectionExit::Shutdown;
-                            }
+                            emit_hmip_event(app, &ev);
                         } else {
                             loop {
                                 match hmip_decoder.next_frame() {
@@ -413,9 +449,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                                             timestamp_ms: now_ms(),
                                             summary,
                                         };
-                                        if !emit_hmip_event(app, &ev) {
-                                            return ConnectionExit::Shutdown;
-                                        }
+                                        emit_hmip_event(app, &ev);
                                     }
                                     Ok(None) => break,
                                     Err(err) => {
@@ -425,9 +459,7 @@ async fn run_io_loop<S: AsyncRead + AsyncWrite + Unpin>(
                                             dropped_bytes: err.dropped_bytes,
                                             timestamp_ms: now_ms(),
                                         };
-                                        if !emit_hmip_event(app, &ev) {
-                                            return ConnectionExit::Shutdown;
-                                        }
+                                        emit_hmip_event(app, &ev);
                                         // 继续尝试解析后续帧（decoder 内部已重同步）
                                         continue;
                                     }
@@ -463,7 +495,16 @@ pub fn spawn_serial_actor(
                 stream
             } else {
                 match serial::open_stream(&config) {
-                    Ok(stream) => stream,
+                    Ok(stream) => {
+                        let dropped = drain_pending_frames(&mut rx_high, &mut rx_normal);
+                        if dropped > 0 {
+                            log::warn!(
+                                "Dropped {} stale queued frame(s) before serial reconnect",
+                                dropped
+                            );
+                        }
+                        stream
+                    }
                     Err(err) => {
                         attempt = attempt.saturating_add(1);
                         let delay_ms = compute_backoff_ms(attempt);
@@ -495,15 +536,13 @@ pub fn spawn_serial_actor(
             };
 
             attempt = 0;
-            if !emit_event(
+            emit_event(
                 &app,
                 &CommEvent::Connected {
                     transport: transport.clone(),
                     timestamp_ms: now_ms(),
                 },
-            ) {
-                break;
-            }
+            );
 
             match run_io_loop(
                 &app,
@@ -585,7 +624,16 @@ pub fn spawn_tcp_actor(
                 stream
             } else {
                 match tcp::open_stream(&config).await {
-                    Ok(stream) => stream,
+                    Ok(stream) => {
+                        let dropped = drain_pending_frames(&mut rx_high, &mut rx_normal);
+                        if dropped > 0 {
+                            log::warn!(
+                                "Dropped {} stale queued frame(s) before tcp reconnect",
+                                dropped
+                            );
+                        }
+                        stream
+                    }
                     Err(err) => {
                         // 连接失败，进入重连，并有退避机制避免过于频繁的重试
                         attempt = attempt.saturating_add(1);
@@ -618,15 +666,13 @@ pub fn spawn_tcp_actor(
             };
 
             attempt = 0;
-            if !emit_event(
+            emit_event(
                 &app,
                 &CommEvent::Connected {
                     transport: transport.clone(),
                     timestamp_ms: now_ms(),
                 },
-            ) {
-                break;
-            }
+            );
 
             match run_io_loop(
                 &app,

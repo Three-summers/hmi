@@ -11,8 +11,11 @@ use std::path::PathBuf;
 static HMIP_NEXT_SEQ: AtomicU32 = AtomicU32::new(1);
 
 #[tauri::command]
-pub fn get_system_overview() -> Result<system::SystemOverview, String> {
-    system::read_system_overview()
+pub async fn get_system_overview() -> Result<system::SystemOverview, String> {
+    // CPU 采样内部包含 120ms 睡眠 + df 子进程，必须放到阻塞线程池，避免卡 UI/异步线程
+    tauri::async_runtime::spawn_blocking(system::read_system_overview)
+        .await
+        .map_err(|e| format!("system overview task failed: {e}"))?
 }
 
 /// 获取 Log 目录路径
@@ -53,19 +56,26 @@ pub fn get_log_dir(app: AppHandle) -> Result<String, String> {
 /// - 默认保存到系统下载目录；若无法获取下载目录则回退到 Log 目录
 /// - 后端负责写盘，避免前端引入额外 FS 依赖导致入口 chunk 膨胀
 #[tauri::command]
-pub fn save_spectrum_screenshot(
+pub async fn save_spectrum_screenshot(
     app: AppHandle,
     filename: String,
     data_base64: String,
     directory: Option<String>,
 ) -> Result<String, String> {
+    // base64 解码后约为 3/4，此上限约允许 24MB PNG，足够全屏截图使用
+    const MAX_SCREENSHOT_BASE64_LEN: usize = 32 * 1024 * 1024;
+
     if filename.trim().is_empty() {
         return Err("filename is empty".to_string());
     }
 
-    // 简单约束：避免 filename 带路径分隔符导致写入到意外位置
-    if filename.contains('/') || filename.contains('\\') {
-        return Err("filename contains invalid path separator".to_string());
+    // 约束 filename 为普通文件名：拒绝路径分隔符与 `..`，避免写入到意外位置
+    if filename.contains('/') || filename.contains('\\') || filename.contains("..") {
+        return Err("filename contains invalid path characters".to_string());
+    }
+
+    if data_base64.len() > MAX_SCREENSHOT_BASE64_LEN {
+        return Err("screenshot payload too large".to_string());
     }
 
     let base_dir: PathBuf = if let Some(dir) = directory {
@@ -90,14 +100,20 @@ pub fn save_spectrum_screenshot(
 
     let file_path = base_dir.join(&filename);
 
-    let png_bytes = general_purpose::STANDARD
-        .decode(data_base64.as_bytes())
-        .map_err(|e| format!("Failed to decode screenshot base64: {}", e))?;
+    // 解码 + 写盘可能达数 MB，放入阻塞线程池执行，避免占用 UI/异步线程
+    let written_path = tauri::async_runtime::spawn_blocking(move || {
+        let png_bytes = general_purpose::STANDARD
+            .decode(data_base64.as_bytes())
+            .map_err(|e| format!("Failed to decode screenshot base64: {}", e))?;
 
-    std::fs::write(&file_path, png_bytes)
-        .map_err(|e| format!("Failed to write screenshot file: {}", e))?;
+        std::fs::write(&file_path, png_bytes)
+            .map_err(|e| format!("Failed to write screenshot file: {}", e))?;
+        Ok::<PathBuf, String>(file_path)
+    })
+    .await
+    .map_err(|e| format!("screenshot task failed: {e}"))??;
 
-    file_path
+    written_path
         .to_str()
         .map(|s| s.to_string())
         .ok_or_else(|| "Invalid path encoding".to_string())
@@ -106,7 +122,10 @@ pub fn save_spectrum_screenshot(
 /// 获取可用串口列表
 #[tauri::command]
 pub async fn get_serial_ports() -> Result<Vec<String>, String> {
-    serial::list_ports()
+    // 串口枚举是阻塞调用，放入阻塞线程池执行
+    tauri::async_runtime::spawn_blocking(serial::list_ports)
+        .await
+        .map_err(|e| format!("serial port scan task failed: {e}"))?
 }
 
 /// 连接串口

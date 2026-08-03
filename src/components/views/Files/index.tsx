@@ -166,6 +166,9 @@ export default function FilesView() {
                                         chartEmptySelectionText={t(
                                             "files.chart.emptySelection",
                                         )}
+                                        errorDetailsText={t(
+                                            "files.chart.errorDetails",
+                                        )}
                                         chartProps={chartProps}
                                     />
                                 </div>

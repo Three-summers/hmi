@@ -10,6 +10,7 @@
  */
 
 import { useEffect } from "react";
+import i18n from "@/i18n";
 import { listen } from "@/platform/events";
 import { isTauri } from "@/platform/tauri";
 import { useAlarmStore, useHmipStore } from "@/stores";
@@ -31,7 +32,9 @@ export function useHmipEventBridge() {
 
         const setup = async () => {
             try {
-                unlisten = await listen<HmipEvent>(HMIP_EVENT_NAME, (event) => {
+                const stop = await listen<HmipEvent>(
+                    HMIP_EVENT_NAME,
+                    (event) => {
                     if (cancelled) return;
 
                     const payload = event.payload;
@@ -49,7 +52,13 @@ export function useHmipEventBridge() {
                             lastErrorAtMs = now;
                             useAlarmStore.getState().addAlarm({
                                 severity: "warning",
-                                message: `协议解码失败(${payload.transport})：${payload.message}`,
+                                message: i18n.t(
+                                    "errors.protocolDecodeFailed",
+                                    {
+                                        transport: payload.transport,
+                                        message: payload.message,
+                                    },
+                                ),
                             });
                         }
                         return;
@@ -68,11 +77,23 @@ export function useHmipEventBridge() {
                             lastErrorAtMs = now;
                             useAlarmStore.getState().addAlarm({
                                 severity: "warning",
-                                message: `协议错误(${payload.transport})：code=${payload.summary.code} ${payload.summary.message}`,
+                                message: i18n.t("errors.protocolError", {
+                                    transport: payload.transport,
+                                    code: payload.summary.code,
+                                    message: payload.summary.message,
+                                }),
                             });
                         }
                     }
                 });
+
+                // 清理可能在 listen 完成前触发（StrictMode 双调用/快速卸载），
+                // 此时必须立即注销，否则监听器泄漏
+                if (cancelled) {
+                    stop();
+                    return;
+                }
+                unlisten = stop;
             } catch (err) {
                 console.error("Failed to setup hmip event bridge:", err);
             }

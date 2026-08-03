@@ -17,6 +17,7 @@ export default mergeConfig(
             exclude: [
                 "**/node_modules/**",
                 "**/dist/**",
+                "**/.worktrees/**",
                 "**/tests-node/**",
                 "**/cypress/**",
                 "**/.{idea,git,cache,output,temp}/**",

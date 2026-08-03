@@ -10,6 +10,7 @@
  */
 
 import { useEffect } from "react";
+import i18n from "@/i18n";
 import { listen } from "@/platform/events";
 import { isTauri } from "@/platform/tauri";
 import { useAlarmStore, useCommStore } from "@/stores";
@@ -31,7 +32,7 @@ export function useCommEventBridge() {
 
         const setup = async () => {
             try {
-                unlisten = await listen<CommEvent>(
+                const stop = await listen<CommEvent>(
                     COMM_EVENT_NAME,
                     (event) => {
                         if (cancelled) return;
@@ -52,12 +53,23 @@ export function useCommEventBridge() {
                                 lastErrorAtMs = now;
                                 useAlarmStore.getState().addAlarm({
                                     severity: "warning",
-                                    message: `通信异常(${payload.transport})：${payload.message}`,
+                                    message: i18n.t("errors.commError", {
+                                        transport: payload.transport,
+                                        message: payload.message,
+                                    }),
                                 });
                             }
                         }
                     },
                 );
+
+                // 清理可能在 listen 完成前触发（StrictMode 双调用/快速卸载），
+                // 此时必须立即注销，否则监听器泄漏
+                if (cancelled) {
+                    stop();
+                    return;
+                }
+                unlisten = stop;
             } catch (err) {
                 console.error("Failed to setup comm event bridge:", err);
             }

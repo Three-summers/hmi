@@ -18,6 +18,7 @@ export interface FilePreviewPanelProps {
     chartInitErrorText: string;
     chartEmptyDataText: string;
     chartEmptySelectionText: string;
+    errorDetailsText: string;
     chartProps: Omit<
         ChartPanelProps,
         | "csvData"
@@ -31,6 +32,7 @@ export interface FilePreviewPanelProps {
         | "chartInitErrorText"
         | "chartEmptyDataText"
         | "chartEmptySelectionText"
+        | "errorDetailsText"
     > | null;
 }
 
@@ -52,6 +54,7 @@ export function FilePreviewPanel({
     chartInitErrorText,
     chartEmptyDataText,
     chartEmptySelectionText,
+    errorDetailsText,
     chartProps,
 }: FilePreviewPanelProps) {
     if (!preview.selectedFilePath) {
@@ -119,6 +122,7 @@ export function FilePreviewPanel({
                     chartInitErrorText={chartInitErrorText}
                     chartEmptyDataText={chartEmptyDataText}
                     chartEmptySelectionText={chartEmptySelectionText}
+                    errorDetailsText={errorDetailsText}
                     {...chartProps}
                 />
             </div>

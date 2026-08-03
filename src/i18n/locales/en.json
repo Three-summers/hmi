@@ -497,7 +497,8 @@
     "zoomHint": "Scroll to zoom, drag to pan, double-click to reset",
     "initError": "Chart initialization failed",
     "emptyData": "No valid CSV data (need at least 2 rows)",
-    "emptySelection": "No data column selected"
+    "emptySelection": "No data column selected",
+    "errorDetails": "Show error details"
   },
         "info": {
             "zoomTip": "Charts support scroll-to-zoom and drag-to-pan",
@@ -552,5 +553,19 @@
         "alarmHistoryCleared": "Alarm history has been cleared",
         "helpRefreshed": "Refreshed",
         "helpContentRefreshed": "Help content refreshed"
+    },
+    "errors": {
+        "renderFailed": "Page render failed",
+        "renderFallbackHint": "Degraded mode active. Click \"Retry\" or switch to another view.",
+        "viewRenderFailed": "View render failed",
+        "viewRenderFailedDegraded": "View render failed (degraded)",
+        "currentView": "Current view: {{view}}",
+        "viewRenderPossibleCauses": "Possible causes: view component error / unsupported canvas environment / invalid data.",
+        "backToJobs": "Back to Jobs",
+        "errorDetails": "Show error details",
+        "commError": "Communication error ({{transport}}): {{message}}",
+        "protocolDecodeFailed": "Protocol decode failed ({{transport}}): {{message}}",
+        "protocolError": "Protocol error ({{transport}}): code={{code}} {{message}}",
+        "commTimeout": "Communication timeout (command={{command}}, timeoutMs={{timeoutMs}}ms)"
     }
 }

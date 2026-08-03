@@ -160,7 +160,10 @@ describe("useSpectrumData", () => {
         });
 
         unmount();
-        expect(unlisten).toHaveBeenCalledTimes(1);
+        // 清理会等 setup 完成后再释放监听（避免 stop 抢跑 start），因此需要 waitFor
+        await waitFor(() => {
+            expect(unlisten).toHaveBeenCalledTimes(1);
+        });
     });
 
     it("启动失败：应进入 error 并释放 unlisten（避免错误态继续消费事件）", async () => {

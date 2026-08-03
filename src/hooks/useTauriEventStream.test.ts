@@ -185,7 +185,10 @@ describe("useTauriEventStream", () => {
         });
 
         unmount();
-        expect(unlisten).toHaveBeenCalledTimes(1);
+        // 清理会等 setup 完成后再释放监听（避免 stop 抢跑 start），因此需要 waitFor
+        await waitFor(() => {
+            expect(unlisten).toHaveBeenCalledTimes(1);
+        });
     });
 });
 
