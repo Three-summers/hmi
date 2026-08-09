@@ -1,0 +1,14 @@
+{
+  "id": "viscosity_feedback",
+  "name": "粘度反馈",
+  "enabled": true,
+  "match": {
+    "connectionId": "main-hmip",
+    "summaryKind": "response"
+  },
+  "target": {
+    "deviceId": "viscometer_01",
+    "feedbackKey": "viscosityAvgCp",
+    "valueFrom": "summary.status"
+  }
+}

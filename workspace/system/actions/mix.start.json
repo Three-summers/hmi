@@ -1,0 +1,25 @@
+{
+  "id": "mix.start",
+  "name": "搅拌",
+  "category": "device",
+  "targetMode": "required",
+  "allowedDeviceTypes": [
+    "mixer"
+  ],
+  "parameters": [],
+  "dispatch": {
+    "kind": "hmipFrame",
+    "msgType": 65,
+    "payloadMode": "fixedHex",
+    "payloadHex": "0202",
+    "priority": "normal"
+  },
+  "completion": {
+    "type": "deviceFeedback",
+    "key": "running",
+    "operator": "eq",
+    "value": false,
+    "stableTimeMs": 200
+  },
+  "summaryTemplate": "{device.name} 搅拌 {durationMs} ms"
+}

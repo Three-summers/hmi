@@ -1,0 +1,7 @@
+{
+  "id": "scale_weight",
+  "name": "称量值",
+  "dataType": "double",
+  "source": "scaleWeight",
+  "enabled": true
+}

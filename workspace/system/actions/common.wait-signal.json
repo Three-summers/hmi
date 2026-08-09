@@ -1,0 +1,41 @@
+{
+  "id": "common.wait-signal",
+  "name": "等待信号",
+  "targetMode": "none",
+  "parameters": [
+    {
+      "key": "signalId",
+      "name": "信号",
+      "type": "string",
+      "required": true
+    },
+    {
+      "key": "operator",
+      "name": "比较符",
+      "type": "enum",
+      "required": false,
+      "options": [
+        "eq",
+        "ne",
+        "gt",
+        "ge",
+        "lt",
+        "le"
+      ]
+    },
+    {
+      "key": "value",
+      "name": "目标值",
+      "type": "number",
+      "required": true
+    },
+    {
+      "key": "stableTimeMs",
+      "name": "稳定时间",
+      "type": "number",
+      "required": false,
+      "min": 0,
+      "max": 10000
+    }
+  ]
+}

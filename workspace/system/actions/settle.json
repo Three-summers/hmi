@@ -1,0 +1,10 @@
+{
+  "id": "settle",
+  "name": "静置",
+  "category": "common",
+  "targetMode": "none",
+  "parameters": [
+    { "key": "durationMs", "name": "时长", "type": "number", "required": true, "unit": "ms", "min": 0, "max": 3600000, "default": 120000 }
+  ],
+  "summaryTemplate": "静置 {durationMs} ms"
+}

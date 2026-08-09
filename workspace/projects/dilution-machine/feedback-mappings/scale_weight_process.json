@@ -1,0 +1,14 @@
+{
+  "id": "scale_weight_feedback",
+  "name": "秤反馈",
+  "enabled": true,
+  "match": {
+    "connectionId": "main-hmip",
+    "summaryKind": "response"
+  },
+  "target": {
+    "deviceId": "scale_01",
+    "feedbackKey": "weight",
+    "valueFrom": "summary.status"
+  }
+}

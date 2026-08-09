@@ -1,0 +1,8 @@
+{
+  "id": "viscometer_01",
+  "name": "粘度计",
+  "typeId": "viscometer",
+  "enabled": true,
+  "transport": { "kind": "tcp", "connectionId": "main-hmip", "channel": 3 },
+  "tags": { "viscosityAvgCp": "viscosityAvgCp" }
+}

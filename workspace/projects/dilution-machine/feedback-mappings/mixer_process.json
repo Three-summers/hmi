@@ -1,0 +1,14 @@
+{
+  "id": "mixer_feedback",
+  "name": "搅拌反馈",
+  "enabled": true,
+  "match": {
+    "connectionId": "main-hmip",
+    "summaryKind": "response"
+  },
+  "target": {
+    "deviceId": "mixer_01",
+    "feedbackKey": "running",
+    "valueFrom": "summary.status"
+  }
+}

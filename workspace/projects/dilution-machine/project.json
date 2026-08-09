@@ -1,0 +1,7 @@
+{
+  "id": "dilution-machine",
+  "name": "光刻胶稀释机",
+  "description": "光刻胶稀释机本地工艺项目",
+  "version": "0.1.0",
+  "enabled": true
+}

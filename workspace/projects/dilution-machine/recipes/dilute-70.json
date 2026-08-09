@@ -1,0 +1,54 @@
+{
+  "id": "dilute-70",
+  "name": "70% 浓度稀释工艺",
+  "description": "称量原液 → 称量溶剂 → 搅拌 → 静置 → 测粘度",
+  "steps": [
+    {
+      "id": "S010",
+      "seq": 10,
+      "name": "称量原液",
+      "actionId": "weigh.start",
+      "deviceId": "scale_01",
+      "timeoutMs": 60000,
+      "onError": "stop"
+    },
+    {
+      "id": "S020",
+      "seq": 20,
+      "name": "称量溶剂",
+      "actionId": "weigh.start",
+      "deviceId": "scale_01",
+      "timeoutMs": 60000,
+      "onError": "stop"
+    },
+    {
+      "id": "S030",
+      "seq": 30,
+      "name": "搅拌",
+      "actionId": "mix.start",
+      "deviceId": "mixer_01",
+      "timeoutMs": 330000,
+      "onError": "stop"
+    },
+    {
+      "id": "S040",
+      "seq": 40,
+      "name": "静置",
+      "actionId": "settle",
+      "timeoutMs": 150000,
+      "onError": "stop",
+      "parameters": {
+        "durationMs": 120000
+      }
+    },
+    {
+      "id": "S050",
+      "seq": 50,
+      "name": "测粘度",
+      "actionId": "viscosity.measure",
+      "deviceId": "viscometer_01",
+      "timeoutMs": 60000,
+      "onError": "stop"
+    }
+  ]
+}

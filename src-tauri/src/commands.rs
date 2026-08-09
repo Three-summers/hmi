@@ -195,22 +195,22 @@ pub fn dilution_select_concentration(
 
 /// 执行一条完整批次。当前默认 adapter 使用虚拟 PRMS/设备数据，真实设备接入后复用此入口。
 ///
-/// async：批次执行包含 adapter 顺序调用与多次写盘，不应占用 UI 主线程。
+/// async：批次执行包含本地配方（craftsmanship）运行与 PRMS 调用，不应占用 UI 主线程。
 #[tauri::command]
 pub async fn dilution_run_batch(
+    app: AppHandle,
     state: State<'_, dilution::DilutionManager>,
     request: dilution::RunBatchRequest,
 ) -> Result<dilution::Batch, String> {
-    state.run_batch(request)
+    state.run_batch_with_app(Some(&app), request).await
 }
 
-/// 兼容旧前端命令名：内部仍走通用批次执行入口。
+/// 返回稀释流程配置（机台/人员/浓度选项），供前端默认值与展示
 #[tauri::command]
-pub async fn dilution_run_mock_batch(
+pub fn dilution_get_config(
     state: State<'_, dilution::DilutionManager>,
-    request: dilution::RunMockBatchRequest,
-) -> Result<dilution::Batch, String> {
-    state.run_batch(request)
+) -> Result<dilution::DilutionConfig, String> {
+    Ok(state.config().clone())
 }
 
 /// 获取 Log 目录路径

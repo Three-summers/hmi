@@ -1,0 +1,25 @@
+{
+  "id": "weigh.start",
+  "name": "称量",
+  "category": "device",
+  "targetMode": "required",
+  "allowedDeviceTypes": [
+    "scale"
+  ],
+  "parameters": [],
+  "dispatch": {
+    "kind": "hmipFrame",
+    "msgType": 64,
+    "payloadMode": "fixedHex",
+    "payloadHex": "0101",
+    "priority": "normal"
+  },
+  "completion": {
+    "type": "deviceFeedback",
+    "key": "weight",
+    "operator": "eq",
+    "value": true,
+    "stableTimeMs": 200
+  },
+  "summaryTemplate": "{device.name} 称量 {targetMassG} g"
+}

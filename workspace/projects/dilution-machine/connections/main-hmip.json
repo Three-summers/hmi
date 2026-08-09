@@ -1,0 +1,7 @@
+{
+  "id": "main-hmip",
+  "name": "设备 HMIP 主连接",
+  "enabled": true,
+  "kind": "tcp",
+  "tcp": { "host": "127.0.0.1", "port": 9001, "timeoutMs": 3000 }
+}

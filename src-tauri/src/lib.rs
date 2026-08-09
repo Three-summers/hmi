@@ -56,7 +56,7 @@ pub fn run() {
             commands::dilution_scan_raw_resist,
             commands::dilution_select_concentration,
             commands::dilution_run_batch,
-            commands::dilution_run_mock_batch,
+            commands::dilution_get_config,
             commands::get_log_dir,
             commands::get_serial_ports,
             commands::connect_serial,
@@ -83,10 +83,27 @@ pub fn run() {
             app.manage(comm::CommState::default());
             // 初始化工艺运行时
             app.manage(craftsmanship::RecipeRuntimeManager::default());
-            // 初始化光阻稀释 mock 领域状态
+            // 初始化光阻稀释领域状态
             let log_dir =
                 log_paths::ensure_log_dir(log_paths::resolve_log_dir(Some(app.handle()))?)?;
-            app.manage(dilution::DilutionManager::new_mock_with_log_root(log_dir));
+            // PRMS SOAP 地址通过 env PRMS_SOAP_ENDPOINT 配置；未配置时使用 mock adapter
+            let dilution_manager = match std::env::var("PRMS_SOAP_ENDPOINT") {
+                Ok(endpoint) if !endpoint.trim().is_empty() => {
+                    log::info!("dilution: using real PRMS SOAP endpoint {endpoint}");
+                    dilution::DilutionManager::new_with(
+                        log_dir,
+                        dilution::default_workspace_root(),
+                        dilution::DEFAULT_PROJECT_ID.to_string(),
+                        std::sync::Arc::new(dilution::SoapPrmsClient::new(endpoint)),
+                        std::sync::Arc::new(dilution::MockDilutionDeviceGateway),
+                    )
+                }
+                _ => {
+                    log::info!("dilution: PRMS_SOAP_ENDPOINT not set; using mock PRMS adapter");
+                    dilution::DilutionManager::new_mock_with_log_root(log_dir)
+                }
+            };
+            app.manage(dilution_manager);
             Ok(())
         })
         .run(tauri::generate_context!())

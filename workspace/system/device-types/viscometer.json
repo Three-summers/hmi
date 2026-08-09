@@ -1,0 +1,6 @@
+{
+  "id": "viscometer",
+  "name": "粘度计",
+  "group": "device",
+  "allowedActions": ["viscosity.measure"]
+}

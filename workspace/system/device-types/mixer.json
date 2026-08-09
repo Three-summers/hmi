@@ -1,0 +1,6 @@
+{
+  "id": "mixer",
+  "name": "搅拌器",
+  "group": "device",
+  "allowedActions": ["mix.start"]
+}

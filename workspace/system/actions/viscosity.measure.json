@@ -1,0 +1,23 @@
+{
+  "id": "viscosity.measure",
+  "name": "测粘度",
+  "category": "device",
+  "targetMode": "required",
+  "allowedDeviceTypes": ["viscometer"],
+  "parameters": [],
+  "dispatch": {
+    "kind": "hmipFrame",
+    "msgType": 66,
+    "payloadMode": "fixedHex",
+    "payloadHex": "0303",
+    "priority": "normal"
+  },
+  "completion": {
+    "type": "deviceFeedback",
+    "key": "viscosityAvgCp",
+    "operator": "ge",
+    "value": 0,
+    "stableTimeMs": 0
+  },
+  "summaryTemplate": "{device.name} 测量粘度"
+}

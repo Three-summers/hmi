@@ -34,6 +34,7 @@ anyhow = "1"
 gpio-cdev = "0.6"
 quick-xml = { version = "0.41.0", features = ["serialize"] }
 ureq = "3.4.0"
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 
 [dev-dependencies]
 serialport = "4.7"

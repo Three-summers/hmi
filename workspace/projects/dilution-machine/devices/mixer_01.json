@@ -1,0 +1,8 @@
+{
+  "id": "mixer_01",
+  "name": "搅拌器",
+  "typeId": "mixer",
+  "enabled": true,
+  "transport": { "kind": "tcp", "connectionId": "main-hmip", "channel": 2 },
+  "tags": { "running": "mixerRunning" }
+}

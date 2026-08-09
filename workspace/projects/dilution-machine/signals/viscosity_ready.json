@@ -1,0 +1,7 @@
+{
+  "id": "viscosity_ready",
+  "name": "粘度就绪",
+  "dataType": "int",
+  "source": "viscosityAvgCp",
+  "enabled": true
+}

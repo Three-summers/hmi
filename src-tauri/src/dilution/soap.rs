@@ -1,19 +1,7 @@
 //! PRMS SOAP CXF 客户端封包/解包（SOAP 1.1 + text/xml）
 
-use quick_xml::se::to_string;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-
-pub const SOAP_METHOD: &str = "InvokeCommonRVMessageByXMLMsgBody";
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
-#[serde(rename_all = "camelCase", default)]
-pub struct SoapEnvelopeRequest {
-    #[serde(rename = "methodName")]
-    pub method_name: String,
-    #[serde(rename = "msgBodyXmlString")]
-    pub msg_body_xml_string: String,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
@@ -113,11 +101,6 @@ pub fn xml_escape(input: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
-}
-
-/// 构造 msgBody XML
-pub fn build_msg_body(inner: &impl Serialize) -> Result<String, String> {
-    to_string(inner).map_err(|error| format!("failed to serialize msgBody: {error}"))
 }
 
 #[cfg(test)]

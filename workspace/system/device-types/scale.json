@@ -1,0 +1,6 @@
+{
+  "id": "scale",
+  "name": "电子秤",
+  "group": "device",
+  "allowedActions": ["weigh.start"]
+}

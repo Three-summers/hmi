@@ -1,0 +1,8 @@
+{
+  "id": "scale_01",
+  "name": "原液秤",
+  "typeId": "scale",
+  "enabled": true,
+  "transport": { "kind": "tcp", "connectionId": "main-hmip", "channel": 1 },
+  "tags": { "weight": "scaleWeight" }
+}

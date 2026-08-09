@@ -2060,3 +2060,34 @@ fn scan_workspace_should_error_when_workspace_root_is_empty() {
 
     assert_eq!(error, "workspace_root is empty");
 }
+
+#[test]
+fn app_workspace_should_scan_without_errors() {
+    let workspace_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("workspace");
+    if !workspace_root.exists() {
+        return;
+    }
+    let summary = scan_workspace(&workspace_root.to_string_lossy()).unwrap();
+    let errors = summary
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.level == "error")
+        .collect::<Vec<_>>();
+    assert!(
+        errors.is_empty(),
+        "workspace contains error diagnostics: {errors:#?}"
+    );
+    let project = summary
+        .projects
+        .iter()
+        .find(|project| project.id == "dilution-machine")
+        .expect("dilution-machine project missing from workspace");
+    assert_eq!(project.name, "光刻胶稀释机");
+    let recipe =
+        get_recipe_bundle(&workspace_root.to_string_lossy(), "dilution-machine", "dilute-70")
+            .expect("dilute-70 recipe bundle should load");
+    assert_eq!(recipe.recipe.steps.len(), 5);
+}
