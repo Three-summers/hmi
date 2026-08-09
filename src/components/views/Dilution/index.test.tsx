@@ -5,16 +5,19 @@ import { SubViewCommandProvider } from "@/components/layout/SubViewCommandContex
 import { ViewContextProvider } from "@/components/layout/ViewContext";
 import { CommandPanel } from "@/components/layout/CommandPanel";
 import { render } from "@/test/utils";
-import { useAppStore } from "@/stores";
-import type { DilutionBatch } from "@/platform/dilution";
+import { useAppStore, useNotificationStore } from "@/stores";
+import type {
+    Batch,
+    DilutionConfig,
+} from "@/types/dilution";
 import DilutionView from "./index";
 
 const dilutionApi = vi.hoisted(() => ({
     dilutionCreateBatch: vi.fn(),
+    dilutionGetConfig: vi.fn(),
     dilutionGetReport: vi.fn(),
     dilutionListBatches: vi.fn(),
     dilutionRunBatch: vi.fn(),
-    dilutionRunMockBatch: vi.fn(),
     dilutionScanRawResist: vi.fn(),
     dilutionSelectConcentration: vi.fn(),
 }));
@@ -38,13 +41,27 @@ function renderDilutionView() {
 
 const now = 1_780_000_000_000;
 
-function baseBatch(overrides: Partial<DilutionBatch> = {}): DilutionBatch {
+const config: DilutionConfig = {
+    machine: { eqptId: "EQPT-001" },
+    personnel: { operator: "张工", checker: "李工" },
+    dilutionOptions: [
+        {
+            concentration: "70%",
+            recipeId: "dilute-70",
+            ratio: { raw: 7, solvent: 3 },
+            mixTimeMs: 300_000,
+            settleTimeMs: 120_000,
+        },
+    ],
+};
+
+function baseBatch(overrides: Partial<Batch> = {}): Batch {
     return {
         id: "DIL-0001",
-        machineId: "MCP-03",
+        machineId: "EQPT-001",
         status: "draft",
-        operatorId: "op-001",
-        reviewerIds: ["qa-001"],
+        operatorId: "张工",
+        reviewerIds: [],
         plannedBottleCount: 3,
         targetBottleMassG: 500,
         createdAtMs: now,
@@ -52,333 +69,357 @@ function baseBatch(overrides: Partial<DilutionBatch> = {}): DilutionBatch {
         meteringRecords: [],
         outputBottles: [],
         prmsSync: [],
+        resistBarcodes: [],
+        resistSysRrns: [],
         alarms: [],
         ...overrides,
     };
 }
 
-function scannedBatch(): DilutionBatch {
-    const mapping = {
-        mappingId: "mock-map-IK02",
-        rawResistName: "TMR-IK02 PM 5.4cP",
-        rawResistCode: "IK02",
-        allowedMachineIds: ["MCP-03"],
-        dilutionOptions: [
-            {
-                concentration: "70%",
-                dilutionResistName: "IK02-70%",
-                ratio: { raw: 7, solvent: 3 },
-                recipeKey: "mock-ik02-70",
-                viscosityMinCp: 4,
-                viscosityMaxCp: 7,
-            },
-        ],
-        returnedAtMs: now + 1,
-        rawPayload: { mock: true },
-    };
-
+function scannedBatch(overrides: Partial<Batch> = {}): Batch {
     return baseBatch({
-        status: "recipe_locked",
+        status: "resist_info_resolved",
         rawScans: [
             {
                 scanId: "scan-1",
-                barcode: "RAW-IK02-LOT01-B01",
-                scannedAtMs: now + 1,
-                operatorId: "op-001",
+                barcode: "MZJTST11234567826050700003",
+                scannedAtMs: now,
+                operatorId: "张工",
                 materialName: "TMR-IK02 PM 5.4cP",
-                lotId: "MOCK-LOT",
-                prmsQueryId: "mock-map-IK02",
+                lotId: "12345678",
+                prmsQueryId: "MZJTST11234567826050700003",
                 validationStatus: "accepted",
-                validationMessage: "mock PRMS mapping accepted",
+                validationMessage: "accepted",
             },
         ],
-        prmsMapping: mapping,
-        selectedRecipe: {
-            id: "mock-ik02-70",
-            version: "mock-v1",
-            rawResistName: "TMR-IK02 PM 5.4cP",
-            concentration: "70%",
-            dilutionResistName: "IK02-70%",
-            ratio: { raw: 7, solvent: 3 },
-            rawDensityGPerMl: 1,
-            solventDensityGPerMl: 1,
-            mixTimeMs: 300_000,
-            settleTimeMs: 120_000,
-            viscosityMinCp: 4,
-            viscosityMaxCp: 7,
-            standardBottleMassG: 500,
+        resistInfo: {
+            resistNo: "MZJTST1",
+            resistName: "TMR-IK02 PM 5.4cP",
+            concentration: "1.0",
+            mtrNO: "MTR001",
+            defrostTime: "08:00",
+            defrostBufferDays: 0,
+            warningDay: 7,
+            extendDays: 30,
+            viscosityUpperLimit: 10,
+            viscosityLowerLimit: 1,
+            vendorBarcode: "MZJTST11234567826050700003",
+            defBatchNO: "12345678",
+            toResistNo: "MZJTST1",
+            expireTime: "260507",
+            dilutionRelationships: [
+                {
+                    resistNo: "IK02-D",
+                    resistName: "IK02-D 70%",
+                    concentration: "70%",
+                    sysRrn: "2011636530905427800",
+                },
+            ],
         },
-        prmsSync: [
-            {
-                id: "sync-1",
-                operation: "query_mapping",
-                idempotencyKey: "mock-sync-1",
-                requestPayload: { barcodeCount: 1 },
-                responsePayload: { mock: true },
-                status: "succeeded",
-                attemptCount: 1,
-                createdAtMs: now + 1,
-                updatedAtMs: now + 1,
-            },
-        ],
+        ...overrides,
     });
 }
 
-function multiOptionBatch(): DilutionBatch {
-    const scanned = scannedBatch();
-    const option = scanned.prmsMapping!.dilutionOptions[0];
-    return {
-        ...scanned,
-        status: "mapping_resolved",
-        selectedRecipe: undefined,
-        prmsMapping: {
-            ...scanned.prmsMapping!,
-            dilutionOptions: [
-                {
-                    ...option,
-                    concentration: "60%",
-                    dilutionResistName: "IK02-60%",
-                    recipeKey: "mock-ik02-60",
-                    ratio: { raw: 6, solvent: 4 },
-                },
-                option,
-            ],
-        },
-    };
-}
-
-function completedBatch(): DilutionBatch {
-    const scanned = scannedBatch();
-    return {
-        ...scanned,
-        status: "completed",
-        completedAtMs: now + 100,
-        meteringRecords: [
+function multiOptionBatch(): Batch {
+    return baseBatch({
+        status: "resist_info_resolved",
+        rawScans: [
             {
-                id: "raw",
-                kind: "raw",
-                targetMassG: 1000,
-                actualVolumeMl: 1000,
-                densityGPerMl: 1,
-                actualMassG: 1000,
-                toleranceG: 2,
-                deviationG: 0,
-                startedAtMs: now + 10,
-                finishedAtMs: now + 11,
-                sourceDeviceId: "mock-meter",
-                status: "completed",
-            },
-            {
-                id: "solvent",
-                kind: "solvent",
-                targetMassG: 428.6,
-                actualVolumeMl: 428.6,
-                densityGPerMl: 1,
-                actualMassG: 428.6,
-                toleranceG: 2,
-                deviationG: 0,
-                startedAtMs: now + 12,
-                finishedAtMs: now + 13,
-                sourceDeviceId: "mock-meter",
-                status: "completed",
+                scanId: "scan-1",
+                barcode: "MULTI-LOT01-B01",
+                scannedAtMs: now,
+                operatorId: "张工",
+                materialName: "TMR-MULTI PM 5.4cP",
+                lotId: "12345678",
+                prmsQueryId: "MULTI-LOT01-B01",
+                validationStatus: "accepted",
+                validationMessage: "accepted",
             },
         ],
-        viscosity: {
-            testId: "visc-DIL-0001",
-            readingsCp: [
+        resistInfo: {
+            resistNo: "MULTI",
+            resistName: "TMR-MULTI PM 5.4cP",
+            concentration: "1.0",
+            mtrNO: "MTR001",
+            defrostTime: "08:00",
+            defrostBufferDays: 0,
+            warningDay: 7,
+            extendDays: 30,
+            viscosityUpperLimit: 10,
+            viscosityLowerLimit: 1,
+            vendorBarcode: "MULTI-LOT01-B01",
+            defBatchNO: "12345678",
+            toResistNo: "MULTI",
+            expireTime: "260507",
+            dilutionRelationships: [
                 {
-                    index: 1,
-                    valueCp: 5.2,
-                    measuredAtMs: now + 20,
-                    sourceDeviceId: "mock-viscometer",
+                    resistNo: "MULTI-D",
+                    resistName: "MULTI-D 60%",
+                    concentration: "60%",
+                    sysRrn: "2004086388857843700",
                 },
                 {
-                    index: 2,
-                    valueCp: 5.4,
-                    measuredAtMs: now + 21,
-                    sourceDeviceId: "mock-viscometer",
+                    resistNo: "MULTI-D2",
+                    resistName: "MULTI-D2 70%",
+                    concentration: "70%",
+                    sysRrn: "2011636530905427900",
                 },
             ],
-            averageCp: 5.3,
-            prmsResult: "pass",
-            uploadedAtMs: now + 22,
-            syncRecordId: "sync-2",
         },
-        outputBottles: [1, 2, 3].map((index) => ({
-            index,
-            targetMassG: 500,
-            actualMassG: index === 3 ? 428.6 : 500,
-            dilutionBarcode: `DIL-DIL-0001-${String(index).padStart(3, "0")}`,
-            barcodeStatus: "assigned",
-            printStatus: "printed",
-            dispensedAtMs: now + 30 + index,
-            isLastUnderfilled: index === 3,
-            meteringRecordId: `meter-output-${index}`,
-        })),
-        prmsSync: [
-            ...scanned.prmsSync,
+    });
+}
+
+function lockedBatch(overrides: Partial<Batch> = {}): Batch {
+    return scannedBatch({
+        status: "recipe_locked",
+        selectedConcentration: "70%",
+        resistDefRrn: "2011636530905427800",
+        checkResult: {
+            resistNO: "MZJTST1",
+            defResistNO: "IK02-D",
+            resistDefRrn: "2011636530905427800",
+            batchNO: "12345678",
+            expireDate: "260507",
+            concentration: "70%",
+            barcodeCount: 1,
+        },
+        selectedRecipe: {
+            id: "dilute-70",
+            version: "config-v1",
+            rawResistName: "TMR-IK02 PM 5.4cP",
+            concentration: "70%",
+            dilutionResistName: "IK02-D 70%",
+            ratio: { raw: 7, solvent: 3 },
+            mixTimeMs: 300_000,
+            settleTimeMs: 120_000,
+            standardBottleMassG: 500,
+            recipeId: "dilute-70",
+        },
+        ...overrides,
+    });
+}
+
+function completedBatch(): Batch {
+    return lockedBatch({
+        status: "completed",
+        completedAtMs: now + 60_000,
+        resistBarcodes: ["MZJTST11234567826050701001", "MZJTST11234567826050701002"],
+        resistSysRrns: ["2030625845182312501", "2030625845182312502"],
+        printSuccess: true,
+        outputBottles: [
             {
-                id: "sync-2",
-                operation: "upload_viscosity",
-                idempotencyKey: "mock-sync-2",
-                requestPayload: { averageCp: 5.3 },
-                responsePayload: { hold: false },
-                status: "succeeded",
-                attemptCount: 1,
-                createdAtMs: now + 22,
-                updatedAtMs: now + 22,
+                index: 1,
+                targetMassG: 500,
+                actualMassG: 500,
+                dilutionBarcode: "MZJTST11234567826050701001",
+                barcodeStatus: "assigned",
+                printStatus: "printed",
+                isLastUnderfilled: false,
             },
             {
-                id: "sync-3",
-                operation: "request_dilution_barcodes",
-                idempotencyKey: "mock-sync-3",
-                requestPayload: { bottleCount: 3 },
-                responsePayload: { barcodes: ["DIL-DIL-0001-001"] },
-                status: "succeeded",
-                attemptCount: 1,
-                createdAtMs: now + 23,
-                updatedAtMs: now + 23,
+                index: 2,
+                targetMassG: 500,
+                actualMassG: 400,
+                dilutionBarcode: "MZJTST11234567826050701002",
+                barcodeStatus: "assigned",
+                printStatus: "printed",
+                isLastUnderfilled: true,
             },
         ],
         report: {
             reportId: "report-DIL-0001",
             batchId: "DIL-0001",
-            rawResistName: "TMR-IK02 PM 5.4cP",
-            rawBarcodes: ["RAW-IK02-LOT01-B01"],
-            rawMassG: 1000,
-            machineId: "MCP-03",
-            operatorId: "op-001",
-            reviewerIds: ["qa-001"],
-            viscosityAverageCp: 5.3,
-            dilutionResistName: "IK02-70%",
-            outputBottles: [1, 2, 3].map((index) => ({
-                index,
-                dilutionBarcode: `DIL-DIL-0001-${String(index).padStart(3, "0")}`,
-                actualMassG: index === 3 ? 428.6 : 500,
-            })),
-            comment: "PGMEA as mock dilution solvent",
+            eqptId: "EQPT-001",
+            operator: "张工",
+            checker: "李工",
+            sourceResistName: "TMR-IK02 PM 5.4cP",
+            sourceResistBarcode: "MZJTST11234567826050700003",
+            sourceResistWeight: 1000,
+            sourceBottleCount: 1,
+            viscosity: 5.4,
+            dilutionResistName: "IK02-D 70%",
+            dilutionBottleCount: 2,
+            dilutionWeight: 1400,
+            outputBottles: [
+                {
+                    index: 1,
+                    dilutionBarcode: "MZJTST11234567826050701001",
+                    actualMassG: 500,
+                },
+                {
+                    index: 2,
+                    dilutionBarcode: "MZJTST11234567826050701002",
+                    actualMassG: 400,
+                },
+            ],
+            resistSysRrns: ["2030625845182312501", "2030625845182312502"],
+            printSuccess: true,
         },
-    };
+    });
 }
 
+beforeEach(() => {
+    vi.restoreAllMocks();
+    dilutionApi.dilutionGetConfig.mockResolvedValue(config);
+    useAppStore.getState().login({
+        id: "u-001",
+        name: "tester",
+        role: "engineer",
+    });
+});
+
 describe("DilutionView", () => {
-    beforeEach(() => {
+    it("should prefill machine and operator from config", async () => {
+        renderDilutionView();
+        await waitFor(() => {
+            expect(dilutionApi.dilutionGetConfig).toHaveBeenCalled();
+        });
+        const machineInput = screen.getByLabelText("机台") as HTMLInputElement;
+        expect(machineInput.value).toBe("EQPT-001");
+        const operatorInput = screen.getByLabelText("操作员") as HTMLInputElement;
+        expect(operatorInput.value).toBe("张工");
+    });
+
+    it("should create batch with config-prefilled values", async () => {
         dilutionApi.dilutionCreateBatch.mockResolvedValue(baseBatch());
-        dilutionApi.dilutionGetReport.mockResolvedValue(completedBatch().report);
-        dilutionApi.dilutionListBatches.mockResolvedValue([baseBatch()]);
+        renderDilutionView();
+        await waitFor(() => {
+            expect(screen.getByLabelText("机台")).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByText("新建批次"));
+        await waitFor(() => {
+            expect(dilutionApi.dilutionCreateBatch).toHaveBeenCalledWith({
+                machineId: "EQPT-001",
+                operatorId: "张工",
+                plannedBottleCount: 3,
+                targetBottleMassG: 500,
+            });
+        });
+        expect(await screen.findByText("DIL-0001")).toBeInTheDocument();
+    });
+
+    it("should scan barcode and show resist info", async () => {
+        dilutionApi.dilutionCreateBatch.mockResolvedValue(baseBatch());
         dilutionApi.dilutionScanRawResist.mockResolvedValue(scannedBatch());
-        dilutionApi.dilutionSelectConcentration.mockResolvedValue(scannedBatch());
+        renderDilutionView();
+        await waitFor(() => {
+            expect(screen.getByLabelText("机台")).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByText("新建批次"));
+        await screen.findByText("DIL-0001");
+
+        // 浏览到原液扫码步骤
+        fireEvent.click(screen.getByText("原液扫码"));
+        const barcodeInput = screen.getByLabelText("Barcode") as HTMLInputElement;
+        fireEvent.change(barcodeInput, {
+            target: { value: "MZJTST11234567826050700003" },
+        });
+        fireEvent.click(screen.getByText("扫码查询"));
+        await waitFor(() => {
+            expect(dilutionApi.dilutionScanRawResist).toHaveBeenCalledWith({
+                batchId: "DIL-0001",
+                barcode: "MZJTST11234567826050700003",
+                operatorId: "张工",
+            });
+        });
+        // 单浓度自动锁定 → 展示锁定信息
+        expect(await screen.findByText("IK02-D 70%")).toBeInTheDocument();
+    });
+
+    it("should lock concentration and show recipe", async () => {
+        dilutionApi.dilutionCreateBatch.mockResolvedValue(baseBatch());
+        dilutionApi.dilutionScanRawResist.mockResolvedValue(multiOptionBatch());
+        dilutionApi.dilutionSelectConcentration.mockResolvedValue(lockedBatch());
+        renderDilutionView();
+        await waitFor(() => {
+            expect(screen.getByLabelText("机台")).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByText("新建批次"));
+        await screen.findByText("DIL-0001");
+
+        fireEvent.click(screen.getByText("原液扫码"));
+        const barcodeInput = screen.getByLabelText("Barcode") as HTMLInputElement;
+        fireEvent.change(barcodeInput, {
+            target: { value: "MULTI-LOT01-B01" },
+        });
+        fireEvent.click(screen.getByText("扫码查询"));
+        await screen.findByText("TMR-MULTI PM 5.4cP");
+
+        // 多浓度 → 进入 recipe 步骤选择浓度
+        const select = screen.getByRole("combobox") as HTMLSelectElement;
+        fireEvent.change(select, { target: { value: "70%" } });
+        fireEvent.click(screen.getByText("锁定浓度"));
+        await waitFor(() => {
+            expect(dilutionApi.dilutionSelectConcentration).toHaveBeenCalledWith({
+                batchId: "DIL-0001",
+                concentration: "70%",
+            });
+        });
+        await waitFor(() => {
+            expect(screen.getAllByText("dilute-70").length).toBeGreaterThan(0);
+        });
+    });
+
+    it("should run batch and show completed barcodes", async () => {
+        dilutionApi.dilutionCreateBatch.mockResolvedValue(baseBatch());
+        dilutionApi.dilutionScanRawResist.mockResolvedValue(lockedBatch());
         dilutionApi.dilutionRunBatch.mockResolvedValue(completedBatch());
-        dilutionApi.dilutionRunMockBatch.mockResolvedValue(completedBatch());
-        useAppStore.setState({ user: null });
+        renderDilutionView();
+        await waitFor(() => {
+            expect(screen.getByLabelText("机台")).toBeInTheDocument();
+        });
+        fireEvent.click(screen.getByText("新建批次"));
+        await screen.findByText("DIL-0001");
+
+        fireEvent.click(screen.getByText("原液扫码"));
+        const barcodeInput = screen.getByLabelText("Barcode") as HTMLInputElement;
+        fireEvent.change(barcodeInput, {
+            target: { value: "MZJTST11234567826050700003" },
+        });
+        fireEvent.click(screen.getByText("扫码查询"));
+        await screen.findByText("IK02-D 70%");
+
+        fireEvent.click(screen.getByText("开始执行"));
+        await waitFor(() => {
+            expect(dilutionApi.dilutionRunBatch).toHaveBeenCalledWith({
+                batchId: "DIL-0001",
+                rawLoad: { mode: "mass", targetMassG: 1000 },
+            });
+        });
+        // 完成后自动进入报表步骤
+        expect(
+            await screen.findByText(/MZJTST11234567826050701001/),
+        ).toBeInTheDocument();
+        expect(screen.getAllByText("5.4 cP").length).toBeGreaterThan(0);
     });
 
-    it("runs the backend mock command flow from creation through completed report", async () => {
-        useAppStore.setState({
-            user: { id: "operator", name: "Operator", role: "operator" },
-        });
+    it("should disable run when recipe is not locked", async () => {
         renderDilutionView();
-
-        fireEvent.change(screen.getByLabelText("上料模式"), {
-            target: { value: "bottle_count" },
-        });
-        fireEvent.change(screen.getByLabelText("原液瓶数"), {
-            target: { value: "2" },
-        });
-        fireEvent.change(screen.getByLabelText("粘度1"), {
-            target: { value: "5.1" },
-        });
-        fireEvent.change(screen.getByLabelText("粘度2"), {
-            target: { value: "5.3" },
-        });
-
-        fireEvent.click(screen.getByRole("button", { name: "新建批次" }));
-
-        await screen.findByText(/DIL-/);
-        expect(screen.getByText("MCP-03")).toBeInTheDocument();
-
-        fireEvent.click(screen.getByRole("button", { name: "扫描原液" }));
-
-        await screen.findByText("TMR-IK02 PM 5.4cP");
-        expect(screen.getAllByText("70%").length).toBeGreaterThan(0);
-        expect(screen.getAllByText("配方已锁定").length).toBeGreaterThan(0);
-
-        fireEvent.click(screen.getByRole("button", { name: "运行 Mock" }));
-
-        await screen.findAllByText("已完成");
-        expect(screen.getAllByText("已完成").length).toBeGreaterThan(0);
-        expect(screen.getAllByText("5.3 cP").length).toBeGreaterThan(0);
-        expect(screen.getAllByText("report").length).toBeGreaterThan(0);
-        expect(screen.getAllByText(/DIL-DIL-/).length).toBeGreaterThan(0);
-
         await waitFor(() => {
-            expect(screen.getByText("报表完成")).toBeInTheDocument();
+            expect(screen.getByText("新建批次")).toBeInTheDocument();
         });
-        fireEvent.click(screen.getByRole("button", { name: "导出报表" }));
-
-        expect(dilutionApi.dilutionCreateBatch).toHaveBeenCalledWith({
-            machineId: "MCP-03",
-            operatorId: "op-001",
-            reviewerIds: ["qa-001"],
-            plannedBottleCount: 3,
-            targetBottleMassG: 500,
-        });
-        expect(dilutionApi.dilutionScanRawResist).toHaveBeenCalledWith({
-            batchId: "DIL-0001",
-            barcode: "RAW-IK02-LOT01-B01",
-            operatorId: "op-001",
-        });
-        expect(dilutionApi.dilutionRunMockBatch).toHaveBeenCalledWith({
-            batchId: "DIL-0001",
-            rawLoad: { mode: "bottle_count", bottleCount: 2 },
-            viscosityReadingsCp: [5.1, 5.3],
-        });
-        expect(dilutionApi.dilutionRunBatch).not.toHaveBeenCalled();
-        await waitFor(() => {
-            expect(dilutionApi.dilutionGetReport).toHaveBeenCalledWith("DIL-0001");
-        });
+        const runButton = screen.getByText("开始执行").closest("button");
+        expect(runButton).toBeDisabled();
     });
 
-    it("requires login before running dilution batch mutations", async () => {
-        const dispatchSpy = vi.spyOn(window, "dispatchEvent");
-        renderDilutionView();
-
-        fireEvent.click(screen.getByRole("button", { name: "新建批次" }));
-        expect(dilutionApi.dilutionCreateBatch).not.toHaveBeenCalled();
-        expect(dispatchSpy).toHaveBeenCalledWith(
-            expect.objectContaining({ type: "hmi:request-login-dialog" }),
+    it("should show error notification when create fails", async () => {
+        dilutionApi.dilutionCreateBatch.mockRejectedValue(
+            new Error("machineId is required"),
         );
-
-        dilutionApi.dilutionListBatches.mockResolvedValueOnce([multiOptionBatch()]);
-        fireEvent.click(screen.getByRole("button", { name: "加载批次" }));
+        renderDilutionView();
         await waitFor(() => {
-            expect(dilutionApi.dilutionListBatches).toHaveBeenCalledTimes(1);
+            expect(screen.getByText("新建批次")).toBeInTheDocument();
         });
+        fireEvent.click(screen.getByText("新建批次"));
         await waitFor(() => {
+            const notifications = useNotificationStore.getState().notifications;
             expect(
-                screen.getByRole("button", { name: "锁定浓度" }),
-            ).not.toBeDisabled();
+                notifications.some(
+                    (notification) =>
+                        notification.type === "error" &&
+                        notification.message?.includes("machineId is required"),
+                ),
+            ).toBe(true);
         });
-        fireEvent.click(screen.getByRole("button", { name: "扫描原液" }));
-        fireEvent.click(screen.getByRole("button", { name: "锁定浓度" }));
-
-        dilutionApi.dilutionListBatches.mockResolvedValueOnce([scannedBatch()]);
-        fireEvent.click(screen.getByRole("button", { name: "加载批次" }));
-        await waitFor(() => {
-            expect(dilutionApi.dilutionListBatches).toHaveBeenCalledTimes(2);
-        });
-        await waitFor(() => {
-            expect(
-                screen.getByRole("button", { name: "运行 Mock" }),
-            ).not.toBeDisabled();
-        });
-        fireEvent.click(screen.getByRole("button", { name: "运行 Mock" }));
-
-        expect(dilutionApi.dilutionScanRawResist).not.toHaveBeenCalled();
-        expect(dilutionApi.dilutionSelectConcentration).not.toHaveBeenCalled();
-        expect(dilutionApi.dilutionRunMockBatch).not.toHaveBeenCalled();
-        expect(dispatchSpy).toHaveBeenCalledTimes(4);
-
-        dispatchSpy.mockRestore();
     });
 });

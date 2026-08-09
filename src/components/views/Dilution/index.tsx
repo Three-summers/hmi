@@ -13,17 +13,21 @@ import { useRegisterViewCommands } from "@/components/layout/ViewCommandContext"
 import { useNotify } from "@/hooks";
 import {
     dilutionCreateBatch,
+    dilutionGetConfig,
     dilutionGetReport,
     dilutionListBatches,
-    dilutionRunMockBatch,
+    dilutionRunBatch,
     dilutionScanRawResist,
     dilutionSelectConcentration,
-    type DilutionBatch,
-    type DilutionBatchStatus,
-    type DilutionOption,
-    type MeteringKind,
-    type RawLoadRequest,
 } from "@/platform/dilution";
+import type {
+    Batch,
+    BatchStatus,
+    DilutionConfig,
+    MeteringKind,
+    RawLoadRequest,
+} from "@/types/dilution";
+import { toErrorMessage } from "@/utils/error";
 import styles from "./Dilution.module.css";
 
 type StepId =
@@ -66,56 +70,37 @@ const STEPS: StepDefinition[] = [
 
 const STEP_INDEX = new Map(STEPS.map((step, index) => [step.id, index]));
 
-const DEFAULT_BATCH = {
-    machineId: "MCP-03",
-    operatorId: "op-001",
-    reviewerIds: ["qa-001"],
-    plannedBottleCount: 3,
-    targetBottleMassG: 500,
-};
-
 const DEFAULT_SCAN = {
-    barcode: "RAW-IK02-LOT01-B01",
-    operatorId: "op-001",
+    barcode: "",
+    operatorId: "",
 };
 
 const DEFAULT_RUN = {
     rawLoad: { mode: "mass", targetMassG: 1000 } as const,
-    viscosityReadingsCp: [5.2, 5.4],
 };
 
 type RawLoadMode = RawLoadRequest["mode"];
 
-function statusToStepId(status?: DilutionBatchStatus): StepId {
+function statusToStepId(status?: BatchStatus): StepId {
     switch (status) {
         case "draft":
+            return "batch";
         case "scanning_raw_resist":
             return "scan";
-        case "mapping_resolved":
+        case "resist_info_resolved":
         case "recipe_locked":
             return "recipe";
-        case "raw_loading":
+        case "local_process_running":
             return "raw";
-        case "solvent_loading":
-            return "solvent";
-        case "mixing":
-            return "mix";
-        case "settling":
-            return "settle";
-        case "viscosity_testing":
-        case "viscosity_synced":
+        case "local_process_completed":
             return "viscosity";
-        case "barcode_requested":
+        case "batch_creating":
             return "barcode";
-        case "printing":
-            return "print";
         case "dispensing":
             return "dispense";
-        case "report_pending":
         case "completed":
-            return "report";
-        case "failed":
         case "suspended":
+        case "failed":
             return "report";
         default:
             return "batch";
@@ -130,7 +115,7 @@ function getStepState(stepId: StepId, execId: StepId): StepState {
     return "pending";
 }
 
-function statusHighlight(status?: DilutionBatchStatus): HighlightStatus {
+function statusHighlight(status?: BatchStatus): HighlightStatus {
     if (status === "failed") return "alarm";
     if (status === "suspended") return "warning";
     if (status === "completed") return "attention";
@@ -142,12 +127,12 @@ function formatMass(value?: number) {
     return value === undefined ? "--" : `${value.toFixed(1)} g`;
 }
 
-function formatRatio(option?: DilutionOption) {
-    if (!option) return "--";
-    return `${option.ratio.raw}:${option.ratio.solvent}`;
+function formatRatio(ratio?: { raw: number; solvent: number }) {
+    if (!ratio) return "--";
+    return `${ratio.raw}:${ratio.solvent}`;
 }
 
-function getMeteringMass(batch: DilutionBatch | null, kind: MeteringKind) {
+function getMeteringMass(batch: Batch | null, kind: MeteringKind) {
     return batch?.meteringRecords.find((record) => record.kind === kind)
         ?.actualMassG;
 }
@@ -156,13 +141,13 @@ function lastItem<T>(items: T[]): T | undefined {
     return items.length > 0 ? items[items.length - 1] : undefined;
 }
 
-function getStepSummary(batch: DilutionBatch | null, stepId: StepId) {
+function getStepSummary(batch: Batch | null, stepId: StepId) {
     if (!batch) return "--";
     switch (stepId) {
         case "batch":
             return `${batch.machineId} / ${batch.operatorId}`;
         case "scan":
-            return lastItem(batch.rawScans)?.barcode ?? "RAW-IK02";
+            return lastItem(batch.rawScans)?.barcode ?? "--";
         case "recipe":
             return batch.selectedRecipe
                 ? `${batch.selectedRecipe.concentration} / ${batch.selectedRecipe.dilutionResistName}`
@@ -172,17 +157,21 @@ function getStepSummary(batch: DilutionBatch | null, stepId: StepId) {
         case "solvent":
             return formatMass(getMeteringMass(batch, "solvent"));
         case "mix":
-            return batch.selectedRecipe ? "300s" : "--";
+            return batch.selectedRecipe
+                ? `${Math.round(batch.selectedRecipe.mixTimeMs / 1000)}s`
+                : "--";
         case "settle":
-            return batch.selectedRecipe ? "120s" : "--";
+            return batch.selectedRecipe
+                ? `${Math.round(batch.selectedRecipe.settleTimeMs / 1000)}s`
+                : "--";
         case "viscosity":
-            return batch.viscosity?.averageCp
-                ? `${batch.viscosity.averageCp.toFixed(1)} cP`
+            return batch.report?.viscosity
+                ? `${batch.report.viscosity.toFixed(1)} cP`
                 : "--";
         case "barcode":
-            return `${batch.prmsSync.length} PRMS`;
+            return `${batch.resistBarcodes.length} barcode(s)`;
         case "print":
-            return `${batch.outputBottles.filter((b) => b.printStatus === "printed").length}/${batch.plannedBottleCount}`;
+            return batch.printSuccess ? "ok" : "--";
         case "dispense":
             return `${batch.outputBottles.length}/${batch.plannedBottleCount}`;
         case "report":
@@ -198,16 +187,20 @@ export default function DilutionView() {
     const { t } = useTranslation();
     const isViewActive = useIsViewActive();
     const { success, error, info } = useNotify();
-    const [batch, setBatch] = useState<DilutionBatch | null>(null);
+    const [config, setConfig] = useState<DilutionConfig | null>(null);
+    const [batch, setBatch] = useState<Batch | null>(null);
+    const [machineId, setMachineId] = useState("");
+    const [operatorId, setOperatorId] = useState("");
+    const [checker, setChecker] = useState("");
+    const [bottleCount, setBottleCount] = useState(3);
+    const [targetMassG, setTargetMassG] = useState(500);
     const [scanBarcode, setScanBarcode] = useState(DEFAULT_SCAN.barcode);
-    const [selectedConcentration, setSelectedConcentration] = useState("70%");
+    const [selectedConcentration, setSelectedConcentration] = useState("");
     const [rawLoadMode, setRawLoadMode] = useState<RawLoadMode>("mass");
     const [targetRawMassG, setTargetRawMassG] = useState<number>(
         DEFAULT_RUN.rawLoad.targetMassG,
     );
     const [rawBottleCount, setRawBottleCount] = useState(2);
-    const [viscosityA, setViscosityA] = useState(DEFAULT_RUN.viscosityReadingsCp[0]);
-    const [viscosityB, setViscosityB] = useState(DEFAULT_RUN.viscosityReadingsCp[1]);
     const [browseId, setBrowseId] = useState<StepId | null>(null);
     const [browseCountdown, setBrowseCountdown] = useState(10);
     const [busy, setBusy] = useState(false);
@@ -215,6 +208,27 @@ export default function DilutionView() {
     const execId = statusToStepId(batch?.status);
     const viewStepId = browseId ?? execId;
     const viewStep = selectedStepOrFallback(viewStepId);
+
+    useEffect(() => {
+        let cancelled = false;
+        dilutionGetConfig()
+            .then((loaded) => {
+                if (cancelled) return;
+                setConfig(loaded);
+                setMachineId(loaded.machine?.eqptId ?? "");
+                setOperatorId(loaded.personnel?.operator ?? "");
+                setChecker(loaded.personnel?.checker ?? "");
+            })
+            .catch((err) => {
+                error(
+                    t("dilution.notifications.configLoadFailed"),
+                    toErrorMessage(err),
+                );
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [error, t]);
 
     useEffect(() => {
         setBrowseId(null);
@@ -239,16 +253,14 @@ export default function DilutionView() {
     }, [browseId]);
 
     const runAction = useCallback(
-        async (action: () => Promise<DilutionBatch>, successTitle: string) => {
+        async (action: () => Promise<Batch>, successTitle: string) => {
             setBusy(true);
             try {
                 const nextBatch = await action();
                 setBatch(nextBatch);
                 success(successTitle, nextBatch.id);
             } catch (err) {
-                const message =
-                    err instanceof Error ? err.message : String(err);
-                error(t("dilution.notifications.operationFailed"), message);
+                error(t("dilution.notifications.operationFailed"), toErrorMessage(err));
             } finally {
                 setBusy(false);
             }
@@ -259,10 +271,16 @@ export default function DilutionView() {
     const handleCreateBatch = useCallback(
         () =>
             runAction(
-                () => dilutionCreateBatch(DEFAULT_BATCH),
+                () =>
+                    dilutionCreateBatch({
+                        machineId: machineId || undefined,
+                        operatorId: operatorId || undefined,
+                        plannedBottleCount: bottleCount,
+                        targetBottleMassG: targetMassG,
+                    }),
                 t("dilution.notifications.batchCreated"),
             ),
-        [runAction, t],
+        [runAction, t, machineId, operatorId, bottleCount, targetMassG],
     );
 
     const handleLoadLatestBatch = useCallback(
@@ -270,28 +288,27 @@ export default function DilutionView() {
             runAction(async () => {
                 const batches = await dilutionListBatches();
                 const latest = batches[batches.length - 1];
-                if (!latest)
-                    throw new Error(t("dilution.notifications.noBatch"));
+                if (!latest) throw new Error(t("dilution.notifications.noBatch"));
                 return latest;
             }, t("dilution.notifications.batchLoaded")),
         [runAction, t],
     );
 
     const handleScan = useCallback(() => {
-        if (!batch) return;
+        if (!batch || !scanBarcode.trim()) return;
         void runAction(
             () =>
                 dilutionScanRawResist({
                     batchId: batch.id,
-                    barcode: scanBarcode,
-                    operatorId: DEFAULT_SCAN.operatorId,
+                    barcode: scanBarcode.trim(),
+                    operatorId: batch.operatorId,
                 }),
             t("dilution.notifications.rawScanned"),
         );
     }, [batch, runAction, scanBarcode, t]);
 
     const handleSelectConcentration = useCallback(() => {
-        if (!batch) return;
+        if (!batch || !selectedConcentration) return;
         void runAction(
             () =>
                 dilutionSelectConcentration({
@@ -302,40 +319,25 @@ export default function DilutionView() {
         );
     }, [batch, runAction, selectedConcentration, t]);
 
-    const handleRunMock = useCallback(() => {
+    const handleRunBatch = useCallback(() => {
         if (!batch) return;
         const rawLoad: RawLoadRequest =
             rawLoadMode === "mass"
                 ? { mode: "mass", targetMassG: targetRawMassG }
                 : { mode: "bottle_count", bottleCount: rawBottleCount };
         void runAction(
-            () =>
-                dilutionRunMockBatch({
-                    batchId: batch.id,
-                    rawLoad,
-                    viscosityReadingsCp: [viscosityA, viscosityB],
-                }),
-            t("dilution.notifications.mockCompleted"),
+            () => dilutionRunBatch({ batchId: batch.id, rawLoad }),
+            t("dilution.notifications.batchCompleted"),
         );
-    }, [
-        batch,
-        rawBottleCount,
-        rawLoadMode,
-        runAction,
-        t,
-        targetRawMassG,
-        viscosityA,
-        viscosityB,
-    ]);
+    }, [batch, runAction, rawLoadMode, targetRawMassG, rawBottleCount, t]);
 
     const handleExportReport = useCallback(async () => {
         if (!batch?.report) return;
         try {
             const report = await dilutionGetReport(batch.id);
-            info(t("dilution.notifications.reportReady"), report.reportId);
+            info(t("dilution.notifications.reportReady"), report?.reportId ?? "--");
         } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            error(t("dilution.notifications.operationFailed"), message);
+            error(t("dilution.notifications.operationFailed"), toErrorMessage(err));
         }
     }, [batch, error, info, t]);
 
@@ -371,28 +373,29 @@ export default function DilutionView() {
                 icon: <CheckAllIcon />,
                 disabled:
                     busy ||
-                    !batch?.prmsMapping ||
-                    batch.prmsMapping.dilutionOptions.length < 2 ||
+                    !batch?.resistInfo ||
+                    batch.resistInfo.dilutionRelationships.length < 2 ||
                     Boolean(batch.selectedRecipe),
                 requiresLogin: true,
                 highlight:
-                    batch?.prmsMapping &&
-                    batch.prmsMapping.dilutionOptions.length > 1 &&
+                    batch?.resistInfo &&
+                    batch.resistInfo.dilutionRelationships.length > 1 &&
                     !batch.selectedRecipe
                         ? "warning"
                         : "none",
                 onClick: handleSelectConcentration,
             },
             {
-                id: "runMock",
-                labelKey: "dilution.commands.runMock",
+                id: "runBatch",
+                labelKey: "dilution.commands.runBatch",
                 icon: <PlayIcon />,
                 disabled: busy || !batch?.selectedRecipe,
                 requiresLogin: true,
-                highlight: batch?.selectedRecipe && batch.status !== "completed"
-                    ? "processing"
-                    : "none",
-                onClick: handleRunMock,
+                highlight:
+                    batch?.selectedRecipe && batch.status !== "completed"
+                        ? "processing"
+                        : "none",
+                onClick: handleRunBatch,
             },
             {
                 id: "export",
@@ -407,7 +410,7 @@ export default function DilutionView() {
             busy,
             handleCreateBatch,
             handleLoadLatestBatch,
-            handleRunMock,
+            handleRunBatch,
             handleScan,
             handleSelectConcentration,
             handleExportReport,
@@ -438,11 +441,11 @@ export default function DilutionView() {
                         </div>
                         <div>
                             <dt>{t("dilution.fields.machine")}</dt>
-                            <dd>{batch?.machineId ?? DEFAULT_BATCH.machineId}</dd>
+                            <dd>{(batch?.machineId ?? machineId) || "--"}</dd>
                         </div>
                         <div>
                             <dt>{t("dilution.fields.operator")}</dt>
-                            <dd>{batch?.operatorId ?? DEFAULT_BATCH.operatorId}</dd>
+                            <dd>{(batch?.operatorId ?? operatorId) || "--"}</dd>
                         </div>
                         <div>
                             <dt>{t("dilution.fields.runtime")}</dt>
@@ -533,7 +536,18 @@ export default function DilutionView() {
                 <section className={styles.stepContent} data-kind={viewStep.kind}>
                     <StepContent
                         batch={batch}
+                        config={config}
                         step={viewStep}
+                        machineId={machineId}
+                        setMachineId={setMachineId}
+                        operatorId={operatorId}
+                        setOperatorId={setOperatorId}
+                        checker={checker}
+                        setChecker={setChecker}
+                        bottleCount={bottleCount}
+                        setBottleCount={setBottleCount}
+                        targetMassG={targetMassG}
+                        setTargetMassG={setTargetMassG}
                         scanBarcode={scanBarcode}
                         setScanBarcode={setScanBarcode}
                         selectedConcentration={selectedConcentration}
@@ -544,10 +558,6 @@ export default function DilutionView() {
                         setTargetRawMassG={setTargetRawMassG}
                         rawBottleCount={rawBottleCount}
                         setRawBottleCount={setRawBottleCount}
-                        viscosityA={viscosityA}
-                        setViscosityA={setViscosityA}
-                        viscosityB={viscosityB}
-                        setViscosityB={setViscosityB}
                     />
                 </section>
             </main>
@@ -555,12 +565,14 @@ export default function DilutionView() {
     );
 }
 
-function SignalBar({ batch }: { batch: DilutionBatch | null }) {
+function SignalBar({ batch }: { batch: Batch | null }) {
     const { t } = useTranslation();
     const signals = [
         {
             label: t("dilution.signals.prms"),
-            value: batch ? (lastItem(batch.prmsSync)?.status ?? "idle") : "idle",
+            value: batch
+                ? (lastItem(batch.prmsSync)?.operation ?? "idle")
+                : "idle",
             state: batch?.prmsSync.length ? "attention" : "idle",
         },
         {
@@ -572,15 +584,20 @@ function SignalBar({ batch }: { batch: DilutionBatch | null }) {
         },
         {
             label: t("dilution.signals.viscometer"),
-            value: batch?.viscosity?.prmsResult ?? "idle",
-            state: batch?.viscosity ? "attention" : "idle",
+            value: batch?.report?.viscosity
+                ? `${batch.report.viscosity.toFixed(1)} cP`
+                : "idle",
+            state: batch?.report?.viscosity ? "attention" : "idle",
         },
         {
             label: t("dilution.signals.printer"),
-            value: batch?.outputBottles.some((bottle) => bottle.printStatus === "printed")
-                ? "printed"
-                : "idle",
-            state: batch?.outputBottles.length ? "attention" : "idle",
+            value:
+                batch?.printSuccess === true
+                    ? "printed"
+                    : batch?.printSuccess === false
+                      ? "failed"
+                      : "idle",
+            state: batch?.printSuccess === true ? "attention" : "idle",
         },
         {
             label: "EMO",
@@ -608,7 +625,18 @@ function SignalBar({ batch }: { batch: DilutionBatch | null }) {
 
 function StepContent({
     batch,
+    config,
     step,
+    machineId,
+    setMachineId,
+    operatorId,
+    setOperatorId,
+    checker,
+    setChecker,
+    bottleCount,
+    setBottleCount,
+    targetMassG,
+    setTargetMassG,
     scanBarcode,
     setScanBarcode,
     selectedConcentration,
@@ -619,13 +647,20 @@ function StepContent({
     setTargetRawMassG,
     rawBottleCount,
     setRawBottleCount,
-    viscosityA,
-    setViscosityA,
-    viscosityB,
-    setViscosityB,
 }: {
-    batch: DilutionBatch | null;
+    batch: Batch | null;
+    config: DilutionConfig | null;
     step: StepDefinition;
+    machineId: string;
+    setMachineId: (value: string) => void;
+    operatorId: string;
+    setOperatorId: (value: string) => void;
+    checker: string;
+    setChecker: (value: string) => void;
+    bottleCount: number;
+    setBottleCount: (value: number) => void;
+    targetMassG: number;
+    setTargetMassG: (value: number) => void;
     scanBarcode: string;
     setScanBarcode: (value: string) => void;
     selectedConcentration: string;
@@ -636,10 +671,6 @@ function StepContent({
     setTargetRawMassG: (value: number) => void;
     rawBottleCount: number;
     setRawBottleCount: (value: number) => void;
-    viscosityA: number;
-    setViscosityA: (value: number) => void;
-    viscosityB: number;
-    setViscosityB: (value: number) => void;
 }) {
     switch (step.id) {
         case "scan":
@@ -654,6 +685,7 @@ function StepContent({
             return (
                 <RecipeContent
                     batch={batch}
+                    config={config}
                     selectedConcentration={selectedConcentration}
                     setSelectedConcentration={setSelectedConcentration}
                 />
@@ -678,16 +710,22 @@ function StepContent({
             return (
                 <BatchContent
                     batch={batch}
+                    machineId={machineId}
+                    setMachineId={setMachineId}
+                    operatorId={operatorId}
+                    setOperatorId={setOperatorId}
+                    checker={checker}
+                    setChecker={setChecker}
+                    bottleCount={bottleCount}
+                    setBottleCount={setBottleCount}
+                    targetMassG={targetMassG}
+                    setTargetMassG={setTargetMassG}
                     rawLoadMode={rawLoadMode}
                     setRawLoadMode={setRawLoadMode}
                     targetRawMassG={targetRawMassG}
                     setTargetRawMassG={setTargetRawMassG}
                     rawBottleCount={rawBottleCount}
                     setRawBottleCount={setRawBottleCount}
-                    viscosityA={viscosityA}
-                    setViscosityA={setViscosityA}
-                    viscosityB={viscosityB}
-                    setViscosityB={setViscosityB}
                 />
             );
     }
@@ -695,68 +733,124 @@ function StepContent({
 
 function BatchContent({
     batch,
+    machineId,
+    setMachineId,
+    operatorId,
+    setOperatorId,
+    checker,
+    setChecker,
+    bottleCount,
+    setBottleCount,
+    targetMassG,
+    setTargetMassG,
     rawLoadMode,
     setRawLoadMode,
     targetRawMassG,
     setTargetRawMassG,
     rawBottleCount,
     setRawBottleCount,
-    viscosityA,
-    setViscosityA,
-    viscosityB,
-    setViscosityB,
 }: {
-    batch: DilutionBatch | null;
+    batch: Batch | null;
+    machineId: string;
+    setMachineId: (value: string) => void;
+    operatorId: string;
+    setOperatorId: (value: string) => void;
+    checker: string;
+    setChecker: (value: string) => void;
+    bottleCount: number;
+    setBottleCount: (value: number) => void;
+    targetMassG: number;
+    setTargetMassG: (value: number) => void;
     rawLoadMode: RawLoadMode;
     setRawLoadMode: (value: RawLoadMode) => void;
     targetRawMassG: number;
     setTargetRawMassG: (value: number) => void;
     rawBottleCount: number;
     setRawBottleCount: (value: number) => void;
-    viscosityA: number;
-    setViscosityA: (value: number) => void;
-    viscosityB: number;
-    setViscosityB: (value: number) => void;
 }) {
     const { t } = useTranslation();
     return (
         <div className={styles.staticGrid}>
-            <MetricCard label={t("dilution.fields.machine")} value={batch?.machineId ?? "MCP-03"} />
+            <MetricCard
+                label={t("dilution.fields.machine")}
+                value={(batch?.machineId ?? machineId) || "--"}
+            />
             <MetricCard
                 label={t("dilution.fields.operator")}
-                value={batch?.operatorId ?? "op-001"}
+                value={(batch?.operatorId ?? operatorId) || "--"}
             />
             <MetricCard
                 label={t("dilution.fields.plannedBottles")}
-                value={`${batch?.plannedBottleCount ?? 3}`}
+                value={`${batch?.plannedBottleCount ?? bottleCount}`}
             />
             <MetricCard
                 label={t("dilution.fields.targetMass")}
-                value={`${(batch?.targetBottleMassG ?? 500).toFixed(1)} g`}
+                value={`${(batch?.targetBottleMassG ?? targetMassG).toFixed(1)} g`}
             />
-            <InfoPanel
-                title={t("dilution.panels.defaultBatch")}
-                rows={[
-                    ["machineId", "MCP-03"],
-                    ["operatorId", "op-001"],
-                    ["reviewer", "qa-001"],
-                    ["target", "3 x 500.0 g"],
-                ]}
-            />
-            <InfoPanel
-                title={t("dilution.panels.mockInputs")}
-                rows={[
-                    ["barcode", "RAW-IK02-LOT01-B01"],
-                    [
-                        "rawLoad",
-                        rawLoadMode === "mass"
-                            ? `${targetRawMassG.toFixed(1)} g`
-                            : `${rawBottleCount} bottle(s)`,
-                    ],
-                    ["viscosity", `${viscosityA.toFixed(1)} cP / ${viscosityB.toFixed(1)} cP`],
-                    ["solvent", "PGMEA"],
-                ]}
-            />
+            <div className={styles.formPanel}>
+                <div className={styles.panelHeading}>
+                    {t("dilution.panels.batchSettings")}
+                </div>
+                <div className={styles.compactForm}>
+                    <label className={styles.inputLabel}>
+                        <span>{t("dilution.fields.machine")}</span>
+                        <input
+                            value={machineId}
+                            disabled={Boolean(batch)}
+                            onChange={(event) => setMachineId(event.target.value)}
+                            className={styles.input}
+                        />
+                    </label>
+                    <label className={styles.inputLabel}>
+                        <span>{t("dilution.fields.operator")}</span>
+                        <input
+                            value={operatorId}
+                            disabled={Boolean(batch)}
+                            onChange={(event) => setOperatorId(event.target.value)}
+                            className={styles.input}
+                        />
+                    </label>
+                    <label className={styles.inputLabel}>
+                        <span>{t("dilution.fields.checker")}</span>
+                        <input
+                            value={checker}
+                            disabled={Boolean(batch)}
+                            onChange={(event) => setChecker(event.target.value)}
+                            className={styles.input}
+                        />
+                    </label>
+                    <div className={styles.inlineInputs}>
+                        <label className={styles.inputLabel}>
+                            <span>{t("dilution.fields.plannedBottles")}</span>
+                            <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={bottleCount}
+                                disabled={Boolean(batch)}
+                                onChange={(event) =>
+                                    setBottleCount(Number(event.target.value))
+                                }
+                                className={styles.input}
+                            />
+                        </label>
+                        <label className={styles.inputLabel}>
+                            <span>{t("dilution.fields.targetMass")}</span>
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.1"
+                                value={targetMassG}
+                                disabled={Boolean(batch)}
+                                onChange={(event) =>
+                                    setTargetMassG(Number(event.target.value))
+                                }
+                                className={styles.input}
+                            />
+                        </label>
+                    </div>
+                </div>
+            </div>
             <div className={styles.formPanel}>
                 <div className={styles.panelHeading}>
                     {t("dilution.panels.runParameters")}
@@ -766,6 +860,7 @@ function BatchContent({
                         <span>{t("dilution.fields.rawLoadMode")}</span>
                         <select
                             value={rawLoadMode}
+                            disabled={Boolean(batch)}
                             onChange={(event) =>
                                 setRawLoadMode(event.target.value as RawLoadMode)
                             }
@@ -787,6 +882,7 @@ function BatchContent({
                                 min="0"
                                 step="0.1"
                                 value={targetRawMassG}
+                                disabled={Boolean(batch)}
                                 onChange={(event) =>
                                     setTargetRawMassG(Number(event.target.value))
                                 }
@@ -801,6 +897,7 @@ function BatchContent({
                                 min="1"
                                 step="1"
                                 value={rawBottleCount}
+                                disabled={Boolean(batch)}
                                 onChange={(event) =>
                                     setRawBottleCount(Number(event.target.value))
                                 }
@@ -808,34 +905,6 @@ function BatchContent({
                             />
                         </label>
                     )}
-                    <div className={styles.inlineInputs}>
-                        <label className={styles.inputLabel}>
-                            <span>{t("dilution.fields.viscosityA")}</span>
-                            <input
-                                type="number"
-                                min="0"
-                                step="0.1"
-                                value={viscosityA}
-                                onChange={(event) =>
-                                    setViscosityA(Number(event.target.value))
-                                }
-                                className={styles.input}
-                            />
-                        </label>
-                        <label className={styles.inputLabel}>
-                            <span>{t("dilution.fields.viscosityB")}</span>
-                            <input
-                                type="number"
-                                min="0"
-                                step="0.1"
-                                value={viscosityB}
-                                onChange={(event) =>
-                                    setViscosityB(Number(event.target.value))
-                                }
-                                className={styles.input}
-                            />
-                        </label>
-                    </div>
                 </div>
             </div>
         </div>
@@ -847,11 +916,12 @@ function ScanContent({
     scanBarcode,
     setScanBarcode,
 }: {
-    batch: DilutionBatch | null;
+    batch: Batch | null;
     scanBarcode: string;
     setScanBarcode: (value: string) => void;
 }) {
     const { t } = useTranslation();
+    const info = batch?.resistInfo;
     return (
         <div className={styles.tableLayout}>
             <div className={styles.metricRow}>
@@ -861,21 +931,32 @@ function ScanContent({
                 />
                 <MetricCard
                     label={t("dilution.metrics.rawResist")}
-                    value={batch?.prmsMapping?.rawResistName ?? "--"}
+                    value={info?.resistName ?? "--"}
                 />
                 <MetricCard
-                    label={t("dilution.metrics.mapping")}
-                    value={batch?.prmsMapping?.mappingId ?? "--"}
+                    label={t("dilution.metrics.concentration")}
+                    value={info?.concentration ?? "--"}
                 />
             </div>
             <label className={styles.inputLabel}>
-                <span>{t("dilution.fields.mockBarcode")}</span>
+                <span>{t("dilution.fields.barcode")}</span>
                 <input
                     value={scanBarcode}
                     onChange={(event) => setScanBarcode(event.target.value)}
                     className={styles.input}
                 />
             </label>
+            {info && (
+                <InfoPanel
+                    title={t("dilution.panels.rawResistInfo")}
+                    rows={[
+                        [t("dilution.fields.batchNo"), info.defBatchNO || "--"],
+                        [t("dilution.fields.expireTime"), info.expireTime || "--"],
+                        ["resistNo", info.resistNo || "--"],
+                        ["mtrNO", info.mtrNO || "--"],
+                    ]}
+                />
+            )}
             <div className={styles.dataTable}>
                 <div className={styles.tableHeader}>
                     <span>{t("dilution.fields.barcode")}</span>
@@ -896,41 +977,42 @@ function ScanContent({
 
 function RecipeContent({
     batch,
+    config,
     selectedConcentration,
     setSelectedConcentration,
 }: {
-    batch: DilutionBatch | null;
+    batch: Batch | null;
+    config: DilutionConfig | null;
     selectedConcentration: string;
     setSelectedConcentration: (value: string) => void;
 }) {
     const { t } = useTranslation();
-    const options = batch?.prmsMapping?.dilutionOptions ?? [];
-    const activeOption =
-        options.find((option) => option.concentration === selectedConcentration) ??
-        options[0];
+    const relationships = batch?.resistInfo?.dilutionRelationships ?? [];
     const selectedRecipe = batch?.selectedRecipe;
+
+    useEffect(() => {
+        if (selectedRecipe && selectedConcentration !== selectedRecipe.concentration) {
+            setSelectedConcentration(selectedRecipe.concentration);
+        }
+    }, [selectedRecipe, selectedConcentration, setSelectedConcentration]);
 
     return (
         <div className={styles.staticGrid}>
             <MetricCard
                 label={t("dilution.metrics.rawResist")}
-                value={batch?.prmsMapping?.rawResistName ?? "--"}
+                value={batch?.resistInfo?.resistName ?? "--"}
             />
             <MetricCard
                 label={t("dilution.metrics.concentration")}
-                value={selectedRecipe?.concentration ?? activeOption?.concentration ?? "--"}
+                value={(selectedRecipe?.concentration ?? selectedConcentration) || "--"}
             />
             <MetricCard
                 label={t("dilution.metrics.ratio")}
-                value={
-                    selectedRecipe
-                        ? `${selectedRecipe.ratio.raw}:${selectedRecipe.ratio.solvent}`
-                        : formatRatio(activeOption)
-                }
+                value={formatRatio(selectedRecipe?.ratio)}
             />
             <MetricCard
                 label={t("dilution.metrics.recipe")}
-                value={selectedRecipe?.id ?? activeOption?.recipeKey ?? "--"}
+                value={selectedRecipe?.recipeId ?? "--"}
             />
             <div className={styles.formPanel}>
                 <div className={styles.panelHeading}>
@@ -942,13 +1024,25 @@ function RecipeContent({
                     value={selectedConcentration}
                     onChange={(event) => setSelectedConcentration(event.target.value)}
                     className={styles.select}
-                    disabled={Boolean(selectedRecipe) || options.length < 2}
+                    disabled={Boolean(selectedRecipe) || relationships.length < 2}
                 >
-                    {options.map((option) => (
-                        <option key={option.concentration} value={option.concentration}>
-                            {option.concentration} · {option.dilutionResistName}
-                        </option>
-                    ))}
+                    <option value="">--</option>
+                    {relationships.map((relationship) => {
+                        const configured = config?.dilutionOptions.some(
+                            (option) => option.concentration === relationship.concentration,
+                        );
+                        return (
+                            <option
+                                key={relationship.sysRrn}
+                                value={relationship.concentration}
+                                disabled={!configured}
+                            >
+                                {relationship.concentration} ·{" "}
+                                {relationship.resistName}
+                                {configured ? "" : " (未配置)"}
+                            </option>
+                        );
+                    })}
                 </select>
                 <div className={styles.recipeLockText}>
                     {selectedRecipe
@@ -958,11 +1052,28 @@ function RecipeContent({
             </div>
             <InfoPanel
                 title={t("dilution.panels.prmsOptions")}
-                rows={options.map((option) => [
-                    option.concentration,
-                    `${option.dilutionResistName} / ${formatRatio(option)}`,
+                rows={relationships.map((relationship) => [
+                    relationship.concentration,
+                    relationship.resistName,
                 ])}
             />
+            {selectedRecipe && (
+                <InfoPanel
+                    title={t("dilution.panels.parameters")}
+                    rows={[
+                        ["ratio", formatRatio(selectedRecipe.ratio)],
+                        [
+                            t("dilution.metrics.mixTime"),
+                            `${Math.round(selectedRecipe.mixTimeMs / 1000)}s`,
+                        ],
+                        [
+                            t("dilution.metrics.settleTime"),
+                            `${Math.round(selectedRecipe.settleTimeMs / 1000)}s`,
+                        ],
+                        ["recipeId", selectedRecipe.recipeId],
+                    ]}
+                />
+            )}
         </div>
     );
 }
@@ -971,7 +1082,7 @@ function MeteringContent({
     batch,
     kind,
 }: {
-    batch: DilutionBatch | null;
+    batch: Batch | null;
     kind: "raw" | "solvent";
 }) {
     const { t } = useTranslation();
@@ -991,7 +1102,7 @@ function MeteringContent({
                 />
                 <MetricCard
                     label={t("dilution.metrics.device")}
-                    value={record?.sourceDeviceId ?? "mock-meter"}
+                    value={record?.sourceDeviceId ?? "--"}
                 />
             </div>
             <div className={styles.progressTrack}>
@@ -1021,7 +1132,7 @@ function CountdownContent({
     batch,
     stepId,
 }: {
-    batch: DilutionBatch | null;
+    batch: Batch | null;
     stepId: "mix" | "settle";
 }) {
     const { t } = useTranslation();
@@ -1050,71 +1161,61 @@ function CountdownContent({
     );
 }
 
-function ViscosityContent({ batch }: { batch: DilutionBatch | null }) {
+function ViscosityContent({ batch }: { batch: Batch | null }) {
     const { t } = useTranslation();
+    const viscosity = batch?.report?.viscosity;
     return (
         <div className={styles.tableLayout}>
             <div className={styles.metricRow}>
                 <MetricCard
                     label={t("dilution.metrics.averageViscosity")}
-                    value={
-                        batch?.viscosity?.averageCp
-                            ? `${batch.viscosity.averageCp.toFixed(1)} cP`
-                            : "--"
-                    }
+                    value={viscosity ? `${viscosity.toFixed(1)} cP` : "--"}
                 />
                 <MetricCard
                     label={t("dilution.metrics.prmsResult")}
-                    value={batch?.viscosity?.prmsResult ?? "--"}
+                    value={batch?.checkResult?.resistDefRrn ? "check ok" : "--"}
                 />
                 <MetricCard
-                    label={t("dilution.metrics.sync")}
-                    value={batch?.viscosity?.syncRecordId ?? "--"}
+                    label={t("dilution.fields.batchNo")}
+                    value={batch?.checkResult?.batchNO ?? "--"}
                 />
             </div>
-            <div className={styles.dataTable}>
-                <div className={styles.tableHeader}>
-                    <span>#</span>
-                    <span>{t("dilution.fields.value")}</span>
-                    <span>{t("dilution.fields.device")}</span>
-                </div>
-                {(batch?.viscosity?.readingsCp ?? []).map((reading) => (
-                    <div key={reading.index} className={styles.tableRow}>
-                        <span>{reading.index}</span>
-                        <span>{reading.valueCp.toFixed(1)} cP</span>
-                        <span>{reading.sourceDeviceId}</span>
-                    </div>
-                ))}
-            </div>
+            <InfoPanel
+                title={t("dilution.panels.viscosityResult")}
+                rows={[
+                    ["viscosity", viscosity ? `${viscosity.toFixed(1)} cP` : "--"],
+                    ["status", batch?.status ?? "--"],
+                ]}
+            />
         </div>
     );
 }
 
-function BarcodeContent({ batch }: { batch: DilutionBatch | null }) {
+function BarcodeContent({ batch }: { batch: Batch | null }) {
     const { t } = useTranslation();
-    const record = batch?.prmsSync.find(
-        (sync) => sync.operation === "request_dilution_barcodes",
-    );
     return (
         <div className={styles.externalLayout}>
             <InfoPanel
                 title={t("dilution.panels.viscosityResult")}
                 rows={[
-                    ["average", `${batch?.viscosity?.averageCp?.toFixed(1) ?? "--"} cP`],
-                    ["result", batch?.viscosity?.prmsResult ?? "--"],
-                    ["sync", batch?.viscosity?.syncRecordId ?? "--"],
+                    ["viscosity", batch?.report?.viscosity ? `${batch.report.viscosity.toFixed(1)} cP` : "--"],
+                    ["status", batch?.status ?? "--"],
                 ]}
             />
             <div className={styles.waitingBox}>
                 <div className={styles.waitingSpinner} />
-                <div>{record ? t("dilution.barcodeReady") : t("dilution.barcodeWaiting")}</div>
-                <strong>{record?.id ?? "PRMS"}</strong>
+                <div>
+                    {batch?.resistBarcodes.length
+                        ? t("dilution.barcodeReady")
+                        : t("dilution.barcodeWaiting")}
+                </div>
+                <strong>{batch?.resistBarcodes.length ?? 0}</strong>
             </div>
         </div>
     );
 }
 
-function BottleContent({ batch }: { batch: DilutionBatch | null }) {
+function BottleContent({ batch }: { batch: Batch | null }) {
     const { t } = useTranslation();
     return (
         <div className={styles.tableLayout}>
@@ -1157,29 +1258,23 @@ function BottleContent({ batch }: { batch: DilutionBatch | null }) {
     );
 }
 
-function ReportContent({ batch }: { batch: DilutionBatch | null }) {
+function ReportContent({ batch }: { batch: Batch | null }) {
     const { t } = useTranslation();
     const report = batch?.report;
     return (
         <div className={styles.staticGrid}>
             <MetricCard
                 label={t("dilution.metrics.report")}
-                value={report ? "report" : "--"}
+                value={report?.reportId ?? "--"}
             />
             <MetricCard
                 label={t("dilution.metrics.status")}
-                value={
-                    batch?.status === "completed"
-                        ? t("dilution.stepState.completed")
-                        : (batch?.status ?? "--")
-                }
+                value={batch ? t(`dilution.status.${batch.status}`) : "--"}
             />
             <MetricCard
                 label={t("dilution.metrics.averageViscosity")}
                 value={
-                    report?.viscosityAverageCp
-                        ? `${report.viscosityAverageCp.toFixed(1)} cP`
-                        : "--"
+                    report?.viscosity ? `${report.viscosity.toFixed(1)} cP` : "--"
                 }
             />
             <MetricCard
@@ -1190,8 +1285,10 @@ function ReportContent({ batch }: { batch: DilutionBatch | null }) {
                 title={t("dilution.reportCompleted")}
                 rows={[
                     ["report", report?.reportId ?? "--"],
-                    ["raw", report?.rawResistName ?? "--"],
+                    ["raw", report?.sourceResistName ?? "--"],
                     ["dilution", report?.dilutionResistName ?? "--"],
+                    ["viscosity", report?.viscosity ? `${report.viscosity.toFixed(1)} cP` : "--"],
+                    ["printSuccess", String(report?.printSuccess ?? "--")],
                     ["comment", report?.comment ?? "--"],
                 ]}
             />

@@ -1,5 +1,5 @@
 {
-	    "common": {
+    "common": {
         "ok": "确定",
         "cancel": "取消",
         "close": "关闭",
@@ -15,12 +15,12 @@
         "stop": "停止",
         "pause": "暂停",
         "resume": "恢复",
-	        "reset": "重置",
-	        "theme": "主题",
-	        "scale": "缩放",
-	        "clear": "清空",
-	        "retry": "重试",
-	        "loading": "加载中...",
+        "reset": "重置",
+        "theme": "主题",
+        "scale": "缩放",
+        "clear": "清空",
+        "retry": "重试",
+        "loading": "加载中...",
         "languages": {
             "zh": "中文",
             "en": "English"
@@ -35,20 +35,20 @@
         "exit": "退出",
         "commands": "命令"
     },
-	    "theme": {
-	        "dark": "暗色",
-	        "light": "亮色",
-	        "high-contrast": "高对比"
-	    },
-	    "scale": {
-	        "title": "界面缩放",
-	        "reset": "重置为自动"
-	    },
-	    "nav": {
-	        "jobs": "作业",
-	        "run": "运行",
-	        "system": "系统",
-	        "monitor": "监控",
+    "theme": {
+        "dark": "暗色",
+        "light": "亮色",
+        "high-contrast": "高对比"
+    },
+    "scale": {
+        "title": "界面缩放",
+        "reset": "重置为自动"
+    },
+    "nav": {
+        "jobs": "作业",
+        "run": "运行",
+        "system": "系统",
+        "monitor": "监控",
         "recipes": "配方",
         "files": "文件浏览",
         "setup": "设置",
@@ -226,28 +226,29 @@
         "browseTimer": "手动浏览 · {{seconds}}s 后回到当前步骤",
         "elapsed": "耗时",
         "recipeLocked": "配方已锁定",
-        "recipeWaiting": "等待浓度选择或 PRMS 单一映射",
+        "recipeWaiting": "等待浓度选择",
         "selectConcentration": "选择浓度",
         "reportCompleted": "报表完成",
-        "barcodeReady": "Barcode 已返回",
-        "barcodeWaiting": "等待 PRMS Barcode",
+        "barcodeReady": "稀释液条码已返回",
+        "barcodeWaiting": "等待 PRMS 创建稀释瓶",
         "commands": {
             "createBatch": "新建批次",
             "loadLatestBatch": "加载批次",
-            "scanRaw": "扫描原液",
+            "scanRaw": "扫码查询",
             "selectConcentration": "锁定浓度",
-            "runMock": "运行 Mock",
+            "runBatch": "开始执行",
             "exportReport": "导出报表"
         },
         "notifications": {
             "batchCreated": "批次已创建",
             "batchLoaded": "批次已加载",
             "noBatch": "暂无可加载批次",
-            "rawScanned": "原液已扫描",
+            "rawScanned": "原液信息已获取",
             "recipeLocked": "配方已锁定",
-            "mockCompleted": "Mock 批次完成",
+            "batchCompleted": "稀释批次完成",
             "reportReady": "报表已就绪",
-            "operationFailed": "稀释操作失败"
+            "operationFailed": "稀释操作失败",
+            "configLoadFailed": "加载稀释配置失败"
         },
         "steps": {
             "batch": "批次初始化",
@@ -258,7 +259,7 @@
             "mix": "搅拌",
             "settle": "静置",
             "viscosity": "粘度检测",
-            "barcode": "Barcode 申请",
+            "barcode": "稀释瓶创建",
             "print": "标签打印",
             "dispense": "成品出料",
             "report": "报表归档"
@@ -284,22 +285,23 @@
             "batchId": "批次ID",
             "machine": "机台",
             "operator": "操作员",
+            "checker": "核对员",
             "runtime": "运行时长",
             "plannedBottles": "计划瓶数",
             "targetMass": "目标质量",
-            "mockBarcode": "Mock Barcode",
-            "rawLoadMode": "上料模式",
-            "rawMass": "原液质量",
-            "rawBottleCount": "原液瓶数",
-            "viscosityA": "粘度1",
-            "viscosityB": "粘度2",
             "barcode": "Barcode",
             "material": "物料",
             "result": "结果",
             "value": "数值",
             "device": "设备",
             "mass": "质量",
-            "print": "打印"
+            "print": "打印",
+            "batchNo": "批次号",
+            "expireTime": "有效期",
+            "rawLoadMode": "上料模式",
+            "rawMass": "原液质量",
+            "rawBottleCount": "原液瓶数",
+            "viscosity": "粘度"
         },
         "metrics": {
             "scanned": "扫码数",
@@ -320,26 +322,43 @@
             "totalOutput": "总出料",
             "report": "报表",
             "status": "状态",
-            "outputLines": "出料明细"
+            "outputLines": "出料明细",
+            "mixTime": "搅拌时长",
+            "settleTime": "静置时长",
+            "printSuccess": "打印成功"
         },
         "panels": {
             "defaultBatch": "默认批次",
-            "mockInputs": "Mock 输入",
+            "batchSettings": "批次设置",
             "runParameters": "运行参数",
-            "prmsOptions": "PRMS 选项",
+            "prmsOptions": "浓度选项",
             "parameters": "参数",
             "records": "记录",
             "viscosityResult": "粘度结果",
-            "reportBottles": "成品瓶"
+            "reportBottles": "成品瓶",
+            "rawResistInfo": "原液定义信息"
         },
         "countdown": {
-            "mixing": "Mock 搅拌计时",
-            "settling": "Mock 静置计时",
+            "mixing": "搅拌计时",
+            "settling": "静置计时",
             "ready": "设备状态：就绪"
         },
         "rawLoadModes": {
             "mass": "按质量",
             "bottleCount": "按瓶数"
+        },
+        "status": {
+            "draft": "草稿",
+            "scanning_raw_resist": "扫码中",
+            "resist_info_resolved": "原液信息已获取",
+            "recipe_locked": "配方已锁定",
+            "local_process_running": "本地工艺执行中",
+            "local_process_completed": "本地工艺完成",
+            "batch_creating": "正在创建稀释瓶",
+            "dispensing": "分装中",
+            "completed": "已完成",
+            "suspended": "挂起",
+            "failed": "失败"
         }
     },
     "setup": {
@@ -617,13 +636,13 @@
         "empty": "文件夹为空",
         "selectFile": "请选择一个文件进行预览",
         "readError": "读取文件失败",
-  "chart": {
-    "zoomHint": "滚轮缩放，拖拽平移，双击复位",
-    "initError": "图表初始化失败",
-    "emptyData": "CSV 无有效数据（至少需要 2 行）",
-    "emptySelection": "未选择数据列",
-    "errorDetails": "查看错误详情"
-  },
+        "chart": {
+            "zoomHint": "滚轮缩放，拖拽平移，双击复位",
+            "initError": "图表初始化失败",
+            "emptyData": "CSV 无有效数据（至少需要 2 行）",
+            "emptySelection": "未选择数据列",
+            "errorDetails": "查看错误详情"
+        },
         "info": {
             "zoomTip": "图表支持滚轮缩放与拖拽平移",
             "refreshTip": "点击“刷新”重新加载日志目录与文件列表"
