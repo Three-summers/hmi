@@ -98,7 +98,6 @@ export const AdminIcon = MdSecurity;
 export const CommandIcons: Record<string, JSX.Element> = {
     newJob: <AddIcon />,
     runJob: <PlayIcon />,
-    runMock: <PlayIcon />,
     stopJob: <StopIcon />,
     pauseJob: <PauseIcon />,
     refresh: <RefreshIcon />,

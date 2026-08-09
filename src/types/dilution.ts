@@ -74,6 +74,78 @@ export interface RawResistScan {
     validationMessage?: string;
 }
 
+export type MeteringKind = "raw" | "solvent" | "output";
+
+export interface RatioDefinition {
+    raw: number;
+    solvent: number;
+}
+
+export interface DilutionRecipeSnapshot {
+    id: string;
+    version: string;
+    rawResistName: string;
+    concentration: string;
+    dilutionResistName: string;
+    ratio: RatioDefinition;
+    rawDensityGPerMl?: number;
+    solventDensityGPerMl?: number;
+    mixTimeMs: number;
+    settleTimeMs: number;
+    viscosityMinCp?: number;
+    viscosityMaxCp?: number;
+    standardBottleMassG: number;
+    recipeId: string;
+}
+
+export interface MeteringRecord {
+    id: string;
+    kind: MeteringKind;
+    targetMassG?: number;
+    actualVolumeMl?: number;
+    densityGPerMl?: number;
+    actualMassG: number;
+    toleranceG?: number;
+    deviationG?: number;
+    startedAtMs: number;
+    finishedAtMs: number;
+    sourceDeviceId: string;
+    runtimeRunId?: number;
+    status: "completed";
+}
+
+export interface ViscosityReading {
+    index: number;
+    valueCp: number;
+    measuredAtMs: number;
+    sourceDeviceId: string;
+}
+
+export interface ViscosityTest {
+    testId: string;
+    readingsCp: ViscosityReading[];
+    averageCp?: number;
+    prmsResult?: string;
+    uploadedAtMs?: number;
+    syncRecordId?: string;
+}
+
+export type PrmsOperation = "resist_info" | "check" | "create_batch";
+export type SyncStatus = "succeeded" | "failed";
+
+export interface PrmsSyncRecord {
+    id: string;
+    operation: PrmsOperation;
+    idempotencyKey: string;
+    requestPayload: unknown;
+    responsePayload?: unknown;
+    status: SyncStatus;
+    attemptCount: number;
+    lastError?: string;
+    createdAtMs: number;
+    updatedAtMs: number;
+}
+
 export interface CheckResult {
     resistNO: string;
     defResistNO: string;
@@ -136,6 +208,10 @@ export interface Batch {
     createdAtMs: number;
     completedAtMs?: number;
     rawScans: RawResistScan[];
+    selectedRecipe?: DilutionRecipeSnapshot;
+    meteringRecords: MeteringRecord[];
+    viscosity?: ViscosityTest;
+    prmsSync: PrmsSyncRecord[];
     selectedConcentration?: string;
     resistDefRrn?: string;
     resistInfo?: ResistInfo;
