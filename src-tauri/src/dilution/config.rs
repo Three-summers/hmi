@@ -20,11 +20,23 @@ pub struct PersonnelConfig {
     pub checker: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+const DEFAULT_MIX_TIME_MS: u64 = 300_000;
+const DEFAULT_SETTLE_TIME_MS: u64 = 120_000;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
-pub struct RatioConfig {
-    pub raw: f64,
-    pub solvent: f64,
+pub struct ProcessDefaultsConfig {
+    pub mix_time_ms: u64,
+    pub settle_time_ms: u64,
+}
+
+impl Default for ProcessDefaultsConfig {
+    fn default() -> Self {
+        Self {
+            mix_time_ms: DEFAULT_MIX_TIME_MS,
+            settle_time_ms: DEFAULT_SETTLE_TIME_MS,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -32,13 +44,6 @@ pub struct RatioConfig {
 pub struct DilutionOptionConfig {
     pub concentration: String,
     pub recipe_id: String,
-    pub ratio: RatioConfig,
-    pub mix_time_ms: u64,
-    pub settle_time_ms: u64,
-    pub raw_density_g_per_ml: Option<f64>,
-    pub solvent_density_g_per_ml: Option<f64>,
-    pub viscosity_min_cp: Option<f64>,
-    pub viscosity_max_cp: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -47,6 +52,7 @@ pub struct DilutionConfig {
     pub machine: Option<MachineConfig>,
     pub personnel: Option<PersonnelConfig>,
     pub label_print_url: Option<String>,
+    pub process_defaults: ProcessDefaultsConfig,
     pub dilution_options: Vec<DilutionOptionConfig>,
 }
 
@@ -74,6 +80,36 @@ impl DilutionConfig {
             .iter()
             .find(|option| option.concentration == concentration)
     }
+}
+
+pub fn parse_concentration_ratio(concentration: &str) -> Result<(f64, f64), String> {
+    let value = concentration.trim();
+    if let Some(percent) = value.strip_suffix('%') {
+        let raw = percent
+            .trim()
+            .parse::<f64>()
+            .map_err(|_| format!("invalid concentration ratio `{concentration}`"))?;
+        if !raw.is_finite() || !(0.0 < raw && raw <= 100.0) {
+            return Err(format!("invalid concentration ratio `{concentration}`"));
+        }
+        return Ok((raw, 100.0 - raw));
+    }
+
+    let (raw, solvent) = value
+        .split_once(':')
+        .ok_or_else(|| format!("invalid concentration ratio `{concentration}`"))?;
+    let raw = raw
+        .trim()
+        .parse::<f64>()
+        .map_err(|_| format!("invalid concentration ratio `{concentration}`"))?;
+    let solvent = solvent
+        .trim()
+        .parse::<f64>()
+        .map_err(|_| format!("invalid concentration ratio `{concentration}`"))?;
+    if !raw.is_finite() || !solvent.is_finite() || raw <= 0.0 || solvent < 0.0 {
+        return Err(format!("invalid concentration ratio `{concentration}`"));
+    }
+    Ok((raw, solvent))
 }
 
 /// 解析默认 workspace root：
@@ -144,13 +180,10 @@ mod tests {
                 {
                   "concentration": "0.01:5",
                   "recipeId": "dilute-0.01-5",
-                  "ratio": { "raw": 7, "solvent": 3 },
-                  "mixTimeMs": 300000,
-                  "settleTimeMs": 120000,
-                  "viscosityMinCp": 1,
-                  "viscosityMaxCp": 10
+                  "legacyIgnoredField": true
                 }
-              ]
+              ],
+              "processDefaults": { "mixTimeMs": 300000, "settleTimeMs": 120000 }
             }"#,
         )
         .unwrap();
@@ -164,8 +197,8 @@ mod tests {
         );
         let option = config.option_for_concentration("0.01:5").unwrap();
         assert_eq!(option.recipe_id, "dilute-0.01-5");
-        assert_eq!(option.ratio, RatioConfig { raw: 7.0, solvent: 3.0 });
-        assert_eq!(option.mix_time_ms, 300_000);
+        assert_eq!(config.process_defaults.mix_time_ms, 300_000);
+        assert_eq!(config.process_defaults.settle_time_ms, 120_000);
     }
 
     #[test]
@@ -175,6 +208,8 @@ mod tests {
         assert_eq!(config, DilutionConfig::default());
         assert_eq!(config.eqpt_id(), None);
         assert!(config.option_for_concentration("0.01:5").is_none());
+        assert_eq!(config.process_defaults.mix_time_ms, 300_000);
+        assert_eq!(config.process_defaults.settle_time_ms, 120_000);
     }
 
     #[test]
@@ -182,11 +217,19 @@ mod tests {
         let workspace = temp_workspace("t3");
         fs::write(
             workspace.join("system/dilution.json"),
-            r#"{"dilutionOptions":[{"concentration":"70%","recipeId":"r1","ratio":{"raw":7,"solvent":3}}]}"#,
+            r#"{"dilutionOptions":[{"concentration":"70%","recipeId":"r1"}]}"#,
         )
         .unwrap();
         let config = load_dilution_config(&workspace).unwrap();
         assert!(config.option_for_concentration("60%").is_none());
         assert_eq!(config.option_for_concentration("70%").unwrap().recipe_id, "r1");
+    }
+
+    #[test]
+    fn parse_concentration_ratio_should_support_ratio_and_percent_forms() {
+        assert_eq!(parse_concentration_ratio("0.01:5").unwrap(), (0.01, 5.0));
+        assert_eq!(parse_concentration_ratio("70%").unwrap(), (70.0, 30.0));
+        assert!(parse_concentration_ratio("0:5").is_err());
+        assert!(parse_concentration_ratio("invalid").is_err());
     }
 }

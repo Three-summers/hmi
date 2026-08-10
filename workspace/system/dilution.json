@@ -2,17 +2,11 @@
   "machine": { "eqptId": "EQPT-001" },
   "personnel": { "operator": "张工", "checker": "李工" },
   "labelPrintUrl": "",
+  "processDefaults": { "mixTimeMs": 300000, "settleTimeMs": 120000 },
   "dilutionOptions": [
     {
       "concentration": "70%",
-      "recipeId": "dilute-70",
-      "ratio": { "raw": 7, "solvent": 3 },
-      "mixTimeMs": 300000,
-      "settleTimeMs": 120000,
-      "rawDensityGPerMl": 1.0,
-      "solventDensityGPerMl": 0.9,
-      "viscosityMinCp": 1,
-      "viscosityMaxCp": 10
+      "recipeId": "dilute-70"
     }
   ]
 }

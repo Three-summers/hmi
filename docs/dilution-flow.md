@@ -21,7 +21,7 @@
 
 1. PRMS 交互改为 SOAP 三步：`resistInfo` →（可选 `check`）→ `batchCreate`
 2. 本地设备动作（称量 / 搅拌 / 静置 / 测粘度）**复用 craftsmanship 引擎**，通过 **HMIP 通信**与真实设备交互
-3. 本地工艺参数（比例 / 搅拌 / 静置 / 密度 / 粘度上下限）以 resistInfo 返回的 `concentration` 为键，从 **workspace `system/` 配置**读取
+3. 本地工艺参数：比例从 resistInfo 返回的 `concentration` 解析，搅拌/静置使用 workspace 全局默认值，粘度上下限使用 resistInfo 返回值
 4. `eqptId` / `operator` / `checker` 等机台与人员信息在 **workspace `system/` 配置**中定义
 
 ### 1.3 范围
@@ -38,7 +38,7 @@
 |---|---|---|
 | PRMS 交互层 | `resistInfo` / `check` / `batchCreate` SOAP 调用 | dilution 状态机 + 新增 SOAP 客户端 |
 | 本地工艺执行层 | 称量 / 搅拌 / 静置 / 测粘度等设备动作 | craftsmanship 引擎 + `comm`（HMIP） |
-| 配置层 | 浓度工艺参数表、eqptId、人员信息 | workspace `system/` 配置 |
+| 配置层 | recipeId 映射、全局搅拌/静置默认值、eqptId、人员信息 | workspace `system/` 配置 |
 | UI 层 | 扫码 → 浓度选择 → 执行监控 → 结果展示 | 前端 Dilution 视图（对接后端） |
 
 ### 2.2 数据流
@@ -170,7 +170,11 @@ Draft → ScanningRawResist → ResistInfoResolved → RecipeLocked
     "operator": "张工",
     "checker": "李工"
   },
-  "labelPrintUrl": "http://print-server/bartender/api"
+  "labelPrintUrl": "http://print-server/bartender/api",
+  "processDefaults": {
+    "mixTimeMs": 300000,
+    "settleTimeMs": 120000
+  }
 }
 ```
 
@@ -187,20 +191,21 @@ key = `dilutionRelationship[].concentration`（resistInfo 返回值），并关�
   "dilutionOptions": [
     {
       "concentration": "0.01:5",
-      "recipeId": "dilute-0.01-5",
-      "ratio": { "raw": 7, "solvent": 3 },
-      "mixTimeMs": 300000,
-      "settleTimeMs": 120000,
-      "rawDensityGPerMl": 1.0,
-      "solventDensityGPerMl": 0.9,
-      "viscosityMinCp": 1,
-      "viscosityMaxCp": 10
+      "recipeId": "dilute-0.01-5"
     }
-  ]
+  ],
+  "processDefaults": {
+    "mixTimeMs": 300000,
+    "settleTimeMs": 120000
+  }
 }
 ```
 
 - `recipeId`：指向 `projects/<id>/recipes/<recipeId>.json`，即该浓度对应的本地配方（见 4.2）
+- `concentration` 为 `raw:solvent` 时直接解析为原液/溶剂比例，例如 `0.01:5`；百分比形式如 `70%` 兼容解析为 `70:30`
+- `processDefaults`：所有浓度共用的搅拌和静置默认时长；批次锁定时写入运行快照
+- 粘度上下限来自 resistInfo 的 `viscosityLowerLimit` / `viscosityUpperLimit`，不再按浓度在配置中重复维护
+- 密度字段不再参与稀释流程
 - resistInfo 返回的浓度在表中查不到 → 该选项不可用（提示配置缺失，不阻断其它浓度）
 
 ---
@@ -215,7 +220,7 @@ key = `dilutionRelationship[].concentration`（resistInfo 返回值），并关�
 | `RunBatchRequest` | `viscosity_readings_cp` / `raw_load` 保留 |
 | `DilutionReport` | 本地生成改为收集 17 个报表字段透传 batchCreate（官方文档 §5.3） |
 | `PrmsOperation` | 删除 `UploadViscosity` / `RequestDilutionBarcodes`；新增 `Check` 等 |
-| `DilutionRecipeSnapshot` | 来源改为系统配置 + resistInfo 结果 |
+| `DilutionRecipeSnapshot` | 保留 recipeId、比例和时序快照；比例来自 concentration，时序来自全局默认值，粘度范围来自 resistInfo，不再保存密度 |
 
 ---
 

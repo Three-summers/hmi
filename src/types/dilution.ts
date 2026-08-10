@@ -38,27 +38,21 @@ export interface ResistInfo {
     dilutionRelationships: DilutionRelationship[];
 }
 
-export interface RatioConfig {
-    raw: number;
-    solvent: number;
-}
-
 export interface DilutionOptionConfig {
     concentration: string;
     recipeId: string;
-    ratio: RatioConfig;
+}
+
+export interface ProcessDefaultsConfig {
     mixTimeMs: number;
     settleTimeMs: number;
-    rawDensityGPerMl?: number;
-    solventDensityGPerMl?: number;
-    viscosityMinCp?: number;
-    viscosityMaxCp?: number;
 }
 
 export interface DilutionConfig {
     machine?: { eqptId?: string };
     personnel?: { operator?: string; checker?: string };
     labelPrintUrl?: string;
+    processDefaults: ProcessDefaultsConfig;
     dilutionOptions: DilutionOptionConfig[];
 }
 
@@ -88,8 +82,6 @@ export interface DilutionRecipeSnapshot {
     concentration: string;
     dilutionResistName: string;
     ratio: RatioDefinition;
-    rawDensityGPerMl?: number;
-    solventDensityGPerMl?: number;
     mixTimeMs: number;
     settleTimeMs: number;
     viscosityMinCp?: number;

@@ -249,8 +249,6 @@ pub struct DilutionRecipeSnapshot {
     pub concentration: String,
     pub dilution_resist_name: String,
     pub ratio: RatioDefinition,
-    pub raw_density_g_per_ml: Option<f64>,
-    pub solvent_density_g_per_ml: Option<f64>,
     pub mix_time_ms: u64,
     pub settle_time_ms: u64,
     pub viscosity_min_cp: Option<f64>,
@@ -423,6 +421,7 @@ pub struct Batch {
     pub print_success: Option<bool>,
 }
 
+#[derive(Debug)]
 pub struct AdapterResult<T> {
     pub value: T,
     pub request_payload: Value,

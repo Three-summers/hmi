@@ -2,6 +2,8 @@ mod config;
 mod manager;
 mod soap;
 mod soap_client;
+#[cfg(test)]
+mod soap_mock;
 mod types;
 
 pub use config::{default_workspace_root, DilutionConfig, DEFAULT_PROJECT_ID};

@@ -279,6 +279,15 @@ impl PrmsClient for SoapPrmsClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dilution::soap_mock::{self, MockSoapServer};
+    use std::net::TcpListener;
+
+    fn soap_client(server: &MockSoapServer) -> SoapPrmsClient {
+        SoapPrmsClient {
+            endpoint: server.endpoint(),
+            timeout_ms: 5_000,
+        }
+    }
 
     #[test]
     fn resist_info_msg_body_should_wrap_barcode() {
@@ -359,5 +368,131 @@ mod tests {
         assert_eq!(result.resist_sys_rrns, vec!["1", "2"]);
         assert_eq!(result.resist_barcodes, vec!["B1", "B2"]);
         assert_eq!(result.print_success, Some(true));
+    }
+
+    // ===== invoke 层：走真实 HTTP 请求到本地 mock 服务 =====
+
+    #[test]
+    fn invoke_should_send_soap_envelope_and_parse_resist_info() {
+        let server = MockSoapServer::start(soap_mock::respond_like_prms);
+        let client = soap_client(&server);
+        let result = client
+            .query_resist_info(QueryResistInfoRequest {
+                vendor_barcode: "MZJTST11234567826050700003".to_string(),
+            })
+            .expect("resistInfo over SOAP should succeed");
+        assert_eq!(result.value.resist_no, "MZJTST1");
+        assert_eq!(result.value.vendor_barcode, "MZJTST11234567826050700003");
+        assert_eq!(result.value.dilution_relationships.len(), 2);
+        assert_eq!(result.value.dilution_relationships[0].concentration, "60%");
+
+        // 服务端收到的请求应是完整 SOAP 封包，msgBody 以 XML 转义形式内嵌
+        let request = server
+            .received_bodies
+            .try_recv()
+            .expect("server should receive one request");
+        assert!(request.contains("soap:Envelope"), "{request}");
+        assert!(
+            request.contains("<temp:methodName>resistInfo</temp:methodName>"),
+            "{request}"
+        );
+        assert!(
+            request.contains("&lt;msgBody&gt;&lt;vendorBarcode&gt;MZJTST11234567826050700003&lt;/vendorBarcode&gt;&lt;/msgBody&gt;"),
+            "{request}"
+        );
+    }
+
+    #[test]
+    fn invoke_should_map_result_nonzero_to_error_with_error_desc() {
+        let server = MockSoapServer::start(soap_mock::respond_like_prms);
+        let client = soap_client(&server);
+        let error = client
+            .query_resist_info(QueryResistInfoRequest {
+                vendor_barcode: "UNKNOWN-123456".to_string(),
+            })
+            .expect_err("result=1 should fail");
+        assert!(error.contains("PRMS SOAP resistInfo failed"), "{error}");
+        assert!(error.contains("vendorBarcode not found"), "{error}");
+    }
+
+    #[test]
+    fn invoke_should_fail_on_http_error_status() {
+        // ureq 默认对 4xx/5xx 在 send() 阶段即返回错误（http status: 500），
+        // 不会进入 invoke 内部的 `PRMS SOAP HTTP {status}` 分支（该分支仅当
+        // 关闭 http_status_as_error 时才会触发，属防御性代码）
+        let server = MockSoapServer::start(|_request| (500, "Internal Server Error".to_string()));
+        let client = soap_client(&server);
+        let error = client
+            .query_resist_info(QueryResistInfoRequest {
+                vendor_barcode: "any".to_string(),
+            })
+            .expect_err("HTTP 500 should fail");
+        assert!(error.contains("PRMS SOAP request failed"), "{error}");
+        assert!(error.contains("500"), "{error}");
+    }
+
+    #[test]
+    fn invoke_should_fail_when_endpoint_unreachable() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
+        let port = listener.local_addr().expect("probe address").port();
+        drop(listener);
+        let client = SoapPrmsClient {
+            endpoint: format!("http://127.0.0.1:{port}/"),
+            timeout_ms: 5_000,
+        };
+        let error = client
+            .query_resist_info(QueryResistInfoRequest {
+                vendor_barcode: "any".to_string(),
+            })
+            .expect_err("unreachable endpoint should fail");
+        assert!(error.contains("PRMS SOAP request failed"), "{error}");
+    }
+
+    #[test]
+    fn check_batch_should_parse_result_over_http() {
+        let server = MockSoapServer::start(soap_mock::respond_like_prms);
+        let client = soap_client(&server);
+        let result = client
+            .check_batch(CheckBatchRequest {
+                vendor_barcode_list: vec!["MZJTST11234567826050700003".to_string()],
+                concentration: "70%".to_string(),
+            })
+            .expect("check over SOAP should succeed");
+        assert_eq!(result.value.resist_def_rrn, "2030625845182312450");
+        assert_eq!(result.value.concentration, "70%");
+        assert_eq!(result.value.barcode_count, 1);
+    }
+
+    #[test]
+    fn check_batch_should_fail_when_prms_rejects_concentration() {
+        let server = MockSoapServer::start(soap_mock::respond_like_prms);
+        let client = soap_client(&server);
+        let error = client
+            .check_batch(CheckBatchRequest {
+                vendor_barcode_list: vec!["REJECT-0001".to_string()],
+                concentration: "70%".to_string(),
+            })
+            .expect_err("rejected check should fail");
+        assert!(
+            error.contains("barcode not matched with concentration"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn create_dilution_batch_should_parse_barcodes_over_http() {
+        let server = MockSoapServer::start(soap_mock::respond_like_prms);
+        let client = soap_client(&server);
+        let result = client
+            .create_dilution_batch(CreateDilutionBatchRequest {
+                vendor_barcode_list: vec!["MZJTST11234567826050700003".to_string()],
+                resist_def_rrn: "2030625845182312450".to_string(),
+                bottle_count: 3,
+                ..Default::default()
+            })
+            .expect("batchCreate over SOAP should succeed");
+        assert_eq!(result.value.resist_barcodes.len(), 3);
+        assert_eq!(result.value.resist_sys_rrns.len(), 3);
+        assert_eq!(result.value.print_success, Some(true));
     }
 }

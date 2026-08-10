@@ -1,7 +1,8 @@
 //! 稀释批次状态机：PRMS SOAP 三步 + craftsmanship 本地工艺
 
 use super::config::{
-    default_workspace_root, load_dilution_config, DilutionConfig, DilutionOptionConfig,
+    default_workspace_root, load_dilution_config, parse_concentration_ratio, DilutionConfig,
+    DilutionOptionConfig, ProcessDefaultsConfig,
 };
 use super::types::*;
 use crate::craftsmanship::{RecipeRuntimeManager, RecipeRuntimeRunInput, RecipeRuntimeStatus};
@@ -251,7 +252,12 @@ impl DilutionManager {
                 .option_for_concentration(&concentration)
                 .cloned()
             {
-                lock_selected_option(batch, &info.dilution_relationships[0], &option)?;
+                lock_selected_option(
+                    batch,
+                    &info.dilution_relationships[0],
+                    &option,
+                    &self.config.process_defaults,
+                )?;
             }
         }
 
@@ -304,7 +310,12 @@ impl DilutionManager {
                 .collect(),
             concentration: request.concentration.clone(),
         })?;
-        lock_selected_option(batch, &relationship, &option)?;
+        lock_selected_option(
+            batch,
+            &relationship,
+            &option,
+            &self.config.process_defaults,
+        )?;
         batch.check_result = Some(check_result.value);
         self.repository.persist_batch_change(
             batch,
@@ -359,11 +370,13 @@ impl DilutionManager {
                 .option_for_concentration(&concentration)
                 .cloned()
                 .ok_or_else(|| format!("concentration `{concentration}` config is missing"))?;
+            let (ratio_raw, ratio_solvent) =
+                parse_concentration_ratio(&concentration)?;
             (
                 batch.id.clone(),
                 option.recipe_id.clone(),
-                option.ratio.raw,
-                option.ratio.solvent,
+                ratio_raw,
+                ratio_solvent,
                 batch.planned_bottle_count,
                 batch.target_bottle_mass_g,
                 request.raw_load.clone(),
@@ -951,17 +964,14 @@ fn lock_selected_option(
     batch: &mut Batch,
     relationship: &DilutionRelationship,
     option: &DilutionOptionConfig,
+    process_defaults: &ProcessDefaultsConfig,
 ) -> Result<(), String> {
-    if !option.ratio.raw.is_finite()
-        || !option.ratio.solvent.is_finite()
-        || option.ratio.raw <= 0.0
-        || option.ratio.solvent < 0.0
-    {
-        return Err(format!(
-            "invalid ratio for concentration `{}`",
-            relationship.concentration
-        ));
-    }
+    let (ratio_raw, ratio_solvent) = parse_concentration_ratio(&relationship.concentration)?;
+    let viscosity_limits = batch
+        .resist_info
+        .as_ref()
+        .map(|info| (info.viscosity_lower_limit, info.viscosity_upper_limit))
+        .unwrap_or((None, None));
     batch.resist_def_rrn = Some(relationship.sys_rrn.clone());
     batch.selected_concentration = Some(relationship.concentration.clone());
     batch.selected_recipe = Some(DilutionRecipeSnapshot {
@@ -975,15 +985,13 @@ fn lock_selected_option(
         concentration: relationship.concentration.clone(),
         dilution_resist_name: relationship.resist_name.clone(),
         ratio: RatioDefinition {
-            raw: option.ratio.raw,
-            solvent: option.ratio.solvent,
+            raw: ratio_raw,
+            solvent: ratio_solvent,
         },
-        raw_density_g_per_ml: option.raw_density_g_per_ml,
-        solvent_density_g_per_ml: option.solvent_density_g_per_ml,
-        mix_time_ms: option.mix_time_ms,
-        settle_time_ms: option.settle_time_ms,
-        viscosity_min_cp: option.viscosity_min_cp,
-        viscosity_max_cp: option.viscosity_max_cp,
+        mix_time_ms: process_defaults.mix_time_ms,
+        settle_time_ms: process_defaults.settle_time_ms,
+        viscosity_min_cp: viscosity_limits.0,
+        viscosity_max_cp: viscosity_limits.1,
         standard_bottle_mass_g: batch.target_bottle_mass_g,
         recipe_id: option.recipe_id.clone(),
     });
@@ -1130,6 +1138,7 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::dilution::{soap_mock, SoapPrmsClient};
     use tauri::test::mock_app;
 
     struct RejectingCheckPrmsClient;
@@ -1189,9 +1198,9 @@ mod tests {
         std::fs::create_dir_all(dir.join("projects/dilution-machine/signals")).unwrap();
         std::fs::write(
             dir.join("system/dilution.json"),
-            r#"{"machine":{"eqptId":"MCP-03"},"personnel":{"operator":"op-001","checker":"qa-001"},"dilutionOptions":[
-              {"concentration":"60%","recipeId":"test-recipe","ratio":{"raw":6,"solvent":4},"mixTimeMs":100,"settleTimeMs":100},
-              {"concentration":"70%","recipeId":"test-recipe","ratio":{"raw":7,"solvent":3},"mixTimeMs":100,"settleTimeMs":100}
+            r#"{"machine":{"eqptId":"MCP-03"},"personnel":{"operator":"op-001","checker":"qa-001"},"processDefaults":{"mixTimeMs":300000,"settleTimeMs":120000},"dilutionOptions":[
+              {"concentration":"60%","recipeId":"test-recipe"},
+              {"concentration":"70%","recipeId":"test-recipe","ratio":{"raw":99,"solvent":1},"mixTimeMs":100,"settleTimeMs":100}
             ]}"#,
         )
         .unwrap();
@@ -1474,6 +1483,91 @@ mod tests {
         assert_eq!(report.operator.as_deref(), Some("operator-override"));
         assert_eq!(report.checker.as_deref(), Some("checker-override"));
         assert_eq!(report.dilution_weight, Some(1428.6));
+        let recipe = finished.selected_recipe.unwrap();
+        assert_eq!(recipe.ratio.raw, 70.0);
+        assert_eq!(recipe.ratio.solvent, 30.0);
+        assert_eq!(recipe.mix_time_ms, 300_000);
+        assert_eq!(recipe.settle_time_ms, 120_000);
+        assert_eq!(recipe.viscosity_min_cp, Some(1.0));
+        assert_eq!(recipe.viscosity_max_cp, Some(10.0));
+    }
+
+    #[tokio::test]
+    async fn run_batch_should_complete_with_real_soap_client_against_local_mock_server() {
+        // 用本地 SOAP mock 服务替换 MockPrmsClient：整条稀释链路（resistInfo → check → batchCreate）
+        // 全部走真实 HTTP 请求，验证 SoapPrmsClient 与状态机的集成
+        let workspace = build_test_workspace("run-soap-e2e");
+        let app = mock_app();
+        let rt = RecipeRuntimeManager::default();
+        assert!(app.manage(rt.clone()));
+
+        let server = soap_mock::MockSoapServer::start(soap_mock::respond_like_prms);
+        let prms: Arc<dyn PrmsClient> = Arc::new(SoapPrmsClient::new(server.endpoint()));
+        let manager = DilutionManager::new_with(
+            default_log_root("run-soap-e2e"),
+            workspace,
+            "dilution-machine".to_string(),
+            prms,
+            Arc::new(MockDilutionDeviceGateway),
+        );
+        let batch = manager.create_batch(create_request()).unwrap();
+        let batch = manager
+            .scan_raw_resist(ScanRawResistRequest {
+                batch_id: batch.id.clone(),
+                barcode: "MZJTST11234567826050700003".to_string(),
+                operator_id: "op-001".to_string(),
+            })
+            .unwrap();
+        assert_eq!(batch.status, BatchStatus::ResistInfoResolved);
+        let batch = manager
+            .select_concentration(SelectConcentrationRequest {
+                batch_id: batch.id.clone(),
+                concentration: "70%".to_string(),
+            })
+            .unwrap();
+        assert_eq!(batch.status, BatchStatus::RecipeLocked);
+
+        let manager_run = manager.clone();
+        let app_handle = app.handle().clone();
+        let run_task: tokio::task::JoinHandle<Result<Batch, String>> = tokio::spawn(async move {
+            manager_run
+                .run_batch_with_app(
+                    Some(&app_handle),
+                    RunBatchRequest {
+                        batch_id: batch.id.clone(),
+                        raw_load: RawLoadRequest::ByMass {
+                            target_mass_g: 1000.0,
+                        },
+                        viscosity_readings_cp: Vec::new(),
+                    },
+                )
+                .await
+        });
+        // 等 recipe 进入 wait-signal 步骤后写入粘度信号（source=viscosityAvgCp → runtime_values）
+        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+        rt.write_signal_with_app(
+            Some(app.handle()),
+            "viscosity_ready".to_string(),
+            serde_json::json!(5.4),
+        )
+        .await
+        .unwrap();
+
+        let finished = run_task.await.unwrap().unwrap();
+        assert_eq!(finished.status, BatchStatus::Completed);
+        assert_eq!(finished.resist_barcodes.len(), 3);
+        assert!(finished.print_success == Some(true));
+
+        // mock 服务端应收到 3 个 SOAP 请求：resistInfo / check / batchCreate
+        let mut received = Vec::new();
+        while let Ok(body) = server.received_bodies.try_recv() {
+            received.push(body);
+        }
+        assert_eq!(received.len(), 3, "expected 3 SOAP requests, got {received:?}");
+        let all = received.join("\n");
+        assert!(all.contains(">resistInfo<"), "{all}");
+        assert!(all.contains(">check<"), "{all}");
+        assert!(all.contains(">batchCreate<"), "{all}");
     }
 
     #[tokio::test]

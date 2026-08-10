@@ -44,13 +44,11 @@ const now = 1_780_000_000_000;
 const config: DilutionConfig = {
     machine: { eqptId: "EQPT-001" },
     personnel: { operator: "张工", checker: "李工" },
+    processDefaults: { mixTimeMs: 300_000, settleTimeMs: 120_000 },
     dilutionOptions: [
         {
             concentration: "70%",
             recipeId: "dilute-70",
-            ratio: { raw: 7, solvent: 3 },
-            mixTimeMs: 300_000,
-            settleTimeMs: 120_000,
         },
     ],
 };
