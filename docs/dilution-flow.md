@@ -175,7 +175,7 @@ Draft → ScanningRawResist → ResistInfoResolved → RecipeLocked
 ```
 
 - `eqptId`：batchCreate 的机台字段，同时用于 PRMS 侧打印配置查询（PRINTSETUP）；**作为 `CreateBatchRequest.machineId` 未传时的默认值**
-- `operator` / `checker`：报表字段
+- `operator` / `checker`：默认人员值；创建批次时会固化到批次快照，运行与报表以批次快照为准
 - `labelPrintUrl` 可选；不配时 PRMS 按 `eqptId` 查打印地址
 
 ### 6.2 浓度工艺参数表

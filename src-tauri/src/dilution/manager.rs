@@ -1,11 +1,13 @@
 //! 稀释批次状态机：PRMS SOAP 三步 + craftsmanship 本地工艺
 
-use super::config::{default_workspace_root, load_dilution_config, DilutionConfig, DilutionOptionConfig};
+use super::config::{
+    default_workspace_root, load_dilution_config, DilutionConfig, DilutionOptionConfig,
+};
 use super::types::*;
 use crate::craftsmanship::{RecipeRuntimeManager, RecipeRuntimeRunInput, RecipeRuntimeStatus};
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
@@ -54,9 +56,16 @@ impl DilutionManager {
     }
 
     pub fn new_mock_with_log_root(log_root: PathBuf) -> Self {
+        Self::new_mock_with_log_root_and_workspace(log_root, default_workspace_root())
+    }
+
+    pub fn new_mock_with_log_root_and_workspace(
+        log_root: PathBuf,
+        workspace_root: PathBuf,
+    ) -> Self {
         Self::new_with(
             log_root,
-            default_workspace_root(),
+            workspace_root,
             super::config::DEFAULT_PROJECT_ID.to_string(),
             Arc::new(MockPrmsClient),
             Arc::new(MockDilutionDeviceGateway),
@@ -91,17 +100,26 @@ impl DilutionManager {
             .clone()
             .filter(|value| !value.trim().is_empty())
             .or_else(|| self.config.eqpt_id().map(str::to_string))
-            .ok_or_else(|| "machineId is required (and no default eqptId configured)".to_string())?;
+            .ok_or_else(|| {
+                "machineId is required (and no default eqptId configured)".to_string()
+            })?;
         let operator = request
             .operator_id
             .clone()
             .filter(|value| !value.trim().is_empty())
             .or_else(|| self.config.operator().map(str::to_string))
-            .ok_or_else(|| "operatorId is required (and no default operator configured)".to_string())?;
+            .ok_or_else(|| {
+                "operatorId is required (and no default operator configured)".to_string()
+            })?;
+        let checker = request
+            .checker_id
+            .clone()
+            .filter(|value| !value.trim().is_empty())
+            .or_else(|| self.config.checker().map(str::to_string));
         if request.planned_bottle_count == 0 {
             return Err("plannedBottleCount must be greater than 0".to_string());
         }
-        if request.target_bottle_mass_g <= 0.0 {
+        if !request.target_bottle_mass_g.is_finite() || request.target_bottle_mass_g <= 0.0 {
             return Err("targetBottleMassG must be greater than 0".to_string());
         }
 
@@ -113,6 +131,7 @@ impl DilutionManager {
             machine_id: eqpt_id.clone(),
             status: BatchStatus::Draft,
             operator_id: operator.clone(),
+            checker_id: checker,
             reviewer_ids: request.reviewer_ids,
             planned_bottle_count: request.planned_bottle_count,
             target_bottle_mass_g: request.target_bottle_mass_g,
@@ -183,8 +202,6 @@ impl DilutionManager {
                 batch.id, batch.status
             ));
         }
-        batch.status = BatchStatus::ScanningRawResist;
-
         let mapping_result = adapters.prms.query_resist_info(QueryResistInfoRequest {
             vendor_barcode: request.barcode.clone(),
         })?;
@@ -199,6 +216,7 @@ impl DilutionManager {
             }
         }
 
+        batch.status = BatchStatus::ScanningRawResist;
         let scan = RawResistScan {
             scan_id: format!("scan-{scan_event_id}"),
             barcode: request.barcode,
@@ -277,7 +295,6 @@ impl DilutionManager {
                     request.concentration
                 )
             })?;
-        lock_selected_option(batch, &relationship, &option)?;
         // 预校验（check 接口）：校验条码与浓度匹配，失败则不锁定配方
         let check_result = self.adapters.prms.check_batch(CheckBatchRequest {
             vendor_barcode_list: batch
@@ -287,6 +304,7 @@ impl DilutionManager {
                 .collect(),
             concentration: request.concentration.clone(),
         })?;
+        lock_selected_option(batch, &relationship, &option)?;
         batch.check_result = Some(check_result.value);
         self.repository.persist_batch_change(
             batch,
@@ -309,6 +327,8 @@ impl DilutionManager {
         let (
             batch_id,
             recipe_id,
+            ratio_raw,
+            ratio_solvent,
             bottle_count,
             target_mass,
             raw_load,
@@ -317,6 +337,7 @@ impl DilutionManager {
             resist_def_rrn,
             raw_barcodes,
             created_at_ms,
+            checker_id,
         ) = {
             let state = self.lock_state()?;
             let batch = state
@@ -341,6 +362,8 @@ impl DilutionManager {
             (
                 batch.id.clone(),
                 option.recipe_id.clone(),
+                option.ratio.raw,
+                option.ratio.solvent,
                 batch.planned_bottle_count,
                 batch.target_bottle_mass_g,
                 request.raw_load.clone(),
@@ -353,40 +376,58 @@ impl DilutionManager {
                     .map(|scan| scan.barcode.clone())
                     .collect::<Vec<_>>(),
                 batch.created_at_ms,
+                batch.checker_id.clone(),
             )
         };
-        let operator = self.config.operator().map(str::to_string);
-        let checker = self.config.checker().map(str::to_string);
+        let operator = Some(self.get_batch(&batch_id)?.operator_id);
+        let checker = checker_id;
         let resist_def_rrn = resist_def_rrn.ok_or_else(|| "resistDefRrn is missing".to_string())?;
 
-        // 1. 加载本地配方
-        rt.load_recipe(
-            None,
-            self.workspace_root.to_string_lossy().to_string(),
-            self.project_id.clone(),
-            recipe_id,
+        self.transition_batch(
+            &batch_id,
+            BatchStatus::LocalProcessRunning,
+            "local_process_started",
+            json!({ "recipeId": recipe_id }),
         )
-        .await?;
+        .map_err(|error| self.fail_batch(&batch_id, &error))?;
+
+        // 1. 加载本地配方
+        if let Err(error) = rt
+            .load_recipe(
+                None,
+                self.workspace_root.to_string_lossy().to_string(),
+                self.project_id.clone(),
+                recipe_id,
+            )
+            .await
+        {
+            return Err(self.fail_batch(&batch_id, &error));
+        }
 
         // 2. 启动（runInputs.parameters 传本地执行参数）
-        let raw_target_mass = resolve_raw_load_mass(&raw_load, target_mass)?;
+        let raw_target_mass = resolve_raw_load_mass(&raw_load, target_mass)
+            .map_err(|error| self.fail_batch(&batch_id, &error))?;
         let mut parameters = BTreeMap::new();
         parameters.insert("rawLoadTargetMassG".to_string(), json!(raw_target_mass));
         parameters.insert("bottleCount".to_string(), json!(bottle_count));
-        parameters.insert("ratioRaw".to_string(), json!(self.config_ratio_raw()));
-        parameters.insert("ratioSolvent".to_string(), json!(self.config_ratio_solvent()));
+        parameters.insert("ratioRaw".to_string(), json!(ratio_raw));
+        parameters.insert("ratioSolvent".to_string(), json!(ratio_solvent));
         parameters.insert("targetBottleMassG".to_string(), json!(target_mass));
-        rt.start_with_input_with_app(
-            Some(app_handle.clone()),
-            Some(RecipeRuntimeRunInput {
-                correlation_id: Some(batch_id.clone()),
-                operator_id: operator.clone(),
-                reviewer_ids: Vec::new(),
-                parameters,
-                domain: None,
-            }),
-        )
-        .await?;
+        if let Err(error) = rt
+            .start_with_input_with_app(
+                Some(app_handle.clone()),
+                Some(RecipeRuntimeRunInput {
+                    correlation_id: Some(batch_id.clone()),
+                    operator_id: operator.clone(),
+                    reviewer_ids: Vec::new(),
+                    parameters,
+                    domain: None,
+                }),
+            )
+            .await
+        {
+            return Err(self.fail_batch(&batch_id, &error));
+        }
 
         // 3. 轮询直到终态
         loop {
@@ -399,7 +440,9 @@ impl DilutionManager {
                         .map(|failure| failure.message)
                         .or(snapshot.last_message)
                         .unwrap_or_else(|| "local recipe did not complete".to_string());
-                    return Err(format!("local recipe failed: {message}"));
+                    return Err(
+                        self.fail_batch(&batch_id, &format!("local recipe failed: {message}"))
+                    );
                 }
                 _ => {
                     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -417,29 +460,49 @@ impl DilutionManager {
         let solvent_mass = runtime_values
             .get("solventActualMassG")
             .and_then(Value::as_f64)
-            .unwrap_or_else(|| raw_mass * self.config_ratio_solvent() / self.config_ratio_raw());
+            .unwrap_or_else(|| raw_mass * ratio_solvent / ratio_raw);
         let viscosity = runtime_values
             .get("viscosityAvgCp")
             .and_then(Value::as_f64)
             .or_else(|| request.viscosity_readings_cp.first().copied())
-            .ok_or_else(|| "local recipe did not produce a viscosity result".to_string())?;
+            .ok_or_else(|| "local recipe did not produce a viscosity result".to_string())
+            .map_err(|error| self.fail_batch(&batch_id, &error))?;
+
+        self.transition_batch(
+            &batch_id,
+            BatchStatus::LocalProcessCompleted,
+            "local_process_completed",
+            json!({ "viscosity": round1(viscosity) }),
+        )
+        .map_err(|error| self.fail_batch(&batch_id, &error))?;
 
         // 5. PRMS batchCreate（不放锁跨 IO）
-        {
-            let mut state = self.lock_state()?;
-            state.batch_mut(batch_id.as_str())?.status = BatchStatus::BatchCreating;
-        }
-        let resist_info = resist_info.ok_or_else(|| "resist info is missing".to_string())?;
+        self.transition_batch(
+            &batch_id,
+            BatchStatus::BatchCreating,
+            "batch_create_started",
+            json!({}),
+        )
+        .map_err(|error| self.fail_batch(&batch_id, &error))?;
+        let resist_info = resist_info
+            .ok_or_else(|| "resist info is missing".to_string())
+            .map_err(|error| self.fail_batch(&batch_id, &error))?;
         let dilution_resist_name = resist_info
             .dilution_relationships
             .iter()
             .find(|relationship| relationship.concentration == selected_concentration)
             .map(|relationship| relationship.resist_name.clone())
             .unwrap_or_default();
+        let machine_id = self
+            .batch_machine_id(&batch_id)
+            .map_err(|error| self.fail_batch(&batch_id, &error))?;
+        let source_bottle_count =
+            self.batch_scan_count(&batch_id)
+                .map_err(|error| self.fail_batch(&batch_id, &error))? as u32;
         let create_request = CreateDilutionBatchRequest {
             vendor_barcode_list: raw_barcodes,
             resist_def_rrn,
-            eqpt_id: Some(self.batch_machine_id(&batch_id)?),
+            eqpt_id: Some(machine_id),
             bottle_count,
             viscosity: Some(round1(viscosity)),
             label_print_url: self
@@ -450,7 +513,7 @@ impl DilutionManager {
             source_resist_name: Some(resist_info.resist_name.clone()),
             source_resist_barcode: Some(resist_info.vendor_barcode.clone()),
             source_resist_weight: Some(round1(raw_mass)),
-            source_bottle_count: Some(self.batch_scan_count(&batch_id)? as u32),
+            source_bottle_count: Some(source_bottle_count),
             operator,
             checker,
             mix_start_time: Some(format_unix_ms(created_at_ms)),
@@ -462,11 +525,32 @@ impl DilutionManager {
             comment: Some("本地稀释批次".to_string()),
             ..Default::default()
         };
-        let create_result = self.adapters.prms.create_dilution_batch(create_request)?;
+        let create_result = self
+            .adapters
+            .prms
+            .create_dilution_batch(create_request)
+            .map_err(|error| self.fail_batch(&batch_id, &error))?;
         let created = create_result.value;
         let barcodes = created.resist_barcodes.clone();
         let sys_rrns = created.resist_sys_rrns.clone();
         let print_success = created.print_success;
+
+        if barcodes.len() != bottle_count as usize {
+            let error = format!(
+                "PRMS returned {} dilution barcodes for {} bottles",
+                barcodes.len(),
+                bottle_count
+            );
+            return Err(self.fail_batch(&batch_id, &error));
+        }
+        if sys_rrns.len() != bottle_count as usize {
+            let error = format!(
+                "PRMS returned {} system RRNs for {} bottles",
+                sys_rrns.len(),
+                bottle_count
+            );
+            return Err(self.fail_batch(&batch_id, &error));
+        }
 
         // 6. 分装（条码关联）
         let mut state = self.lock_state()?;
@@ -482,36 +566,77 @@ impl DilutionManager {
         batch.resist_barcodes = barcodes.clone();
         batch.resist_sys_rrns = sys_rrns.clone();
         batch.print_success = print_success;
+        let persist_result = self.repository.persist_batch_change(
+            batch,
+            "batch_dispensing",
+            json!({ "barcodeCount": barcodes.len() }),
+        );
         drop(state);
+        persist_result.map_err(|error| self.fail_batch(&batch_id, &error))?;
 
-        let dispensed = self.adapters.devices.dispense_outputs(DispenseOutputRequest {
-            total_mass_g: raw_mass + solvent_mass,
-            bottle_count,
-            target_bottle_mass_g: target_mass,
-            timestamp_ms: now_ms(),
-        })?;
+        let dispensed = self
+            .adapters
+            .devices
+            .dispense_outputs(DispenseOutputRequest {
+                total_mass_g: raw_mass + solvent_mass,
+                bottle_count,
+                target_bottle_mass_g: target_mass,
+                timestamp_ms: now_ms(),
+            })
+            .map_err(|error| self.fail_batch(&batch_id, &error))?;
+
+        if dispensed.len() != bottle_count as usize {
+            let error = format!(
+                "dispense gateway returned {} bottles for {} requested",
+                dispensed.len(),
+                bottle_count
+            );
+            return Err(self.fail_batch(&batch_id, &error));
+        }
+        for dispensed_bottle in &dispensed {
+            if dispensed_bottle.index == 0 || dispensed_bottle.index > bottle_count {
+                let error = format!(
+                    "dispense gateway returned invalid bottle index {}",
+                    dispensed_bottle.index
+                );
+                return Err(self.fail_batch(&batch_id, &error));
+            }
+        }
+        let mut indexes = BTreeSet::new();
+        if dispensed
+            .iter()
+            .any(|dispensed_bottle| !indexes.insert(dispensed_bottle.index))
+        {
+            return Err(self.fail_batch(
+                &batch_id,
+                "dispense gateway returned duplicate bottle indexes",
+            ));
+        }
 
         let mut state = self.lock_state()?;
         let batch = state.batch_mut(batch_id.as_str())?;
         batch.output_bottles.clear();
         for dispensed_bottle in dispensed {
-            if dispensed_bottle.index == 0 {
-                return Err(
-                    "dispense gateway returned bottle index 0 (expected 1-based)".to_string(),
-                );
-            }
             let barcode = barcodes
                 .get((dispensed_bottle.index - 1) as usize)
                 .cloned()
-                .ok_or_else(|| format!("PRMS did not return barcode for bottle {}", dispensed_bottle.index))?;
-            batch.metering_records.push(dispensed_bottle.metering_record.clone());
+                .ok_or_else(|| {
+                    format!(
+                        "PRMS did not return barcode for bottle {}",
+                        dispensed_bottle.index
+                    )
+                })?;
+            batch
+                .metering_records
+                .push(dispensed_bottle.metering_record.clone());
             batch.output_bottles.push(OutputBottle {
                 index: dispensed_bottle.index,
                 target_mass_g: target_mass,
                 actual_mass_g: Some(dispensed_bottle.actual_mass_g),
                 dilution_barcode: Some(barcode),
                 barcode_status: BarcodeStatus::Assigned,
-                print_status: print_success.unwrap_or(false)
+                print_status: print_success
+                    .unwrap_or(false)
                     .then_some(PrintStatus::Printed)
                     .unwrap_or(PrintStatus::Pending),
                 dispensed_at_ms: Some(now_ms()),
@@ -521,7 +646,7 @@ impl DilutionManager {
             });
         }
 
-        batch.report = Some(build_report(batch, &self.config, viscosity, raw_mass, solvent_mass));
+        batch.report = Some(build_report(batch, viscosity, raw_mass, solvent_mass));
         batch.status = BatchStatus::Completed;
         batch.completed_at_ms = Some(now_ms());
 
@@ -533,28 +658,39 @@ impl DilutionManager {
         Ok(batch.clone())
     }
 
-    fn config_ratio_raw(&self) -> f64 {
-        self.config
-            .dilution_options
-            .first()
-            .map(|option| option.ratio.raw)
-            .unwrap_or(1.0)
-    }
-
-    fn config_ratio_solvent(&self) -> f64 {
-        self.config
-            .dilution_options
-            .first()
-            .map(|option| option.ratio.solvent)
-            .unwrap_or(0.0)
-    }
-
     fn batch_machine_id(&self, batch_id: &str) -> Result<String, String> {
         Ok(self.get_batch(batch_id)?.machine_id)
     }
 
     fn batch_scan_count(&self, batch_id: &str) -> Result<usize, String> {
         Ok(self.get_batch(batch_id)?.raw_scans.len())
+    }
+
+    fn transition_batch(
+        &self,
+        batch_id: &str,
+        status: BatchStatus,
+        kind: &str,
+        payload: Value,
+    ) -> Result<(), String> {
+        let mut state = self.lock_state()?;
+        let batch = state.batch_mut(batch_id)?;
+        batch.status = status;
+        self.repository.persist_batch_change(batch, kind, payload)
+    }
+
+    fn fail_batch(&self, batch_id: &str, error: &str) -> String {
+        let persist_result = self.lock_state().and_then(|mut state| {
+            let batch = state.batch_mut(batch_id)?;
+            batch.status = BatchStatus::Failed;
+            batch.alarms.push(error.to_string());
+            self.repository
+                .persist_batch_change(batch, "batch_failed", json!({ "error": error }))
+        });
+        if let Err(persist_error) = persist_result {
+            return format!("{error}; failed to persist failed status: {persist_error}");
+        }
+        error.to_string()
     }
 
     fn lock_state(&self) -> Result<std::sync::MutexGuard<'_, DilutionState>, String> {
@@ -816,6 +952,16 @@ fn lock_selected_option(
     relationship: &DilutionRelationship,
     option: &DilutionOptionConfig,
 ) -> Result<(), String> {
+    if !option.ratio.raw.is_finite()
+        || !option.ratio.solvent.is_finite()
+        || option.ratio.raw <= 0.0
+        || option.ratio.solvent < 0.0
+    {
+        return Err(format!(
+            "invalid ratio for concentration `{}`",
+            relationship.concentration
+        ));
+    }
     batch.resist_def_rrn = Some(relationship.sys_rrn.clone());
     batch.selected_concentration = Some(relationship.concentration.clone());
     batch.selected_recipe = Some(DilutionRecipeSnapshot {
@@ -858,7 +1004,7 @@ fn resolve_raw_load_mass(
             *bottle_count as f64 * standard_bottle_mass_g
         }
     };
-    if mass <= 0.0 {
+    if !mass.is_finite() || !standard_bottle_mass_g.is_finite() || mass <= 0.0 {
         return Err("raw load mass must be greater than 0".to_string());
     }
     Ok(round1(mass))
@@ -885,19 +1031,13 @@ fn sync_record(
     }
 }
 
-fn build_report(
-    batch: &Batch,
-    config: &DilutionConfig,
-    viscosity: f64,
-    raw_mass: f64,
-    solvent_mass: f64,
-) -> DilutionReport {
+fn build_report(batch: &Batch, viscosity: f64, raw_mass: f64, solvent_mass: f64) -> DilutionReport {
     DilutionReport {
         report_id: format!("report-{}", batch.id),
         batch_id: batch.id.clone(),
         eqpt_id: Some(batch.machine_id.clone()),
-        operator: config.operator().map(str::to_string),
-        checker: config.checker().map(str::to_string),
+        operator: Some(batch.operator_id.clone()),
+        checker: batch.checker_id.clone(),
         source_resist_name: batch
             .resist_info
             .as_ref()
@@ -992,10 +1132,36 @@ mod tests {
     use super::*;
     use tauri::test::mock_app;
 
+    struct RejectingCheckPrmsClient;
+
+    impl PrmsClient for RejectingCheckPrmsClient {
+        fn query_resist_info(
+            &self,
+            request: QueryResistInfoRequest,
+        ) -> Result<AdapterResult<ResistInfo>, String> {
+            MockPrmsClient.query_resist_info(request)
+        }
+
+        fn check_batch(
+            &self,
+            _request: CheckBatchRequest,
+        ) -> Result<AdapterResult<CheckResult>, String> {
+            Err("check rejected by PRMS".to_string())
+        }
+
+        fn create_dilution_batch(
+            &self,
+            request: CreateDilutionBatchRequest,
+        ) -> Result<AdapterResult<CreateDilutionBatchResult>, String> {
+            MockPrmsClient.create_dilution_batch(request)
+        }
+    }
+
     fn create_request() -> CreateBatchRequest {
         CreateBatchRequest {
             machine_id: Some("MCP-03".to_string()),
             operator_id: Some("op-001".to_string()),
+            checker_id: Some("qa-001".to_string()),
             reviewer_ids: vec!["qa-001".to_string()],
             planned_bottle_count: 3,
             target_bottle_mass_g: 500.0,
@@ -1119,6 +1285,7 @@ mod tests {
             .create_batch(CreateBatchRequest {
                 machine_id: None,
                 operator_id: None,
+                checker_id: None,
                 reviewer_ids: Vec::new(),
                 planned_bottle_count: 1,
                 target_bottle_mass_g: 500.0,
@@ -1126,6 +1293,38 @@ mod tests {
             .unwrap();
         assert_eq!(batch.machine_id, "MCP-03");
         assert_eq!(batch.operator_id, "op-001");
+        assert_eq!(batch.checker_id.as_deref(), Some("qa-001"));
+    }
+
+    #[test]
+    fn select_concentration_should_not_lock_recipe_when_prms_check_fails() {
+        let workspace = build_test_workspace("check-failure");
+        let manager = DilutionManager::new_with(
+            default_log_root("check-failure"),
+            workspace,
+            "dilution-machine".to_string(),
+            Arc::new(RejectingCheckPrmsClient),
+            Arc::new(MockDilutionDeviceGateway),
+        );
+        let batch = manager.create_batch(create_request()).unwrap();
+        let batch = manager
+            .scan_raw_resist(ScanRawResistRequest {
+                batch_id: batch.id.clone(),
+                barcode: "MULTI-LOT01-B01".to_string(),
+                operator_id: "op-001".to_string(),
+            })
+            .unwrap();
+
+        let result = manager.select_concentration(SelectConcentrationRequest {
+            batch_id: batch.id.clone(),
+            concentration: "70%".to_string(),
+        });
+        assert!(result.unwrap_err().contains("check rejected"));
+
+        let current = manager.get_batch(&batch.id).unwrap();
+        assert_eq!(current.status, BatchStatus::ResistInfoResolved);
+        assert!(current.selected_recipe.is_none());
+        assert!(current.resist_def_rrn.is_none());
     }
 
     #[test]
@@ -1205,7 +1404,7 @@ mod tests {
         });
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not configured"));
-     }
+    }
 
     #[tokio::test]
     async fn run_batch_should_drive_craftsmanship_recipe_and_complete() {
@@ -1221,7 +1420,10 @@ mod tests {
             Arc::new(MockPrmsClient),
             Arc::new(MockDilutionDeviceGateway),
         );
-        let batch = manager.create_batch(create_request()).unwrap();
+        let mut request = create_request();
+        request.operator_id = Some("operator-override".to_string());
+        request.checker_id = Some("checker-override".to_string());
+        let batch = manager.create_batch(request).unwrap();
         let batch = manager
             .scan_raw_resist(ScanRawResistRequest {
                 batch_id: batch.id.clone(),
@@ -1232,7 +1434,7 @@ mod tests {
         let batch = manager
             .select_concentration(SelectConcentrationRequest {
                 batch_id: batch.id.clone(),
-                concentration: "60%".to_string(),
+                concentration: "70%".to_string(),
             })
             .unwrap();
 
@@ -1269,6 +1471,9 @@ mod tests {
         let report = finished.report.unwrap();
         assert_eq!(report.viscosity, Some(5.4));
         assert_eq!(report.output_bottles.len(), 3);
+        assert_eq!(report.operator.as_deref(), Some("operator-override"));
+        assert_eq!(report.checker.as_deref(), Some("checker-override"));
+        assert_eq!(report.dilution_weight, Some(1428.6));
     }
 
     #[tokio::test]
@@ -1314,5 +1519,9 @@ mod tests {
             )
             .await;
         assert!(result.is_err());
+        assert_eq!(
+            manager.get_batch(&batch.id).unwrap().status,
+            BatchStatus::Failed
+        );
     }
 }

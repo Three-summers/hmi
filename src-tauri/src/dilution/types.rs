@@ -79,6 +79,8 @@ pub struct CreateBatchRequest {
     #[serde(default)]
     pub operator_id: Option<String>,
     #[serde(default)]
+    pub checker_id: Option<String>,
+    #[serde(default)]
     pub reviewer_ids: Vec<String>,
     pub planned_bottle_count: u32,
     pub target_bottle_mass_g: f64,
@@ -381,6 +383,8 @@ pub struct Batch {
     pub machine_id: String,
     pub status: BatchStatus,
     pub operator_id: String,
+    #[serde(default)]
+    pub checker_id: Option<String>,
     pub reviewer_ids: Vec<String>,
     pub planned_bottle_count: u32,
     pub target_bottle_mass_g: f64,
@@ -431,7 +435,8 @@ pub trait PrmsClient: Send + Sync {
         request: QueryResistInfoRequest,
     ) -> Result<AdapterResult<ResistInfo>, String>;
 
-    fn check_batch(&self, request: CheckBatchRequest) -> Result<AdapterResult<CheckResult>, String>;
+    fn check_batch(&self, request: CheckBatchRequest)
+        -> Result<AdapterResult<CheckResult>, String>;
 
     fn create_dilution_batch(
         &self,

@@ -86,13 +86,21 @@ pub fn run() {
             // 初始化光阻稀释领域状态
             let log_dir =
                 log_paths::ensure_log_dir(log_paths::resolve_log_dir(Some(app.handle()))?)?;
+            let workspace_root = if cfg!(debug_assertions) {
+                dilution::default_workspace_root()
+            } else {
+                app.path()
+                    .resource_dir()
+                    .map_err(|error| format!("failed to resolve bundled workspace: {error}"))?
+                    .join("workspace")
+            };
             // PRMS SOAP 地址通过 env PRMS_SOAP_ENDPOINT 配置；未配置时使用 mock adapter
             let dilution_manager = match std::env::var("PRMS_SOAP_ENDPOINT") {
                 Ok(endpoint) if !endpoint.trim().is_empty() => {
                     log::info!("dilution: using real PRMS SOAP endpoint {endpoint}");
                     dilution::DilutionManager::new_with(
                         log_dir,
-                        dilution::default_workspace_root(),
+                        workspace_root.clone(),
                         dilution::DEFAULT_PROJECT_ID.to_string(),
                         std::sync::Arc::new(dilution::SoapPrmsClient::new(endpoint)),
                         std::sync::Arc::new(dilution::MockDilutionDeviceGateway),
@@ -100,7 +108,10 @@ pub fn run() {
                 }
                 _ => {
                     log::info!("dilution: PRMS_SOAP_ENDPOINT not set; using mock PRMS adapter");
-                    dilution::DilutionManager::new_mock_with_log_root(log_dir)
+                    dilution::DilutionManager::new_mock_with_log_root_and_workspace(
+                        log_dir,
+                        workspace_root,
+                    )
                 }
             };
             app.manage(dilution_manager);

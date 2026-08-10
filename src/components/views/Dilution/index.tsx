@@ -258,6 +258,9 @@ export default function DilutionView() {
             try {
                 const nextBatch = await action();
                 setBatch(nextBatch);
+                setMachineId(nextBatch.machineId);
+                setOperatorId(nextBatch.operatorId);
+                setChecker(nextBatch.checkerId ?? "");
                 success(successTitle, nextBatch.id);
             } catch (err) {
                 error(t("dilution.notifications.operationFailed"), toErrorMessage(err));
@@ -275,12 +278,13 @@ export default function DilutionView() {
                     dilutionCreateBatch({
                         machineId: machineId || undefined,
                         operatorId: operatorId || undefined,
+                        checkerId: checker || undefined,
                         plannedBottleCount: bottleCount,
                         targetBottleMassG: targetMassG,
                     }),
                 t("dilution.notifications.batchCreated"),
             ),
-        [runAction, t, machineId, operatorId, bottleCount, targetMassG],
+        [runAction, t, machineId, operatorId, checker, bottleCount, targetMassG],
     );
 
     const handleLoadLatestBatch = useCallback(

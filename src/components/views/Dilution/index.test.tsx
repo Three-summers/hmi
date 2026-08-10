@@ -291,6 +291,7 @@ describe("DilutionView", () => {
             expect(dilutionApi.dilutionCreateBatch).toHaveBeenCalledWith({
                 machineId: "EQPT-001",
                 operatorId: "张工",
+                checkerId: "李工",
                 plannedBottleCount: 3,
                 targetBottleMassG: 500,
             });

@@ -202,6 +202,7 @@ export interface Batch {
     machineId: string;
     status: BatchStatus;
     operatorId: string;
+    checkerId?: string;
     reviewerIds: string[];
     plannedBottleCount: number;
     targetBottleMassG: number;
@@ -227,6 +228,7 @@ export interface Batch {
 export interface CreateBatchRequest {
     machineId?: string;
     operatorId?: string;
+    checkerId?: string;
     reviewerIds?: string[];
     plannedBottleCount: number;
     targetBottleMassG: number;
