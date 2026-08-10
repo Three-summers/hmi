@@ -1,6 +1,7 @@
-//! 本地 SOAP mock 服务（仅测试构建）：用 std 手写 HTTP/1.1 服务器，
+//! 本地 SOAP mock 服务：用 std 手写 HTTP/1.1 服务器，
 //! 模拟 PRMS `InvokeCommonRVMessageByXMLMsgBody` 统一入口，
-//! 用于验证 `SoapPrmsClient::invoke` 的 HTTP 传输层（封包发送 / 状态码 / 响应解析）。
+//! 用于测试 `SoapPrmsClient::invoke` 的 HTTP 传输层（封包发送 / 状态码 / 响应解析），
+//! 也供 `soap_cli mock` 子命令作为内置联调服务端使用。
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -19,8 +20,17 @@ pub struct MockSoapServer {
 impl MockSoapServer {
     /// 绑定 127.0.0.1 随机端口并启动服务线程
     pub fn start(responder: impl Fn(&str) -> (u16, String) + Send + Sync + 'static) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind mock soap server");
-        let addr = listener.local_addr().expect("mock soap server address");
+        Self::start_on_port(0, responder).expect("bind mock soap server")
+    }
+
+    /// 绑定 127.0.0.1 指定端口（0 = 随机端口）并启动服务线程；
+    /// 端口被占用等绑定失败通过 `io::Result` 返回
+    pub fn start_on_port(
+        port: u16,
+        responder: impl Fn(&str) -> (u16, String) + Send + Sync + 'static,
+    ) -> std::io::Result<Self> {
+        let listener = TcpListener::bind(("127.0.0.1", port))?;
+        let addr = listener.local_addr()?;
         let (tx, received_bodies) = mpsc::channel();
         let _handle = thread::spawn(move || {
             for stream in listener.incoming() {
@@ -29,10 +39,10 @@ impl MockSoapServer {
                 let _ = serve(stream, &responder, &tx);
             }
         });
-        Self {
+        Ok(Self {
             addr,
             received_bodies,
-        }
+        })
     }
 
     pub fn endpoint(&self) -> String {
@@ -99,7 +109,7 @@ pub fn soap_envelope(result: i64, error_desc: Option<&str>, return_msg_body: Opt
 
 pub fn resist_info_msg_body(barcode: &str) -> String {
     format!(
-        r#"<msgBody><resistNO>MZJTST1</resistNO><resistName>光刻胶A</resistName><concentration>1.0</concentration><mtrNO>MTR001</mtrNO><defrostTime>08:00</defrostTime><vendorBarcode>{barcode}</vendorBarcode><defBatchNO>12345678</defBatchNO><toResistNo>MZJTST1</toResistNo><expireTime>260507</expireTime><dilutionRelationship><resistNO>MZJTST1-D</resistNO><resistName>稀释光刻胶A 60%</resistName><concentration>60%</concentration><sysRrn>2030625845182312449</sysRrn></dilutionRelationship><dilutionRelationship><resistNO>MZJTST1-D2</resistNO><resistName>稀释光刻胶A2 70%</resistName><concentration>70%</concentration><sysRrn>2030625845182312450</sysRrn></dilutionRelationship></msgBody>"#
+        r#"<msgBody><resistNO>MZJTST1</resistNO><resistName>光刻胶A</resistName><concentration>1.0</concentration><mtrNO>MTR001</mtrNO><defrostTime>08:00</defrostTime><vendorBarcode>{barcode}</vendorBarcode><defBatchNO>12345678</defBatchNO><toResistNo>MZJTST1</toResistNo><expireTime>260507</expireTime><dilutionRelationship><resistNO>MZJTST1-D</resistNO><resistName>稀释光刻胶A 0.01:2.222</resistName><concentration>0.01:2.222</concentration><sysRrn>2030625845182312449</sysRrn></dilutionRelationship><dilutionRelationship><resistNO>MZJTST1-D2</resistNO><resistName>稀释光刻胶A2 0.01:2.5</resistName><concentration>0.01:2.5</concentration><sysRrn>2030625845182312450</sysRrn></dilutionRelationship></msgBody>"#
     )
 }
 

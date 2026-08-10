@@ -1,7 +1,7 @@
 mod comm;
 mod commands;
 mod craftsmanship;
-mod dilution;
+pub mod dilution;
 mod log_paths;
 mod secs_rpc;
 mod system;

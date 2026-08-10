@@ -384,7 +384,7 @@ mod tests {
         assert_eq!(result.value.resist_no, "MZJTST1");
         assert_eq!(result.value.vendor_barcode, "MZJTST11234567826050700003");
         assert_eq!(result.value.dilution_relationships.len(), 2);
-        assert_eq!(result.value.dilution_relationships[0].concentration, "60%");
+        assert_eq!(result.value.dilution_relationships[0].concentration, "0.01:2.222");
 
         // 服务端收到的请求应是完整 SOAP 封包，msgBody 以 XML 转义形式内嵌
         let request = server
@@ -455,11 +455,11 @@ mod tests {
         let result = client
             .check_batch(CheckBatchRequest {
                 vendor_barcode_list: vec!["MZJTST11234567826050700003".to_string()],
-                concentration: "70%".to_string(),
+                concentration: "0.01:2.222".to_string(),
             })
             .expect("check over SOAP should succeed");
         assert_eq!(result.value.resist_def_rrn, "2030625845182312450");
-        assert_eq!(result.value.concentration, "70%");
+        assert_eq!(result.value.concentration, "0.01:2.222");
         assert_eq!(result.value.barcode_count, 1);
     }
 
@@ -470,7 +470,7 @@ mod tests {
         let error = client
             .check_batch(CheckBatchRequest {
                 vendor_barcode_list: vec!["REJECT-0001".to_string()],
-                concentration: "70%".to_string(),
+                concentration: "0.01:2.222".to_string(),
             })
             .expect_err("rejected check should fail");
         assert!(

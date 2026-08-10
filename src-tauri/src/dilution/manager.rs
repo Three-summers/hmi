@@ -1497,6 +1497,13 @@ mod tests {
         // 用本地 SOAP mock 服务替换 MockPrmsClient：整条稀释链路（resistInfo → check → batchCreate）
         // 全部走真实 HTTP 请求，验证 SoapPrmsClient 与状态机的集成
         let workspace = build_test_workspace("run-soap-e2e");
+        // PRMS 浓度是 raw:solvent 比例形式，覆盖测试 workspace 的配置以匹配 mock 返回的关系
+        let dilution_json = workspace.join("system/dilution.json");
+        let content = std::fs::read_to_string(&dilution_json)
+            .unwrap()
+            .replace("60%", "0.01:2.222")
+            .replace("70%", "0.01:2.5");
+        std::fs::write(&dilution_json, content).unwrap();
         let app = mock_app();
         let rt = RecipeRuntimeManager::default();
         assert!(app.manage(rt.clone()));
@@ -1522,7 +1529,7 @@ mod tests {
         let batch = manager
             .select_concentration(SelectConcentrationRequest {
                 batch_id: batch.id.clone(),
-                concentration: "70%".to_string(),
+                concentration: "0.01:2.222".to_string(),
             })
             .unwrap();
         assert_eq!(batch.status, BatchStatus::RecipeLocked);

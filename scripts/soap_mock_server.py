@@ -2,7 +2,7 @@
 """本地 PRMS SOAP mock 服务（验证 dilution 的 SOAP invoke 层 / 真实 App UI 冒烟）
 
 模拟 PRMS 的 `InvokeCommonRVMessageByXMLMsgBody` 统一 SOAP 入口，响应：
-- resistInfo  → 原液信息 + 2 个稀释浓度关系（60% / 70%）
+- resistInfo  → 原液信息 + 2 个稀释浓度关系（0.01:2.222 / 0.01:2.5）
 - check       → resistDefRrn / batchNO / expireDate
 - batchCreate → 按请求 bottleCount 返回等量 resistSysRrn[] / resistBarcode[] / printSuccess
 
@@ -16,8 +16,9 @@
     然后另开终端：
     PRMS_SOAP_ENDPOINT=http://127.0.0.1:8899/ ./dev.sh
 
-注意：workspace system/dilution.json 只配置了 70% 浓度，mock 返回 60%/70%
-两个关系时，UI 选 60% 会按设计提示"未配置"；选 70% 正常。
+注意：PRMS 浓度使用 raw:solvent 比例形式（如 0.01:2.222），不支持百分比。
+workspace system/dilution.json 只配置了 0.01:2.222 浓度，mock 返回两个关系时，
+UI 选 0.01:2.5 会按设计提示"未配置"；选 0.01:2.222 正常。
 """
 import html
 import re
@@ -26,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SOAP_ACTION = "InvokeCommonRVMessageByXMLMsgBody"
 
-RESIST_INFO_MSG_BODY = """<msgBody><resistNO>MZJTST1</resistNO><resistName>光刻胶A</resistName><concentration>1.0</concentration><mtrNO>MTR001</mtrNO><defrostTime>08:00</defrostTime><vendorBarcode>{barcode}</vendorBarcode><defBatchNO>12345678</defBatchNO><toResistNo>MZJTST1</toResistNo><expireTime>260507</expireTime><dilutionRelationship><resistNO>MZJTST1-D</resistNO><resistName>稀释光刻胶A 60%</resistName><concentration>60%</concentration><sysRrn>2030625845182312449</sysRrn></dilutionRelationship><dilutionRelationship><resistNO>MZJTST1-D2</resistNO><resistName>稀释光刻胶A2 70%</resistName><concentration>70%</concentration><sysRrn>2030625845182312450</sysRrn></dilutionRelationship></msgBody>"""
+RESIST_INFO_MSG_BODY = """<msgBody><resistNO>MZJTST1</resistNO><resistName>光刻胶A</resistName><concentration>1.0</concentration><mtrNO>MTR001</mtrNO><defrostTime>08:00</defrostTime><vendorBarcode>{barcode}</vendorBarcode><defBatchNO>12345678</defBatchNO><toResistNo>MZJTST1</toResistNo><expireTime>260507</expireTime><dilutionRelationship><resistNO>MZJTST1-D</resistNO><resistName>稀释光刻胶A 0.01:2.222</resistName><concentration>0.01:2.222</concentration><sysRrn>2030625845182312449</sysRrn></dilutionRelationship><dilutionRelationship><resistNO>MZJTST1-D2</resistNO><resistName>稀释光刻胶A2 0.01:2.5</resistName><concentration>0.01:2.5</concentration><sysRrn>2030625845182312450</sysRrn></dilutionRelationship></msgBody>"""
 
 CHECK_MSG_BODY = "<msgBody><resistNO>MZJTST1</resistNO><defResistNO>MZJTST1-D</defResistNO><resistDefRrn>2030625845182312450</resistDefRrn><batchNO>12345678</batchNO><expireDate>260507</expireDate><concentration>{concentration}</concentration><barcodeCount>1</barcodeCount></msgBody>"
 
