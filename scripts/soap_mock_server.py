@@ -29,7 +29,12 @@ SOAP_ACTION = "InvokeCommonRVMessageByXMLMsgBody"
 
 RESIST_INFO_MSG_BODY = """<msgBody><resistNO>MZJTST1</resistNO><resistName>光刻胶A</resistName><concentration>1.0</concentration><mtrNO>MTR001</mtrNO><defrostTime>08:00</defrostTime><vendorBarcode>{barcode}</vendorBarcode><defBatchNO>12345678</defBatchNO><toResistNo>MZJTST1</toResistNo><expireTime>260507</expireTime><dilutionRelationship><resistNO>MZJTST1-D</resistNO><resistName>稀释光刻胶A 0.01:2.222</resistName><concentration>0.01:2.222</concentration><sysRrn>2030625845182312449</sysRrn></dilutionRelationship><dilutionRelationship><resistNO>MZJTST1-D2</resistNO><resistName>稀释光刻胶A2 0.01:2.5</resistName><concentration>0.01:2.5</concentration><sysRrn>2030625845182312450</sysRrn></dilutionRelationship></msgBody>"""
 
-CHECK_MSG_BODY = "<msgBody><resistNO>MZJTST1</resistNO><defResistNO>MZJTST1-D</defResistNO><resistDefRrn>2030625845182312450</resistDefRrn><batchNO>12345678</batchNO><expireDate>260507</expireDate><concentration>{concentration}</concentration><barcodeCount>1</barcodeCount></msgBody>"
+CHECK_MSG_BODY = "<msgBody><resistNO>MZJTST1</resistNO><defResistNO>MZJTST1-D</defResistNO><resistDefRrn>{rrn}</resistDefRrn><batchNO>12345678</batchNO><expireDate>260507</expireDate><concentration>{concentration}</concentration><barcodeCount>{barcode_count}</barcodeCount></msgBody>"
+
+RRN_BY_CONCENTRATION = {
+    "0.01:2.222": "2030625845182312449",
+    "0.01:2.5": "2030625845182312450",
+}
 
 
 def batch_create_msg_body(bottle_count):
@@ -88,11 +93,33 @@ def respond(body):
         if "REJECT" in body:
             return envelope(1, "barcode not matched with concentration")
         concentration = _extract(body, "concentration") or ""
-        return envelope(0, None, CHECK_MSG_BODY.format(concentration=concentration))
+        rrn = RRN_BY_CONCENTRATION.get(concentration)
+        if not rrn:
+            return envelope(1, "barcode not matched with concentration")
+        barcode_count = len(re.findall(r"&lt;vendorBarcodeList&gt;", body))
+        return envelope(0, None, CHECK_MSG_BODY.format(
+            concentration=concentration, rrn=rrn, barcode_count=barcode_count
+        ))
     if method == "batchCreate":
         if "FAIL" in body:
             return envelope(1, "batchCreate failed")
-        count = int(_extract(body, "bottleCount") or 1)
+        if not _extract(body, "vendorBarcodeList"):
+            return envelope(1, "sourceResistInfo is empty")
+        rrn = _extract(body, "resistDefRrn") or ""
+        if rrn not in RRN_BY_CONCENTRATION.values():
+            return envelope(1, "ResistDef not found, resistDefRrn")
+        try:
+            viscosity = float(_extract(body, "viscosity") or "")
+        except ValueError:
+            return envelope(1, "viscosity is empty")
+        if not viscosity == viscosity:
+            return envelope(1, "viscosity is empty")
+        try:
+            count = int(_extract(body, "bottleCount") or "")
+        except ValueError:
+            return envelope(1, "bottleCount must be greater than 0")
+        if count <= 0:
+            return envelope(1, "bottleCount must be greater than 0")
         return envelope(0, None, batch_create_msg_body(count))
     return None  # 未知方法 → HTTP 500
 

@@ -7,7 +7,7 @@
 - **复用生产 SOAP 客户端代码**：报文封装、发送、解析与正式设备完全一致
 - **数据全部虚拟**：不连接真实设备，只做接口层测试
 - **内置 mock 服务端**：可先不连 PRMS 自行验证工具本身
-- **全量打印报文**：每个请求的 SOAP 封包 XML 和响应 XML 都会完整打印，便于双方对报文
+- **全量打印报文**：每个请求的 SOAP 封包 XML、HTTP 状态和原始 SOAP 响应 XML 都会完整打印，便于双方对报文
 
 ## 2. 运行环境
 
@@ -71,7 +71,9 @@
 
 通用选项：`--endpoint <url>`、`--json`（机器可读输出）、`--timeout-ms <n>`（默认 15000）、`-h/--help`。
 
-batch-create / flow 可选参数：`--barcode`（可重复）、`--concentration`、`--bottles`、`--viscosity`、`--rrn`、`--skip-check`（flow 跳过 check）、`--sleep-ms`（虚拟工艺段耗时）等，详见 `./soap_cli --help`。
+`batch-create` 会先按 `--barcode + --concentration` 调用 `check`，并将返回的 `resistDefRrn` 用于 `batchCreate`，因此不会使用固定或 mock RRN。若为了对报文显式传 `--rrn`，该值必须与 `check` 返回值一致，否则 CLI 在创建前停止。
+
+batch-create / flow 可选参数：`--barcode`（可重复）、`--concentration`、`--bottles`、`--viscosity`、`--rrn`（仅用于显式一致性校验）、`--skip-check`（仅 flow）、`--sleep-ms` 等，详见 `./soap_cli --help`。
 
 ## 6. 三种方法的验收点
 
@@ -102,6 +104,6 @@ mock 服务端按条码内容触发错误分支，用于验证我方对失败响
 
 - **浓度格式**：必须为 `raw:solvent` 比例（如 `0.01:2.222`）；传百分比（如 `70%`）会被拒绝并提示"不在浓度列表中"
 - **退出码**：`0` 成功；`1` SOAP/HTTP/解析失败；`2` 参数错误（输出用法说明）
-- **报文核对**：每个命令都会打印请求封包（含 `temp:methodName` / `temp:msgBodyXmlString`）和响应解包 XML，可直接与 PRMS 服务端日志对照
+- **报文核对**：每个命令都会打印请求封包（含 `temp:methodName` / `temp:msgBodyXmlString`）、HTTP 状态、原始 SOAP 响应和解包后的 msgBody，可直接与 PRMS 服务端日志对照
 - **`--json` 输出**：stdout 仅输出单个 JSON 对象，便于脚本断言
 - **超时**：默认 15 秒，可用 `--timeout-ms` 调整

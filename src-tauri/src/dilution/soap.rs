@@ -12,6 +12,10 @@ pub struct SoapEnvelopeResponse {
     pub error_desc: Option<String>,
     #[serde(rename = "returnMsgBodyXmlString", default)]
     pub return_msg_body_xml_string: Option<String>,
+    #[serde(rename = "faultcode", default)]
+    pub fault_code: Option<String>,
+    #[serde(rename = "faultstring", default)]
+    pub fault_string: Option<String>,
 }
 
 /// 组装 SOAP 请求体（Body 内嵌 InvokeCommonRVMessageByXMLMsgBody）
@@ -56,7 +60,8 @@ pub fn parse_soap_response(response_xml: &str) -> Result<SoapEnvelopeResponse, S
             Ok(Event::Text(text)) => {
                 if let Ok(decoded) = text.decode() {
                     let decoded = decoded.to_string();
-                    let unescaped = quick_xml::escape::unescape(&decoded).unwrap_or(Cow::Borrowed(&decoded));
+                    let unescaped =
+                        quick_xml::escape::unescape(&decoded).unwrap_or(Cow::Borrowed(&decoded));
                     text_buffer.push_str(&unescaped);
                 }
             }
@@ -78,6 +83,16 @@ pub fn parse_soap_response(response_xml: &str) -> Result<SoapEnvelopeResponse, S
                         "returnMsgBodyXmlString" => {
                             if !value.is_empty() {
                                 response.return_msg_body_xml_string = Some(value);
+                            }
+                        }
+                        "faultcode" => {
+                            if !value.is_empty() {
+                                response.fault_code = Some(value);
+                            }
+                        }
+                        "faultstring" => {
+                            if !value.is_empty() {
+                                response.fault_string = Some(value);
                             }
                         }
                         _ => {}
@@ -145,9 +160,6 @@ mod tests {
     </InvokeCommonRVMessageByXMLMsgBodyResponse>"#;
         let parsed = parse_soap_response(xml).unwrap();
         assert_eq!(parsed.result, Some(1));
-        assert_eq!(
-            parsed.error_desc.as_deref(),
-            Some("vendorBarcode is empty")
-        );
+        assert_eq!(parsed.error_desc.as_deref(), Some("vendorBarcode is empty"));
     }
 }

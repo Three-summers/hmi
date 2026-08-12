@@ -75,7 +75,11 @@ fn serve(
     let _ = tx.send(body.clone());
 
     let (status, response_body) = responder(&body);
-    let reason = if status == 200 { "OK" } else { "Internal Server Error" };
+    let reason = if status == 200 {
+        "OK"
+    } else {
+        "Internal Server Error"
+    };
     let header = format!(
         "HTTP/1.1 {status} {reason}\r\nContent-Type: text/xml; charset=utf-8\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
         response_body.len()
@@ -88,7 +92,11 @@ fn serve(
 // ===== SOAP 响应构造（模拟 PRMS） =====
 
 /// 构造 SOAP envelope 响应（result / errorDesc / returnMsgBodyXmlString 由调用方给定）
-pub fn soap_envelope(result: i64, error_desc: Option<&str>, return_msg_body: Option<&str>) -> String {
+pub fn soap_envelope(
+    result: i64,
+    error_desc: Option<&str>,
+    return_msg_body: Option<&str>,
+) -> String {
     let mut response = String::from(
         r#"<?xml version="1.0" encoding="UTF-8"?><soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"><soap:Body><InvokeCommonRVMessageByXMLMsgBodyResponse xmlns="http://tempuri.org/">"#,
     );
@@ -113,9 +121,13 @@ pub fn resist_info_msg_body(barcode: &str) -> String {
     )
 }
 
-pub fn check_msg_body(concentration: &str) -> String {
+pub fn check_msg_body(concentration: &str, barcode_count: usize) -> String {
+    let rrn = match concentration {
+        "0.01:2.5" => "2030625845182312450",
+        _ => "2030625845182312449",
+    };
     format!(
-        r#"<msgBody><resistNO>MZJTST1</resistNO><defResistNO>MZJTST1-D</defResistNO><resistDefRrn>2030625845182312450</resistDefRrn><batchNO>12345678</batchNO><expireDate>260507</expireDate><concentration>{concentration}</concentration><barcodeCount>1</barcodeCount></msgBody>"#
+        r#"<msgBody><resistNO>MZJTST1</resistNO><defResistNO>MZJTST1-D</defResistNO><resistDefRrn>{rrn}</resistDefRrn><batchNO>12345678</batchNO><expireDate>260507</expireDate><concentration>{concentration}</concentration><barcodeCount>{barcode_count}</barcodeCount></msgBody>"#
     )
 }
 
@@ -123,8 +135,12 @@ pub fn batch_create_msg_body(bottle_count: u32) -> String {
     let mut sys_rrns = String::new();
     let mut barcodes = String::new();
     for index in 1..=bottle_count {
-        sys_rrns.push_str(&format!("<resistSysRrn>20306258451823125{index:02}</resistSysRrn>"));
-        barcodes.push_str(&format!("<resistBarcode>MZJTST1-D-{index:03}</resistBarcode>"));
+        sys_rrns.push_str(&format!(
+            "<resistSysRrn>20306258451823125{index:02}</resistSysRrn>"
+        ));
+        barcodes.push_str(&format!(
+            "<resistBarcode>MZJTST1-D-{index:03}</resistBarcode>"
+        ));
     }
     format!("<msgBody>{sys_rrns}{barcodes}<printSuccess>true</printSuccess></msgBody>")
 }
@@ -154,8 +170,8 @@ pub fn respond_like_prms(request_body: &str) -> (u16, String) {
     let method = extract_method_name(request_body).unwrap_or("unknown");
     match method {
         "resistInfo" => {
-            let barcode = extract_escaped_element(request_body, "vendorBarcode")
-                .unwrap_or_default();
+            let barcode =
+                extract_escaped_element(request_body, "vendorBarcode").unwrap_or_default();
             if barcode.contains("UNKNOWN") {
                 (200, soap_envelope(1, Some("vendorBarcode not found"), None))
             } else {
@@ -168,22 +184,57 @@ pub fn respond_like_prms(request_body: &str) -> (u16, String) {
         "check" => {
             let concentration =
                 extract_escaped_element(request_body, "concentration").unwrap_or_default();
-            if request_body.contains("REJECT") {
+            let barcode_count = request_body
+                .match_indices("&lt;vendorBarcodeList&gt;")
+                .count();
+            if request_body.contains("REJECT")
+                || !matches!(concentration.as_str(), "0.01:2.222" | "0.01:2.5")
+            {
                 (
                     200,
                     soap_envelope(1, Some("barcode not matched with concentration"), None),
                 )
             } else {
-                (200, soap_envelope(0, None, Some(&check_msg_body(&concentration))))
+                (
+                    200,
+                    soap_envelope(
+                        0,
+                        None,
+                        Some(&check_msg_body(&concentration, barcode_count)),
+                    ),
+                )
             }
         }
         "batchCreate" => {
             let bottle_count = extract_escaped_element(request_body, "bottleCount")
-                .and_then(|value| value.parse::<u32>().ok())
-                .unwrap_or(1);
+                .and_then(|value| value.parse::<u32>().ok());
+            let rrn = extract_escaped_element(request_body, "resistDefRrn").unwrap_or_default();
+            let has_barcode = extract_escaped_element(request_body, "vendorBarcodeList")
+                .is_some_and(|value| !value.is_empty());
+            let has_viscosity = extract_escaped_element(request_body, "viscosity")
+                .and_then(|value| value.parse::<f64>().ok())
+                .is_some_and(f64::is_finite);
             if request_body.contains("FAIL") {
                 (200, soap_envelope(1, Some("batchCreate failed"), None))
+            } else if !has_barcode {
+                (
+                    200,
+                    soap_envelope(1, Some("sourceResistInfo is empty"), None),
+                )
+            } else if !matches!(rrn.as_str(), "2030625845182312449" | "2030625845182312450") {
+                (
+                    200,
+                    soap_envelope(1, Some("ResistDef not found, resistDefRrn"), None),
+                )
+            } else if !has_viscosity {
+                (200, soap_envelope(1, Some("viscosity is empty"), None))
+            } else if bottle_count.is_none_or(|count| count == 0) {
+                (
+                    200,
+                    soap_envelope(1, Some("bottleCount must be greater than 0"), None),
+                )
             } else {
+                let bottle_count = bottle_count.unwrap_or_default();
                 (
                     200,
                     soap_envelope(0, None, Some(&batch_create_msg_body(bottle_count))),
@@ -191,5 +242,32 @@ pub fn respond_like_prms(request_body: &str) -> (u16, String) {
             }
         }
         _ => (500, "unknown SOAP method".to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dilution::build_soap_request;
+
+    #[test]
+    fn check_should_return_rrn_matching_requested_concentration() {
+        let request = build_soap_request(
+            "check",
+            "<msgBody><vendorBarcodeList>MZJTST11234567826050700003</vendorBarcodeList><concentration>0.01:2.222</concentration></msgBody>",
+        );
+        let (_, response) = respond_like_prms(&request);
+        assert!(response.contains("<resistDefRrn>2030625845182312449</resistDefRrn>"));
+    }
+
+    #[test]
+    fn batch_create_should_reject_missing_viscosity() {
+        let request = build_soap_request(
+            "batchCreate",
+            "<msgBody><vendorBarcodeList>MZJTST11234567826050700003</vendorBarcodeList><resistDefRrn>2030625845182312449</resistDefRrn><bottleCount>1</bottleCount></msgBody>",
+        );
+        let (_, response) = respond_like_prms(&request);
+        assert!(response.contains("<InvokeCommonRVMessageByXMLMsgBodyResult>1</"));
+        assert!(response.contains("viscosity is empty"));
     }
 }

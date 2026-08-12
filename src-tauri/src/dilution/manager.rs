@@ -190,6 +190,7 @@ impl DilutionManager {
         let mut state = self.lock_state()?;
         let scan_event_id = state.next_event_id();
         let sync_event_id = state.next_event_id();
+        let check_sync_event_id = state.next_event_id();
         let batch = state.batch_mut(request.batch_id.as_str())?;
         if !matches!(
             batch.status,
@@ -217,6 +218,44 @@ impl DilutionManager {
             }
         }
 
+        let auto_lock = if info.dilution_relationships.len() == 1 {
+            let relationship = info.dilution_relationships[0].clone();
+            self.config
+                .option_for_concentration(&relationship.concentration)
+                .cloned()
+                .map(|option| {
+                    let mut barcodes = batch
+                        .raw_scans
+                        .iter()
+                        .map(|scan| scan.barcode.clone())
+                        .collect::<Vec<_>>();
+                    barcodes.push(request.barcode.clone());
+                    let check_result = adapters.prms.check_batch(CheckBatchRequest {
+                        vendor_barcode_list: barcodes.clone(),
+                        concentration: relationship.concentration.clone(),
+                    })?;
+                    if check_result.value.barcode_count != barcodes.len() as u32 {
+                        return Err(format!(
+                            "PRMS check returned barcodeCount={} for {} requested barcodes",
+                            check_result.value.barcode_count,
+                            barcodes.len()
+                        ));
+                    }
+                    if check_result.value.resist_def_rrn != relationship.sys_rrn {
+                        return Err(format!(
+                            "PRMS resistDefRrn mismatch for concentration `{}`: resistInfo returned `{}`, check returned `{}`",
+                            relationship.concentration,
+                            relationship.sys_rrn,
+                            check_result.value.resist_def_rrn
+                        ));
+                    }
+                    Ok((relationship, option, check_result))
+                })
+                .transpose()?
+        } else {
+            None
+        };
+
         batch.status = BatchStatus::ScanningRawResist;
         let scan = RawResistScan {
             scan_id: format!("scan-{scan_event_id}"),
@@ -241,24 +280,16 @@ impl DilutionManager {
             batch.status = BatchStatus::ResistInfoResolved;
         }
 
-        if batch
-            .resist_info
-            .as_ref()
-            .is_some_and(|info| info.dilution_relationships.len() == 1)
-        {
-            let concentration = info.dilution_relationships[0].concentration.clone();
-            if let Some(option) = self
-                .config
-                .option_for_concentration(&concentration)
-                .cloned()
-            {
-                lock_selected_option(
-                    batch,
-                    &info.dilution_relationships[0],
-                    &option,
-                    &self.config.process_defaults,
-                )?;
-            }
+        if let Some((mut relationship, option, check_result)) = auto_lock {
+            relationship.sys_rrn = check_result.value.resist_def_rrn.clone();
+            lock_selected_option(batch, &relationship, &option, &self.config.process_defaults)?;
+            batch.check_result = Some(check_result.value);
+            batch.prms_sync.push(sync_record(
+                check_sync_event_id,
+                PrmsOperation::Check,
+                check_result.request_payload,
+                Some(check_result.response_payload),
+            ));
         }
 
         self.repository.persist_batch_change(
@@ -274,6 +305,7 @@ impl DilutionManager {
         request: SelectConcentrationRequest,
     ) -> Result<Batch, String> {
         let mut state = self.lock_state()?;
+        let check_sync_event_id = state.next_event_id();
         let batch = state.batch_mut(request.batch_id.as_str())?;
         if batch.status != BatchStatus::ResistInfoResolved {
             return Err(format!(
@@ -310,13 +342,28 @@ impl DilutionManager {
                 .collect(),
             concentration: request.concentration.clone(),
         })?;
+        let checked = check_result.value;
+        if checked.resist_def_rrn != relationship.sys_rrn {
+            return Err(format!(
+                "PRMS resistDefRrn mismatch for concentration `{}`: resistInfo returned `{}`, check returned `{}`",
+                request.concentration, relationship.sys_rrn, checked.resist_def_rrn
+            ));
+        }
+        let mut checked_relationship = relationship;
+        checked_relationship.sys_rrn = checked.resist_def_rrn.clone();
         lock_selected_option(
             batch,
-            &relationship,
+            &checked_relationship,
             &option,
             &self.config.process_defaults,
         )?;
-        batch.check_result = Some(check_result.value);
+        batch.check_result = Some(checked);
+        batch.prms_sync.push(sync_record(
+            check_sync_event_id,
+            PrmsOperation::Check,
+            check_result.request_payload,
+            Some(check_result.response_payload),
+        ));
         self.repository.persist_batch_change(
             batch,
             "concentration_selected",
@@ -370,8 +417,7 @@ impl DilutionManager {
                 .option_for_concentration(&concentration)
                 .cloned()
                 .ok_or_else(|| format!("concentration `{concentration}` config is missing"))?;
-            let (ratio_raw, ratio_solvent) =
-                parse_concentration_ratio(&concentration)?;
+            let (ratio_raw, ratio_solvent) = parse_concentration_ratio(&concentration)?;
             (
                 batch.id.clone(),
                 option.recipe_id.clone(),
@@ -874,10 +920,21 @@ impl PrmsClient for MockPrmsClient {
             return Err("vendorBarcode is empty".to_string());
         }
         let first = &request.vendor_barcode_list[0];
+        let resist_def_rrn = match (first.contains("MULTI"), request.concentration.as_str()) {
+            (true, "60%") => "2004086388857843700",
+            (true, "70%") => "2011636530905427900",
+            (false, "70%") if first.contains("IK02") => "2011636530905427800",
+            _ => {
+                return Err(format!(
+                    "mock PRMS cannot match barcode `{first}` with concentration `{}`",
+                    request.concentration
+                ))
+            }
+        };
         let value = CheckResult {
             resist_no: first.get(..7).unwrap_or(first).to_string(),
             def_resist_no: format!("{}-D", first.get(..7).unwrap_or(first)),
-            resist_def_rrn: "2011636530905427800".to_string(),
+            resist_def_rrn: resist_def_rrn.to_string(),
             batch_no: first.get(7..15).unwrap_or("12345678").to_string(),
             expire_date: first.get(15..21).unwrap_or("260507").to_string(),
             concentration: request.concentration.clone(),
@@ -1143,6 +1200,10 @@ mod tests {
 
     struct RejectingCheckPrmsClient;
 
+    struct MismatchingCheckRrnPrmsClient;
+
+    struct MismatchingSingleOptionCheckRrnPrmsClient;
+
     impl PrmsClient for RejectingCheckPrmsClient {
         fn query_resist_info(
             &self,
@@ -1156,6 +1217,56 @@ mod tests {
             _request: CheckBatchRequest,
         ) -> Result<AdapterResult<CheckResult>, String> {
             Err("check rejected by PRMS".to_string())
+        }
+
+        fn create_dilution_batch(
+            &self,
+            request: CreateDilutionBatchRequest,
+        ) -> Result<AdapterResult<CreateDilutionBatchResult>, String> {
+            MockPrmsClient.create_dilution_batch(request)
+        }
+    }
+
+    impl PrmsClient for MismatchingCheckRrnPrmsClient {
+        fn query_resist_info(
+            &self,
+            request: QueryResistInfoRequest,
+        ) -> Result<AdapterResult<ResistInfo>, String> {
+            MockPrmsClient.query_resist_info(request)
+        }
+
+        fn check_batch(
+            &self,
+            request: CheckBatchRequest,
+        ) -> Result<AdapterResult<CheckResult>, String> {
+            let mut result = MockPrmsClient.check_batch(request)?;
+            result.value.resist_def_rrn = "999999999999999999".to_string();
+            Ok(result)
+        }
+
+        fn create_dilution_batch(
+            &self,
+            request: CreateDilutionBatchRequest,
+        ) -> Result<AdapterResult<CreateDilutionBatchResult>, String> {
+            MockPrmsClient.create_dilution_batch(request)
+        }
+    }
+
+    impl PrmsClient for MismatchingSingleOptionCheckRrnPrmsClient {
+        fn query_resist_info(
+            &self,
+            request: QueryResistInfoRequest,
+        ) -> Result<AdapterResult<ResistInfo>, String> {
+            MockPrmsClient.query_resist_info(request)
+        }
+
+        fn check_batch(
+            &self,
+            request: CheckBatchRequest,
+        ) -> Result<AdapterResult<CheckResult>, String> {
+            let mut result = MockPrmsClient.check_batch(request)?;
+            result.value.resist_def_rrn = "999999999999999999".to_string();
+            Ok(result)
         }
 
         fn create_dilution_batch(
@@ -1337,6 +1448,38 @@ mod tests {
     }
 
     #[test]
+    fn select_concentration_should_reject_mismatching_check_rrn() {
+        let workspace = build_test_workspace("check-rrn-mismatch");
+        let manager = DilutionManager::new_with(
+            default_log_root("check-rrn-mismatch"),
+            workspace,
+            "dilution-machine".to_string(),
+            Arc::new(MismatchingCheckRrnPrmsClient),
+            Arc::new(MockDilutionDeviceGateway),
+        );
+        let batch = manager.create_batch(create_request()).unwrap();
+        let batch = manager
+            .scan_raw_resist(ScanRawResistRequest {
+                batch_id: batch.id.clone(),
+                barcode: "MULTI-LOT01-B01".to_string(),
+                operator_id: "op-001".to_string(),
+            })
+            .unwrap();
+
+        let error = manager
+            .select_concentration(SelectConcentrationRequest {
+                batch_id: batch.id.clone(),
+                concentration: "70%".to_string(),
+            })
+            .unwrap_err();
+        assert!(error.contains("resistDefRrn mismatch"), "{error}");
+
+        let current = manager.get_batch(&batch.id).unwrap();
+        assert_eq!(current.status, BatchStatus::ResistInfoResolved);
+        assert!(current.resist_def_rrn.is_none());
+    }
+
+    #[test]
     fn scan_should_resolve_resist_info_and_auto_lock_single_option() {
         let manager = DilutionManager::new_mock();
         let batch = manager.create_batch(create_request()).unwrap();
@@ -1351,6 +1494,27 @@ mod tests {
         assert!(batch.resist_info.is_some());
         assert!(batch.resist_def_rrn.is_some());
         assert_eq!(batch.selected_concentration.as_deref(), Some("70%"));
+    }
+
+    #[test]
+    fn scan_should_not_auto_lock_when_single_option_check_rrn_mismatches() {
+        let workspace = build_test_workspace("single-check-rrn-mismatch");
+        let manager = DilutionManager::new_with(
+            default_log_root("single-check-rrn-mismatch"),
+            workspace,
+            "dilution-machine".to_string(),
+            Arc::new(MismatchingSingleOptionCheckRrnPrmsClient),
+            Arc::new(MockDilutionDeviceGateway),
+        );
+        let batch = manager.create_batch(create_request()).unwrap();
+        let error = manager
+            .scan_raw_resist(ScanRawResistRequest {
+                batch_id: batch.id.clone(),
+                barcode: "RAW-IK02-LOT01-B01".to_string(),
+                operator_id: "op-001".to_string(),
+            })
+            .unwrap_err();
+        assert!(error.contains("resistDefRrn mismatch"), "{error}");
     }
 
     #[test]
@@ -1393,6 +1557,10 @@ mod tests {
             .unwrap();
         assert_eq!(batch.status, BatchStatus::RecipeLocked);
         assert_eq!(batch.resist_def_rrn.as_deref(), Some("2011636530905427900"));
+        assert!(batch
+            .prms_sync
+            .iter()
+            .any(|record| record.operation == PrmsOperation::Check));
     }
 
     #[test]
@@ -1570,7 +1738,11 @@ mod tests {
         while let Ok(body) = server.received_bodies.try_recv() {
             received.push(body);
         }
-        assert_eq!(received.len(), 3, "expected 3 SOAP requests, got {received:?}");
+        assert_eq!(
+            received.len(),
+            3,
+            "expected 3 SOAP requests, got {received:?}"
+        );
         let all = received.join("\n");
         assert!(all.contains(">resistInfo<"), "{all}");
         assert!(all.contains(">check<"), "{all}");

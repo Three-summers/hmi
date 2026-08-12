@@ -23,7 +23,6 @@ use std::process::ExitCode;
 
 const DEFAULT_ENDPOINT: &str = "http://127.0.0.1:8899";
 const DEFAULT_BARCODE: &str = "MZJTST11234567826050700003";
-const DEFAULT_RRN: &str = "2030625845182312449";
 const DEFAULT_BOTTLES: u32 = 1;
 const DEFAULT_VISCOSITY: f64 = 5.0;
 const DEFAULT_CONCENTRATION: &str = "0.01:2.222";
@@ -85,11 +84,30 @@ mod cli {
 
     /// 带值选项白名单
     const VALUE_OPTIONS: &[&str] = &[
-        "endpoint", "timeout-ms", "concentration", "barcode", "bottles", "rrn", "viscosity",
-        "eqpt-id", "operator", "checker", "source-resist-name", "source-resist-barcode",
-        "source-resist-weight", "source-bottle-count", "mix-start-time", "mix-end-time",
-        "viscosity-test-time", "dilution-resist-name", "dilution-bottle-count", "dilution-weight",
-        "comment", "label-print-url", "sleep-ms", "port",
+        "endpoint",
+        "timeout-ms",
+        "concentration",
+        "barcode",
+        "bottles",
+        "rrn",
+        "viscosity",
+        "eqpt-id",
+        "operator",
+        "checker",
+        "source-resist-name",
+        "source-resist-barcode",
+        "source-resist-weight",
+        "source-bottle-count",
+        "mix-start-time",
+        "mix-end-time",
+        "viscosity-test-time",
+        "dilution-resist-name",
+        "dilution-bottle-count",
+        "dilution-weight",
+        "comment",
+        "label-print-url",
+        "sleep-ms",
+        "port",
     ];
     /// 布尔开关白名单
     const BOOL_OPTIONS: &[&str] = &["json", "skip-check", "no-fill", "help", "h"];
@@ -105,7 +123,7 @@ mod cli {
     pub struct BatchCreateArgs {
         pub opts: CommonOpts,
         pub barcodes: Vec<String>,
-        pub rrn: String,
+        pub rrn: Option<String>,
         pub bottles: u32,
         pub concentration: String,
         pub viscosity: f64,
@@ -120,17 +138,27 @@ mod cli {
         pub barcodes: Vec<String>,
         pub concentration: Option<String>,
         pub bottles: u32,
+        pub viscosity: Option<f64>,
         pub skip_check: bool,
         pub sleep_ms: u64,
     }
 
     #[derive(Debug)]
     pub enum Command {
-        ResistInfo { barcode: String, opts: CommonOpts },
-        Check { barcodes: Vec<String>, concentration: String, opts: CommonOpts },
+        ResistInfo {
+            barcode: String,
+            opts: CommonOpts,
+        },
+        Check {
+            barcodes: Vec<String>,
+            concentration: String,
+            opts: CommonOpts,
+        },
         BatchCreate(Box<BatchCreateArgs>),
         Flow(Box<FlowArgs>),
-        Mock { port: u16 },
+        Mock {
+            port: u16,
+        },
         Help,
     }
 
@@ -153,9 +181,7 @@ mod cli {
         if args.iter().any(|arg| arg == "-h" || arg == "--help") {
             return Ok(Command::Help);
         }
-        let (sub, rest) = args
-            .split_first()
-            .expect("non-empty args checked above");
+        let (sub, rest) = args.split_first().expect("non-empty args checked above");
         let (positional, flags, bools) = parse_flags(rest)?;
         let opts = common_opts(&flags, &bools)?;
         match sub.as_str() {
@@ -167,9 +193,10 @@ mod cli {
                 if positional.is_empty() {
                     return Err("check 需要至少 1 个条码参数".to_string());
                 }
-                let concentration = flag(&flags, "concentration")
-                    .cloned()
-                    .ok_or_else(|| "check 需要 --concentration <浓度>（如 0.01:2.222，raw:solvent 比例）".to_string())?;
+                let concentration = flag(&flags, "concentration").cloned().ok_or_else(|| {
+                    "check 需要 --concentration <浓度>（如 0.01:2.222，raw:solvent 比例）"
+                        .to_string()
+                })?;
                 Ok(Command::Check {
                     barcodes: positional,
                     concentration,
@@ -178,7 +205,10 @@ mod cli {
             }
             "batch-create" => {
                 if !positional.is_empty() {
-                    return Err(format!("batch-create 不接受位置参数: {}", positional.join(" ")));
+                    return Err(format!(
+                        "batch-create 不接受位置参数: {}",
+                        positional.join(" ")
+                    ));
                 }
                 let barcodes = flag_all(&flags, "barcode");
                 let barcodes = if barcodes.is_empty() {
@@ -187,26 +217,43 @@ mod cli {
                     barcodes
                 };
                 let overrides = [
-                    "eqpt-id", "operator", "checker", "source-resist-name",
-                    "source-resist-barcode", "source-resist-weight", "source-bottle-count",
-                    "mix-start-time", "mix-end-time", "viscosity-test-time",
-                    "dilution-resist-name", "dilution-bottle-count", "dilution-weight", "comment",
-                    "label-print-url", "viscosity",
+                    "eqpt-id",
+                    "operator",
+                    "checker",
+                    "source-resist-name",
+                    "source-resist-barcode",
+                    "source-resist-weight",
+                    "source-bottle-count",
+                    "mix-start-time",
+                    "mix-end-time",
+                    "viscosity-test-time",
+                    "dilution-resist-name",
+                    "dilution-bottle-count",
+                    "dilution-weight",
+                    "comment",
+                    "label-print-url",
+                    "viscosity",
                 ]
                 .iter()
                 .filter_map(|name| flag(&flags, name).map(|v| (name.to_string(), v.clone())))
                 .collect();
+                let bottles = flag_num(&flags, "bottles", DEFAULT_BOTTLES)?;
+                if bottles == 0 {
+                    return Err("invalid value for --bottles: must be greater than 0".to_string());
+                }
+                let viscosity = flag_num(&flags, "viscosity", DEFAULT_VISCOSITY)?;
+                if !viscosity.is_finite() {
+                    return Err("invalid value for --viscosity: must be finite".to_string());
+                }
                 Ok(Command::BatchCreate(Box::new(BatchCreateArgs {
                     opts,
                     barcodes,
-                    rrn: flag(&flags, "rrn")
-                        .cloned()
-                        .unwrap_or_else(|| DEFAULT_RRN.to_string()),
-                    bottles: flag_num(&flags, "bottles", DEFAULT_BOTTLES)?,
+                    rrn: flag(&flags, "rrn").cloned(),
+                    bottles,
                     concentration: flag(&flags, "concentration")
                         .cloned()
                         .unwrap_or_else(|| DEFAULT_CONCENTRATION.to_string()),
-                    viscosity: flag_num(&flags, "viscosity", DEFAULT_VISCOSITY)?,
+                    viscosity,
                     no_fill: bools.contains("no-fill"),
                     overrides,
                 })))
@@ -221,11 +268,26 @@ mod cli {
                 } else {
                     barcodes
                 };
+                let bottles = flag_num(&flags, "bottles", DEFAULT_BOTTLES)?;
+                if bottles == 0 {
+                    return Err("invalid value for --bottles: must be greater than 0".to_string());
+                }
+                let viscosity = flag(&flags, "viscosity")
+                    .map(|value| {
+                        value
+                            .parse::<f64>()
+                            .map_err(|_| format!("invalid value for --viscosity: {value}"))
+                    })
+                    .transpose()?;
+                if viscosity.is_some_and(|value| !value.is_finite()) {
+                    return Err("invalid value for --viscosity: must be finite".to_string());
+                }
                 Ok(Command::Flow(Box::new(FlowArgs {
                     opts,
                     barcodes,
                     concentration: flag(&flags, "concentration").cloned(),
-                    bottles: flag_num(&flags, "bottles", DEFAULT_BOTTLES)?,
+                    bottles,
+                    viscosity,
                     skip_check: bools.contains("skip-check"),
                     sleep_ms: flag_num(&flags, "sleep-ms", 0)?,
                 })))
@@ -262,7 +324,10 @@ mod cli {
                     if !VALUE_OPTIONS.contains(&name) {
                         return Err(format!("unknown option: --{name}"));
                     }
-                    flags.entry(name.to_string()).or_default().push(value.to_string());
+                    flags
+                        .entry(name.to_string())
+                        .or_default()
+                        .push(value.to_string());
                 } else if BOOL_OPTIONS.contains(&name) {
                     bools.insert(name.to_string());
                 } else if VALUE_OPTIONS.contains(&name) {
@@ -362,11 +427,11 @@ mod cli {
 
 batch-create 选项:
   --barcode <条码>         原液条码（可重复；默认 {DEFAULT_BARCODE}）
-  --rrn <rrn>              resistDefRrn（默认 {DEFAULT_RRN}，mock 的 0.01:2.222 关系）
+  --rrn <rrn>              显式 resistDefRrn（可选；默认调用 check 自动获取，显式值也会校验）
   --bottles <n>            稀释瓶数（默认 1）
   --concentration <浓度>   稀释浓度（默认 0.01:2.222，raw:solvent 比例形式，不支持百分比）
   --viscosity <v>          粘度（默认 5.0 cP）
-  --no-fill                仅发送显式传入的报表字段（验证 PRMS 空字段路径）
+  --no-fill                清空可选报表字段（viscosity 等必填基础字段仍发送）
   报表字段覆盖: --eqpt-id --operator --checker --source-resist-name --source-resist-barcode
       --source-resist-weight --source-bottle-count --mix-start-time --mix-end-time
       --viscosity-test-time --dilution-resist-name --dilution-bottle-count
@@ -448,7 +513,8 @@ fn report_defaults(cfg: &DilutionConfig) -> ReportDefaults {
 /// 虚拟时间戳：mixStart=now-30min、mixEnd=now-5min、viscosityTest=now-1min（%Y-%m-%d %H:%M:%S）
 fn virtual_times() -> (String, String, String) {
     let now = chrono::Local::now();
-    let format = |time: chrono::DateTime<chrono::Local>| time.format("%Y-%m-%d %H:%M:%S").to_string();
+    let format =
+        |time: chrono::DateTime<chrono::Local>| time.format("%Y-%m-%d %H:%M:%S").to_string();
     (
         now.checked_sub_signed(chrono::Duration::minutes(30))
             .map(format)
@@ -464,7 +530,8 @@ fn virtual_times() -> (String, String, String) {
 
 /// 虚拟工艺段读数：称量 / 溶剂比例 / 粘度 / 搅拌静置时长（来自配置 processDefaults）
 fn virtual_readings(cfg: &DilutionConfig, concentration: &str) -> VirtualReadings {
-    let (raw_ratio, solvent_ratio) = parse_concentration_ratio(concentration).unwrap_or((0.01, 2.222));
+    let (raw_ratio, solvent_ratio) =
+        parse_concentration_ratio(concentration).unwrap_or((0.01, 2.222));
     VirtualReadings {
         raw_mass: DEFAULT_SOURCE_WEIGHT,
         solvent_mass: DEFAULT_SOURCE_WEIGHT * solvent_ratio / raw_ratio,
@@ -477,9 +544,10 @@ fn virtual_readings(cfg: &DilutionConfig, concentration: &str) -> VirtualReading
 }
 
 /// 构造 batchCreate 请求：虚拟默认值填充 17 报表字段，`--xxx` 显式覆盖；
-/// `--no-fill` 时仅发送显式传入字段（验证 PRMS 空字段路径）
+/// `--no-fill` 时仅发送显式报表字段；viscosity 等必填基础字段始终保留
 fn fill_batch_create(
     args: &cli::BatchCreateArgs,
+    resist_def_rrn: &str,
     cfg: &DilutionConfig,
     defaults: &ReportDefaults,
     resist_info_context: Option<(&ResistInfo, &DilutionRelationship)>,
@@ -537,18 +605,16 @@ fn fill_batch_create(
 
     CreateDilutionBatchRequest {
         vendor_barcode_list: args.barcodes.clone(),
-        resist_def_rrn: args.rrn.clone(),
+        resist_def_rrn: resist_def_rrn.to_string(),
         eqpt_id: pick("eqpt-id", Some(defaults.eqpt_id.clone())),
         bottle_count: args.bottles,
-        viscosity: pick_f64("viscosity", args.viscosity),
+        // viscosity 是 batchCreate 基础必填字段；--no-fill 只影响可选报表字段。
+        viscosity: Some(args.viscosity),
         batch_no: None,
         exp_date: None,
         label_print_url: pick("label-print-url", label_print_url),
         source_resist_name: pick("source-resist-name", Some(source_resist_name)),
-        source_resist_barcode: pick(
-            "source-resist-barcode",
-            args.barcodes.first().cloned(),
-        ),
+        source_resist_barcode: pick("source-resist-barcode", args.barcodes.first().cloned()),
         source_resist_weight: pick_f64("source-resist-weight", DEFAULT_SOURCE_WEIGHT),
         source_bottle_count: pick_u32("source-bottle-count", args.barcodes.len() as u32),
         operator: pick("operator", Some(defaults.operator.clone())),
@@ -592,18 +658,29 @@ fn call_and_report(
         println!("--- 请求 msgBody（未转义） ---");
         println!("{msg_body}");
     }
-    let (body_xml, _error_desc) = client.invoke(method, msg_body)?;
-    let summary = summarize(&body_xml)?;
+    let response = client.invoke(method, msg_body)?;
+    if !opts.json {
+        println!("--- 原始 SOAP 响应（HTTP {}） ---", response.http_status);
+        println!("{}", response.raw_response_xml);
+        println!("--- 响应 msgBody ---");
+        println!("{}", response.msg_body_xml);
+    }
+    let summary = summarize(&response.msg_body_xml).map_err(|error| {
+        format!(
+            "{error}\nHTTP 状态: {}\n原始 SOAP 响应:\n{}\n响应 msgBody:\n{}",
+            response.http_status, response.raw_response_xml, response.msg_body_xml
+        )
+    })?;
     if opts.json {
         steps.push(json!({
             "method": method,
+            "httpStatus": response.http_status,
             "requestMsgBody": msg_body,
-            "responseMsgBody": body_xml,
+            "rawResponseXml": response.raw_response_xml,
+            "responseMsgBody": response.msg_body_xml,
             "result": summary,
         }));
     } else {
-        println!("--- 响应 msgBody ---");
-        println!("{body_xml}");
         println!("--- 解析结果 ---");
         println!("{}", serde_json::to_string_pretty(&summary).unwrap());
     }
@@ -612,6 +689,49 @@ fn call_and_report(
 
 fn summarize<T: serde::Serialize>(value: T) -> Result<Value, String> {
     serde_json::to_value(&value).map_err(|error| format!("序列化解析结果失败: {error}"))
+}
+
+fn resolve_checked_rrn(explicit_rrn: Option<&str>, checked_rrn: &str) -> Result<String, String> {
+    if checked_rrn.trim().is_empty() {
+        return Err("check 未返回 resistDefRrn，无法继续".to_string());
+    }
+    if let Some(explicit_rrn) = explicit_rrn {
+        if explicit_rrn != checked_rrn {
+            return Err(format!(
+                "resistDefRrn mismatch: --rrn 指定 `{explicit_rrn}`，check 返回 `{checked_rrn}`"
+            ));
+        }
+    }
+    Ok(checked_rrn.to_string())
+}
+
+fn validate_check_barcode_count(check: &CheckResult, requested_count: usize) -> Result<(), String> {
+    if check.barcode_count != requested_count as u32 {
+        return Err(format!(
+            "check 返回 barcodeCount={}，但请求包含 {requested_count} 个条码",
+            check.barcode_count
+        ));
+    }
+    Ok(())
+}
+
+fn validate_batch_create_summary(summary: &Value, bottle_count: u32) -> Result<(), String> {
+    let barcode_count = summary
+        .get("resistBarcodes")
+        .and_then(Value::as_array)
+        .map(Vec::len)
+        .unwrap_or(0);
+    let rrn_count = summary
+        .get("resistSysRrns")
+        .and_then(Value::as_array)
+        .map(Vec::len)
+        .unwrap_or(0);
+    if barcode_count != bottle_count as usize || rrn_count != bottle_count as usize {
+        return Err(format!(
+            "batchCreate 返回 {barcode_count} 个条码和 {rrn_count} 个 RRN，但请求瓶数为 {bottle_count}"
+        ));
+    }
+    Ok(())
 }
 
 fn run_resist_info(opts: &cli::CommonOpts, barcode: &str) -> Result<(), String> {
@@ -675,10 +795,26 @@ fn run_batch_create(args: cli::BatchCreateArgs) -> Result<(), String> {
     let client = make_client(opts);
     let cfg = load_config();
     let defaults = report_defaults(&cfg);
-    let request = fill_batch_create(&args, &cfg, &defaults, None);
     let mut steps = Vec::new();
+    let check_body = check_msg_body(&CheckBatchRequest {
+        vendor_barcode_list: args.barcodes.clone(),
+        concentration: args.concentration.clone(),
+    });
+    let check_value = call_and_report(
+        &client,
+        "check",
+        &check_body,
+        |xml| parse_check_result(xml).and_then(summarize),
+        opts,
+        &mut steps,
+    )?;
+    let check: CheckResult = serde_json::from_value(check_value)
+        .map_err(|error| format!("解析 check 结果失败: {error}"))?;
+    validate_check_barcode_count(&check, args.barcodes.len())?;
+    let resist_def_rrn = resolve_checked_rrn(args.rrn.as_deref(), &check.resist_def_rrn)?;
+    let request = fill_batch_create(&args, &resist_def_rrn, &cfg, &defaults, None);
     let msg_body = batch_create_msg_body(&request);
-    let _result = call_and_report(
+    let result = call_and_report(
         &client,
         "batchCreate",
         &msg_body,
@@ -686,6 +822,7 @@ fn run_batch_create(args: cli::BatchCreateArgs) -> Result<(), String> {
         opts,
         &mut steps,
     )?;
+    validate_batch_create_summary(&result, args.bottles)?;
     finish_json(opts, &steps);
     Ok(())
 }
@@ -720,7 +857,9 @@ fn run_flow(args: cli::FlowArgs) -> Result<(), String> {
             .dilution_relationships
             .first()
             .map(|relationship| relationship.concentration.clone())
-            .ok_or_else(|| "resistInfo 未返回任何浓度选项，请用 --concentration 指定".to_string())?,
+            .ok_or_else(|| {
+                "resistInfo 未返回任何浓度选项，请用 --concentration 指定".to_string()
+            })?,
     };
     let relationship = info
         .dilution_relationships
@@ -754,14 +893,15 @@ fn run_flow(args: cli::FlowArgs) -> Result<(), String> {
         )?;
         let check: CheckResult = serde_json::from_value(check_value)
             .map_err(|error| format!("解析 check 结果失败: {error}"))?;
-        if check.resist_def_rrn.is_empty() {
-            return Err("check 未返回 resistDefRrn，无法继续".to_string());
-        }
-        check.resist_def_rrn
+        validate_check_barcode_count(&check, barcodes.len())?;
+        resolve_checked_rrn(Some(&relationship.sys_rrn), &check.resist_def_rrn)?
     };
 
     // 4. 虚拟工艺段（无真实设备，打印虚拟读数）
-    let readings = virtual_readings(&cfg, &concentration);
+    let mut readings = virtual_readings(&cfg, &concentration);
+    if let Some(viscosity) = args.viscosity {
+        readings.viscosity = viscosity;
+    }
     if !opts.json {
         println!("==> 本地工艺段（虚拟读数，无真实设备）");
         println!("  称量原液: {:.1} g", readings.raw_mass);
@@ -786,16 +926,22 @@ fn run_flow(args: cli::FlowArgs) -> Result<(), String> {
     let batch_args = cli::BatchCreateArgs {
         opts: opts.clone(),
         barcodes: barcodes.clone(),
-        rrn: resist_def_rrn,
+        rrn: Some(resist_def_rrn.clone()),
         bottles: args.bottles,
         concentration: concentration.clone(),
         viscosity: readings.viscosity,
         no_fill: false,
         overrides: HashMap::new(),
     };
-    let request = fill_batch_create(&batch_args, &cfg, &defaults, Some((&info, relationship)));
+    let request = fill_batch_create(
+        &batch_args,
+        &resist_def_rrn,
+        &cfg,
+        &defaults,
+        Some((&info, relationship)),
+    );
     let msg_body = batch_create_msg_body(&request);
-    let _result = call_and_report(
+    let result = call_and_report(
         &client,
         "batchCreate",
         &msg_body,
@@ -803,6 +949,7 @@ fn run_flow(args: cli::FlowArgs) -> Result<(), String> {
         opts,
         &mut steps,
     )?;
+    validate_batch_create_summary(&result, args.bottles)?;
 
     if opts.json {
         println!(
@@ -912,7 +1059,9 @@ mod tests {
 
     #[test]
     fn parse_resist_info_extra_positional() {
-        assert!(cli::parse(&["resist-info".to_string(), "A".to_string(), "B".to_string()]).is_err());
+        assert!(
+            cli::parse(&["resist-info".to_string(), "A".to_string(), "B".to_string()]).is_err()
+        );
     }
 
     #[test]
@@ -947,14 +1096,17 @@ mod tests {
 
     #[test]
     fn parse_batch_create_defaults() {
-        let command =
-            cli::parse(&["batch-create".to_string(), "--bottles".to_string(), "3".to_string()])
-                .unwrap();
+        let command = cli::parse(&[
+            "batch-create".to_string(),
+            "--bottles".to_string(),
+            "3".to_string(),
+        ])
+        .unwrap();
         match command {
             cli::Command::BatchCreate(args) => {
                 assert_eq!(args.barcodes, vec![DEFAULT_BARCODE.to_string()]);
                 assert_eq!(args.bottles, 3);
-                assert_eq!(args.rrn, DEFAULT_RRN);
+                assert!(args.rrn.is_none());
                 assert!(!args.no_fill);
             }
             _ => panic!("expected BatchCreate"),
@@ -978,12 +1130,33 @@ mod tests {
         match command {
             cli::Command::BatchCreate(args) => {
                 assert_eq!(args.barcodes, vec!["A".to_string(), "B".to_string()]);
-                assert_eq!(args.rrn, "123");
+                assert_eq!(args.rrn.as_deref(), Some("123"));
                 assert!(args.no_fill);
-                assert_eq!(args.overrides.get("operator").map(String::as_str), Some("王工"));
+                assert_eq!(
+                    args.overrides.get("operator").map(String::as_str),
+                    Some("王工")
+                );
             }
             _ => panic!("expected BatchCreate"),
         }
+    }
+
+    #[test]
+    fn parse_batch_create_should_reject_non_positive_bottles_and_non_finite_viscosity() {
+        for args in [
+            vec!["batch-create", "--bottles", "0"],
+            vec!["batch-create", "--viscosity", "NaN"],
+            vec!["batch-create", "--viscosity", "inf"],
+        ] {
+            let args = args.into_iter().map(str::to_string).collect::<Vec<_>>();
+            assert!(cli::parse(&args).is_err(), "args={args:?}");
+        }
+
+        let args = ["flow", "--bottles", "0"]
+            .into_iter()
+            .map(str::to_string)
+            .collect::<Vec<_>>();
+        assert!(cli::parse(&args).is_err());
     }
 
     #[test]
@@ -996,6 +1169,8 @@ mod tests {
             "2".to_string(),
             "--concentration".to_string(),
             "0.01:2.222".to_string(),
+            "--viscosity".to_string(),
+            "6.25".to_string(),
         ])
         .unwrap();
         match command {
@@ -1004,8 +1179,20 @@ mod tests {
                 assert!(args.opts.json);
                 assert_eq!(args.bottles, 2);
                 assert_eq!(args.concentration.as_deref(), Some("0.01:2.222"));
+                assert_eq!(args.viscosity, Some(6.25));
             }
             _ => panic!("expected Flow"),
+        }
+    }
+
+    #[test]
+    fn parse_flow_should_reject_non_finite_viscosity() {
+        for viscosity in ["NaN", "inf", "-inf"] {
+            let args = ["flow", "--viscosity", viscosity]
+                .into_iter()
+                .map(str::to_string)
+                .collect::<Vec<_>>();
+            assert!(cli::parse(&args).is_err(), "viscosity={viscosity}");
         }
     }
 
@@ -1065,7 +1252,7 @@ mod tests {
         let args = cli::BatchCreateArgs {
             opts,
             barcodes: vec![DEFAULT_BARCODE.to_string()],
-            rrn: DEFAULT_RRN.to_string(),
+            rrn: Some("2030625845182312449".to_string()),
             bottles: 2,
             concentration: "0.01:2.222".to_string(),
             viscosity: 5.0,
@@ -1074,7 +1261,7 @@ mod tests {
         };
         let cfg = DilutionConfig::default();
         let defaults = report_defaults(&cfg);
-        let request = fill_batch_create(&args, &cfg, &defaults, None);
+        let request = fill_batch_create(&args, "2030625845182312449", &cfg, &defaults, None);
         assert_eq!(request.eqpt_id.as_deref(), Some("EQPT-001"));
         assert_eq!(request.operator.as_deref(), Some("张工"));
         assert_eq!(request.checker.as_deref(), Some("李工"));
@@ -1091,7 +1278,10 @@ mod tests {
         assert!(request.label_print_url.is_none());
         // 0.01:2.222 → 溶剂 = 5000 × 2.222/0.01 = 1,111,000 → 稀释重量 = 1,116,000
         let weight = request.dilution_weight.unwrap();
-        assert!((weight - 1_116_000.0).abs() < 0.01, "dilution_weight={weight}");
+        assert!(
+            (weight - 1_116_000.0).abs() < 0.01,
+            "dilution_weight={weight}"
+        );
         // 三个时间戳非空且格式正确
         for time in [
             request.mix_start_time.as_deref(),
@@ -1113,7 +1303,7 @@ mod tests {
         let args = cli::BatchCreateArgs {
             opts,
             barcodes: vec![DEFAULT_BARCODE.to_string()],
-            rrn: DEFAULT_RRN.to_string(),
+            rrn: None,
             bottles: 1,
             concentration: "0.01:2.222".to_string(),
             viscosity: 5.0,
@@ -1122,14 +1312,17 @@ mod tests {
         };
         let cfg = DilutionConfig::default();
         let defaults = report_defaults(&cfg);
-        let request = fill_batch_create(&args, &cfg, &defaults, None);
+        let request = fill_batch_create(&args, "2030625845182312449", &cfg, &defaults, None);
         // 必填字段保留，报表字段全部 None
-        assert_eq!(request.vendor_barcode_list, vec![DEFAULT_BARCODE.to_string()]);
-        assert_eq!(request.resist_def_rrn, DEFAULT_RRN);
+        assert_eq!(
+            request.vendor_barcode_list,
+            vec![DEFAULT_BARCODE.to_string()]
+        );
+        assert_eq!(request.resist_def_rrn, "2030625845182312449");
         assert_eq!(request.bottle_count, 1);
         assert!(request.eqpt_id.is_none());
         assert!(request.operator.is_none());
-        assert!(request.viscosity.is_none());
+        assert_eq!(request.viscosity, Some(5.0));
         assert!(request.dilution_weight.is_none());
         assert!(request.comment.is_none());
     }
@@ -1145,8 +1338,101 @@ mod tests {
     }
 
     #[test]
+    fn resolve_checked_rrn_should_reject_explicit_mismatch() {
+        let error = resolve_checked_rrn(Some("111"), "222").unwrap_err();
+        assert!(error.contains("resistDefRrn mismatch"), "{error}");
+    }
+
+    #[test]
+    fn resolve_checked_rrn_should_use_check_result_by_default() {
+        assert_eq!(resolve_checked_rrn(None, "222").unwrap(), "222");
+        assert_eq!(resolve_checked_rrn(Some("222"), "222").unwrap(), "222");
+    }
+
+    #[test]
+    fn call_and_report_should_preserve_raw_soap_when_business_body_is_malformed() {
+        let raw_response = soap_mock::soap_envelope(
+            0,
+            None,
+            Some("<msgBody><barcodeCount>not-a-number</barcodeCount></msgBody>"),
+        );
+        let expected_raw_response = raw_response.clone();
+        let server = MockSoapServer::start(move |_| (200, raw_response.clone()));
+        let opts = cli::CommonOpts {
+            endpoint: server.endpoint(),
+            json: true,
+            timeout_ms: 1_000,
+        };
+        let mut steps = Vec::new();
+        let error = call_and_report(
+            &make_client(&opts),
+            "check",
+            "<msgBody/>",
+            |xml| parse_check_result(xml).and_then(summarize),
+            &opts,
+            &mut steps,
+        )
+        .unwrap_err();
+
+        assert!(error.contains("原始 SOAP 响应"), "{error}");
+        assert!(error.contains(&expected_raw_response), "{error}");
+    }
+
+    #[test]
+    fn flow_should_stop_when_check_barcode_count_does_not_match_request() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc;
+
+        let batch_create_called = Arc::new(AtomicBool::new(false));
+        let observed = Arc::clone(&batch_create_called);
+        let server = MockSoapServer::start(move |request| {
+            match extract_method_name(request).unwrap_or_default() {
+                "resistInfo" => (
+                    200,
+                    soap_mock::soap_envelope(
+                        0,
+                        None,
+                        Some(&soap_mock::resist_info_msg_body(DEFAULT_BARCODE)),
+                    ),
+                ),
+                "check" => (
+                    200,
+                    soap_mock::soap_envelope(
+                        0,
+                        None,
+                        Some(&soap_mock::check_msg_body("0.01:2.222", 0)),
+                    ),
+                ),
+                "batchCreate" => {
+                    observed.store(true, Ordering::SeqCst);
+                    soap_mock::respond_like_prms(request)
+                }
+                _ => (500, "unknown method".to_string()),
+            }
+        });
+        let error = run_flow(cli::FlowArgs {
+            opts: cli::CommonOpts {
+                endpoint: server.endpoint(),
+                json: true,
+                timeout_ms: 1_000,
+            },
+            barcodes: vec![DEFAULT_BARCODE.to_string()],
+            concentration: Some(DEFAULT_CONCENTRATION.to_string()),
+            bottles: 1,
+            viscosity: None,
+            skip_check: false,
+            sleep_ms: 0,
+        })
+        .unwrap_err();
+
+        assert!(error.contains("barcodeCount=0"), "{error}");
+        assert!(!batch_create_called.load(Ordering::SeqCst));
+    }
+
+    #[test]
     fn extract_method_name_should_find_method() {
-        let request = r#"<soap:Envelope><temp:methodName>resistInfo</temp:methodName></soap:Envelope>"#;
+        let request =
+            r#"<soap:Envelope><temp:methodName>resistInfo</temp:methodName></soap:Envelope>"#;
         assert_eq!(extract_method_name(request), Some("resistInfo"));
         assert_eq!(extract_method_name("no method"), None);
     }
