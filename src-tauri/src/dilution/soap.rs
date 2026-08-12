@@ -1,7 +1,6 @@
 //! PRMS SOAP CXF 客户端封包/解包（SOAP 1.1 + text/xml）
 
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
@@ -59,10 +58,28 @@ pub fn parse_soap_response(response_xml: &str) -> Result<SoapEnvelopeResponse, S
             }
             Ok(Event::Text(text)) => {
                 if let Ok(decoded) = text.decode() {
-                    let decoded = decoded.to_string();
-                    let unescaped =
-                        quick_xml::escape::unescape(&decoded).unwrap_or(Cow::Borrowed(&decoded));
-                    text_buffer.push_str(&unescaped);
+                    text_buffer.push_str(&decoded);
+                }
+            }
+            Ok(Event::GeneralRef(reference)) => {
+                let name = reference
+                    .decode()
+                    .map_err(|error| format!("failed to decode SOAP XML entity: {error}"))?;
+                match name.as_ref() {
+                    "lt" => text_buffer.push('<'),
+                    "gt" => text_buffer.push('>'),
+                    "amp" => text_buffer.push('&'),
+                    "quot" => text_buffer.push('"'),
+                    "apos" => text_buffer.push('\''),
+                    _ => match reference.resolve_char_ref() {
+                        Ok(Some(character)) => text_buffer.push(character),
+                        Ok(None) => {
+                            return Err(format!("unrecognized SOAP XML entity: &{name};"));
+                        }
+                        Err(error) => {
+                            return Err(format!("invalid SOAP XML character entity: {error}"));
+                        }
+                    },
                 }
             }
             Ok(Event::CData(text)) => {
@@ -150,6 +167,26 @@ mod tests {
         assert_eq!(parsed.result, Some(0));
         let body = parsed.return_msg_body_xml_string.unwrap();
         assert!(body.contains("<resistNO>MZ</resistNO>"));
+    }
+
+    #[test]
+    fn parse_soap_response_should_preserve_xml_from_escaped_text_response() {
+        let xml = r#"<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <InvokeCommonRVMessageByXMLMsgBodyResponse xmlns="http://tempuri.org/">
+      <InvokeCommonRVMessageByXMLMsgBodyResult>0</InvokeCommonRVMessageByXMLMsgBodyResult>
+      <returnMsgBodyXmlString>&lt;msgBody&gt;&lt;resistDefRrn&gt;2061321410000228354&lt;/resistDefRrn&gt;&lt;barcodeCount&gt;1&lt;/barcodeCount&gt;&lt;/msgBody&gt;</returnMsgBodyXmlString>
+    </InvokeCommonRVMessageByXMLMsgBodyResponse>
+  </soap:Body>
+</soap:Envelope>"#;
+
+        let parsed = parse_soap_response(xml).unwrap();
+        assert_eq!(
+            parsed.return_msg_body_xml_string.as_deref(),
+            Some(
+                "<msgBody><resistDefRrn>2061321410000228354</resistDefRrn><barcodeCount>1</barcodeCount></msgBody>"
+            )
+        );
     }
 
     #[test]
