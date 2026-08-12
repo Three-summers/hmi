@@ -38,10 +38,9 @@ impl SoapPrmsClient {
             .http_status_as_error(false)
             .build()
             .header("Content-Type", "text/xml; charset=utf-8")
-            .header(
-                "SOAPAction",
-                "http://tempuri.org/InvokeCommonRVMessageByXMLMsgBody",
-            )
+            // 不发送 SOAPAction：厂商 CXF 服务按 WSDL 声明匹配 SOAPAction，
+            // 接口文档（V1.4 2.1 节）未声明 soapAction，发送 tempuri 值会触发
+            // "The given SOAPAction ... does not match an operation"（HTTP 500）。
             .send(body)
             .map_err(|error| format!("PRMS SOAP request failed: {error}"))?;
         let status = response.status().as_u16();
