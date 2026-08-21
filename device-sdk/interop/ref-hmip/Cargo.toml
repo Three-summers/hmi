@@ -1,0 +1,12 @@
+[package]
+name = "ref-hmip"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bytes = "=1.11.0"
+crc32fast = "=1.5.0"
+
+[[bin]]
+name = "ref-hmip"
+path = "src/main.rs"

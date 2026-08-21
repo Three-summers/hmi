@@ -34,6 +34,10 @@ src-tauri/Log/
 src-tauri/gen/android/
 src-tauri/gen/apple/
 
+# 设备端 C SDK 构建产物（主机端可执行文件统一输出到 build/，cargo 输出到各自 target/）
+device-sdk/build/
+device-sdk/interop/*/target/
+
 .*
 verification.md
 tmp/
