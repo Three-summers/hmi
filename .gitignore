@@ -38,6 +38,9 @@ src-tauri/gen/apple/
 device-sdk/build/
 device-sdk/interop/*/target/
 
+# 现场联调测试输出（scripts/field_test.sh 的 RESULTS_DIR 默认值）
+field-test-results/
+
 .*
 verification.md
 tmp/

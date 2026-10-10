@@ -6,6 +6,7 @@ use super::config::{
 };
 use super::types::*;
 use crate::craftsmanship::{RecipeRuntimeManager, RecipeRuntimeRunInput, RecipeRuntimeStatus};
+use crate::dilution::{METHOD_BATCH_CREATE, METHOD_CHECK, METHOD_RESIST_INFO};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
@@ -243,7 +244,7 @@ impl DilutionManager {
                     }
                     if check_result.value.resist_def_rrn != relationship.sys_rrn {
                         return Err(format!(
-                            "PRMS resistDefRrn mismatch for concentration `{}`: resistInfo returned `{}`, check returned `{}`",
+                            "PRMS resistDefRrn mismatch for concentration `{}`: {METHOD_RESIST_INFO} returned `{}`, {METHOD_CHECK} returned `{}`",
                             relationship.concentration,
                             relationship.sys_rrn,
                             check_result.value.resist_def_rrn
@@ -266,7 +267,7 @@ impl DilutionManager {
             lot_id: Some(info.def_batch_no.clone()),
             prms_query_id: Some(info.vendor_barcode.clone()),
             validation_status: ScanValidationStatus::Accepted,
-            validation_message: Some("PRMS resistInfo accepted".to_string()),
+            validation_message: Some(format!("PRMS {METHOD_RESIST_INFO} accepted")),
         };
         batch.raw_scans.push(scan);
         batch.prms_sync.push(sync_record(
@@ -345,7 +346,7 @@ impl DilutionManager {
         let checked = check_result.value;
         if checked.resist_def_rrn != relationship.sys_rrn {
             return Err(format!(
-                "PRMS resistDefRrn mismatch for concentration `{}`: resistInfo returned `{}`, check returned `{}`",
+                "PRMS resistDefRrn mismatch for concentration `{}`: {METHOD_RESIST_INFO} returned `{}`, {METHOD_CHECK} returned `{}`",
                 request.concentration, relationship.sys_rrn, checked.resist_def_rrn
             ));
         }
@@ -535,7 +536,7 @@ impl DilutionManager {
         )
         .map_err(|error| self.fail_batch(&batch_id, &error))?;
 
-        // 5. PRMS batchCreate（不放锁跨 IO）
+        // 5. PRMS PRMSBatchCreateReq（不放锁跨 IO）
         self.transition_batch(
             &batch_id,
             BatchStatus::BatchCreating,
@@ -884,6 +885,17 @@ impl PrmsClient for MockPrmsClient {
                     sys_rrn: "2011636530905427800".to_string(),
                 }],
             )
+        } else if barcode.starts_with("MLTOK") {
+            // 现场附表场景：MLTOK 原液条码 → 70% 稀释
+            (
+                "TMR-IK02 PM 5.4cP".to_string(),
+                vec![DilutionRelationship {
+                    resist_no: "MLTOK01-D".to_string(),
+                    resist_name: "TMR-IK02 PM 5.4cP-70%".to_string(),
+                    concentration: "70%".to_string(),
+                    sys_rrn: crate::dilution::soap_mock::FIELD_70_PCT_RRN.to_string(),
+                }],
+            )
         } else {
             return Err(format!("mock PRMS cannot resolve barcode `{barcode}`"));
         };
@@ -906,7 +918,7 @@ impl PrmsClient for MockPrmsClient {
             dilution_relationships: relationships,
         };
         Ok(AdapterResult {
-            request_payload: json!({ "method": "resistInfo", "vendorBarcode": barcode }),
+            request_payload: json!({ "method": METHOD_RESIST_INFO, "vendorBarcode": barcode }),
             response_payload: serde_json::to_value(&value).unwrap_or_default(),
             value,
         })
@@ -924,6 +936,9 @@ impl PrmsClient for MockPrmsClient {
             (true, "60%") => "2004086388857843700",
             (true, "70%") => "2011636530905427900",
             (false, "70%") if first.contains("IK02") => "2011636530905427800",
+            (false, "70%" | "70:30") if first.starts_with("MLTOK") => {
+                crate::dilution::soap_mock::FIELD_70_PCT_RRN
+            }
             _ => {
                 return Err(format!(
                     "mock PRMS cannot match barcode `{first}` with concentration `{}`",
@@ -941,7 +956,7 @@ impl PrmsClient for MockPrmsClient {
             barcode_count: request.vendor_barcode_list.len() as u32,
         };
         Ok(AdapterResult {
-            request_payload: json!({ "method": "check", "concentration": request.concentration }),
+            request_payload: json!({ "method": METHOD_CHECK, "concentration": request.concentration }),
             response_payload: serde_json::to_value(&value).unwrap_or_default(),
             value,
         })
@@ -976,7 +991,7 @@ impl PrmsClient for MockPrmsClient {
             print_success: Some(true),
         };
         Ok(AdapterResult {
-            request_payload: json!({ "method": "batchCreate", "bottleCount": request.bottle_count }),
+            request_payload: json!({ "method": METHOD_BATCH_CREATE, "bottleCount": request.bottle_count }),
             response_payload: serde_json::to_value(&value).unwrap_or_default(),
             value,
         })
@@ -1662,7 +1677,7 @@ mod tests {
 
     #[tokio::test]
     async fn run_batch_should_complete_with_real_soap_client_against_local_mock_server() {
-        // 用本地 SOAP mock 服务替换 MockPrmsClient：整条稀释链路（resistInfo → check → batchCreate）
+        // 用本地 SOAP mock 服务替换 MockPrmsClient：整条稀释链路（PRMSResistInfoInq → PRMSResistInfoCheckInq → PRMSBatchCreateReq）
         // 全部走真实 HTTP 请求，验证 SoapPrmsClient 与状态机的集成
         let workspace = build_test_workspace("run-soap-e2e");
         // PRMS 浓度是 raw:solvent 比例形式，覆盖测试 workspace 的配置以匹配 mock 返回的关系
@@ -1733,7 +1748,7 @@ mod tests {
         assert_eq!(finished.resist_barcodes.len(), 3);
         assert!(finished.print_success == Some(true));
 
-        // mock 服务端应收到 3 个 SOAP 请求：resistInfo / check / batchCreate
+        // mock 服务端应收到 3 个 SOAP 请求：PRMSResistInfoInq / PRMSResistInfoCheckInq / PRMSBatchCreateReq
         let mut received = Vec::new();
         while let Ok(body) = server.received_bodies.try_recv() {
             received.push(body);
@@ -1744,9 +1759,9 @@ mod tests {
             "expected 3 SOAP requests, got {received:?}"
         );
         let all = received.join("\n");
-        assert!(all.contains(">resistInfo<"), "{all}");
-        assert!(all.contains(">check<"), "{all}");
-        assert!(all.contains(">batchCreate<"), "{all}");
+        assert!(all.contains(">PRMSResistInfoInq<"), "{all}");
+        assert!(all.contains(">PRMSResistInfoCheckInq<"), "{all}");
+        assert!(all.contains(">PRMSBatchCreateReq<"), "{all}");
     }
 
     #[tokio::test]

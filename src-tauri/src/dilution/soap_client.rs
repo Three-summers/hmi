@@ -3,7 +3,8 @@
 use crate::dilution::{
     build_soap_request, parse_soap_response, xml_escape, AdapterResult, CheckBatchRequest,
     CheckResult, CreateDilutionBatchRequest, CreateDilutionBatchResult, DilutionRelationship,
-    PrmsClient, QueryResistInfoRequest, ResistInfo,
+    PrmsClient, QueryResistInfoRequest, ResistInfo, METHOD_BATCH_CREATE, METHOD_CHECK,
+    METHOD_RESIST_INFO,
 };
 use quick_xml::events::Event;
 use quick_xml::Reader;
@@ -306,8 +307,8 @@ fn parse_msg_body(xml: &str) -> Result<MsgBodyDocument, String> {
 
 pub fn parse_resist_info(msg_body_xml: &str) -> Result<ResistInfo, String> {
     let document = parse_msg_body(msg_body_xml)?;
-    let resist_no = document.required("resistNO", "resistInfo")?;
-    let vendor_barcode = document.required("vendorBarcode", "resistInfo")?;
+    let resist_no = document.required("resistNO", "PRMSResistInfoInq")?;
+    let vendor_barcode = document.required("vendorBarcode", "PRMSResistInfoInq")?;
     let relationships = document
         .relationships
         .iter()
@@ -318,7 +319,7 @@ pub fn parse_resist_info(msg_body_xml: &str) -> Result<ResistInfo, String> {
                     .filter(|value| !value.trim().is_empty())
                     .cloned()
                     .ok_or_else(|| {
-                        format!("invalid PRMS resistInfo response: dilutionRelationship missing {element}")
+                        format!("invalid PRMS PRMSResistInfoInq response: dilutionRelationship missing {element}")
                     })
             };
             Ok(DilutionRelationship {
@@ -330,7 +331,7 @@ pub fn parse_resist_info(msg_body_xml: &str) -> Result<ResistInfo, String> {
         })
         .collect::<Result<Vec<_>, String>>()?;
     if relationships.is_empty() {
-        return Err("invalid PRMS resistInfo response: dilutionRelationship is empty".to_string());
+        return Err("invalid PRMS PRMSResistInfoInq response: dilutionRelationship is empty".to_string());
     }
     Ok(ResistInfo {
         resist_no,
@@ -345,16 +346,16 @@ pub fn parse_resist_info(msg_body_xml: &str) -> Result<ResistInfo, String> {
             .unwrap_or_default()
             .to_string(),
         defrost_buffer_days: document
-            .optional_number("defrostBufferDays", "resistInfo")?
+            .optional_number("defrostBufferDays", "PRMSResistInfoInq")?
             .unwrap_or(0),
         warning_day: document
-            .optional_number("warningDay", "resistInfo")?
+            .optional_number("warningDay", "PRMSResistInfoInq")?
             .unwrap_or(0),
         extend_days: document
-            .optional_number("extendDays", "resistInfo")?
+            .optional_number("extendDays", "PRMSResistInfoInq")?
             .unwrap_or(0),
-        viscosity_upper_limit: document.optional_number("viscosityUpperLimit", "resistInfo")?,
-        viscosity_lower_limit: document.optional_number("viscosityLowerLimit", "resistInfo")?,
+        viscosity_upper_limit: document.optional_number("viscosityUpperLimit", "PRMSResistInfoInq")?,
+        viscosity_lower_limit: document.optional_number("viscosityLowerLimit", "PRMSResistInfoInq")?,
         vendor_barcode,
         def_batch_no: document.first("defBatchNO").unwrap_or_default().to_string(),
         to_resist_no: document.first("toResistNo").unwrap_or_default().to_string(),
@@ -365,20 +366,20 @@ pub fn parse_resist_info(msg_body_xml: &str) -> Result<ResistInfo, String> {
 
 pub fn parse_check_result(msg_body_xml: &str) -> Result<CheckResult, String> {
     let document = parse_msg_body(msg_body_xml)?;
-    let resist_def_rrn = document.required("resistDefRrn", "check")?;
+    let resist_def_rrn = document.required("resistDefRrn", METHOD_CHECK)?;
     resist_def_rrn.parse::<i64>().map_err(|_| {
-        format!("invalid PRMS check response: resistDefRrn is not a Long: {resist_def_rrn}")
+        format!("invalid PRMS {METHOD_CHECK} response: resistDefRrn is not a Long: {resist_def_rrn}")
     })?;
     Ok(CheckResult {
-        resist_no: document.required("resistNO", "check")?,
-        def_resist_no: document.required("defResistNO", "check")?,
+        resist_no: document.required("resistNO", METHOD_CHECK)?,
+        def_resist_no: document.required("defResistNO", METHOD_CHECK)?,
         resist_def_rrn,
-        batch_no: document.required("batchNO", "check")?,
-        expire_date: document.required("expireDate", "check")?,
-        concentration: document.required("concentration", "check")?,
+        batch_no: document.required("batchNO", METHOD_CHECK)?,
+        expire_date: document.required("expireDate", METHOD_CHECK)?,
+        concentration: document.required("concentration", METHOD_CHECK)?,
         barcode_count: document
-            .optional_number("barcodeCount", "check")?
-            .ok_or_else(|| "invalid PRMS check response: missing barcodeCount".to_string())?,
+            .optional_number("barcodeCount", METHOD_CHECK)?
+            .ok_or_else(|| format!("invalid PRMS {METHOD_CHECK} response: missing barcodeCount"))?,
     })
 }
 
@@ -387,16 +388,16 @@ pub fn parse_batch_create_result(msg_body_xml: &str) -> Result<CreateDilutionBat
     let resist_sys_rrns = document.all("resistSysRrn");
     let resist_barcodes = document.all("resistBarcode");
     if resist_barcodes.is_empty() {
-        return Err("invalid PRMS batchCreate response: resistBarcode is empty".to_string());
+        return Err("invalid PRMS PRMSBatchCreateReq response: resistBarcode is empty".to_string());
     }
     if resist_sys_rrns.is_empty() {
-        return Err("invalid PRMS batchCreate response: resistSysRrn is empty".to_string());
+        return Err("invalid PRMS PRMSBatchCreateReq response: resistSysRrn is empty".to_string());
     }
     let print_success = document
         .first("printSuccess")
         .map(|value| {
             value.parse::<bool>().map_err(|_| {
-                format!("invalid PRMS batchCreate response: printSuccess is not Boolean: {value}")
+                format!("invalid PRMS PRMSBatchCreateReq response: printSuccess is not Boolean: {value}")
             })
         })
         .transpose()?;
@@ -416,11 +417,11 @@ impl PrmsClient for SoapPrmsClient {
             return Err("vendorBarcode must not be empty".to_string());
         }
         let msg_body = resist_info_msg_body(&request);
-        let response = self.invoke("resistInfo", &msg_body)?;
+        let response = self.invoke(METHOD_RESIST_INFO, &msg_body)?;
         let value = parse_resist_info(&response.msg_body_xml)?;
         Ok(AdapterResult {
             request_payload: serde_json::json!({
-                "method": "resistInfo",
+                "method": METHOD_RESIST_INFO,
                 "parameters": request,
                 "msgBodyXml": msg_body,
             }),
@@ -452,18 +453,18 @@ impl PrmsClient for SoapPrmsClient {
             return Err("concentration must not be empty".to_string());
         }
         let msg_body = check_msg_body(&request);
-        let response = self.invoke("check", &msg_body)?;
+        let response = self.invoke(METHOD_CHECK, &msg_body)?;
         let value = parse_check_result(&response.msg_body_xml)?;
         if value.barcode_count != request.vendor_barcode_list.len() as u32 {
             return Err(format!(
-                "PRMS check returned barcodeCount={} for {} requested barcodes",
+                "PRMS {METHOD_CHECK} returned barcodeCount={} for {} requested barcodes",
                 value.barcode_count,
                 request.vendor_barcode_list.len()
             ));
         }
         Ok(AdapterResult {
             request_payload: serde_json::json!({
-                "method": "check",
+                "method": METHOD_CHECK,
                 "parameters": request,
                 "msgBodyXml": msg_body,
             }),
@@ -505,13 +506,13 @@ impl PrmsClient for SoapPrmsClient {
             return Err("viscosity is required and must be finite".to_string());
         }
         let msg_body = batch_create_msg_body(&request);
-        let response = self.invoke("batchCreate", &msg_body)?;
+        let response = self.invoke(METHOD_BATCH_CREATE, &msg_body)?;
         let value = parse_batch_create_result(&response.msg_body_xml)?;
         if value.resist_barcodes.len() != request.bottle_count as usize
             || value.resist_sys_rrns.len() != request.bottle_count as usize
         {
             return Err(format!(
-                "PRMS batchCreate returned {} barcodes and {} RRNs for {} requested bottles",
+                "PRMS PRMSBatchCreateReq returned {} barcodes and {} RRNs for {} requested bottles",
                 value.resist_barcodes.len(),
                 value.resist_sys_rrns.len(),
                 request.bottle_count
@@ -519,7 +520,7 @@ impl PrmsClient for SoapPrmsClient {
         }
         Ok(AdapterResult {
             request_payload: serde_json::json!({
-                "method": "batchCreate",
+                "method": METHOD_BATCH_CREATE,
                 "parameters": request,
                 "msgBodyXml": msg_body,
             }),
@@ -702,7 +703,7 @@ mod tests {
             .query_resist_info(QueryResistInfoRequest {
                 vendor_barcode: "MZJTST11234567826050700003".to_string(),
             })
-            .expect("resistInfo over SOAP should succeed");
+            .expect("PRMSResistInfoInq over SOAP should succeed");
         assert_eq!(result.value.resist_no, "MZJTST1");
         assert_eq!(result.value.vendor_barcode, "MZJTST11234567826050700003");
         assert_eq!(result.value.dilution_relationships.len(), 2);
@@ -718,7 +719,7 @@ mod tests {
             .expect("server should receive one request");
         assert!(request.contains("soap:Envelope"), "{request}");
         assert!(
-            request.contains("<temp:methodName>resistInfo</temp:methodName>"),
+            request.contains("<temp:methodName>PRMSResistInfoInq</temp:methodName>"),
             "{request}"
         );
         assert!(
@@ -736,7 +737,7 @@ mod tests {
                 vendor_barcode: "UNKNOWN-123456".to_string(),
             })
             .expect_err("result=1 should fail");
-        assert!(error.contains("PRMS SOAP resistInfo failed"), "{error}");
+        assert!(error.contains("PRMS SOAP PRMSResistInfoInq failed"), "{error}");
         assert!(error.contains("vendorBarcode not found"), "{error}");
     }
 
@@ -847,7 +848,7 @@ mod tests {
                 viscosity: Some(5.0),
                 ..Default::default()
             })
-            .expect("batchCreate over SOAP should succeed");
+            .expect("PRMSBatchCreateReq over SOAP should succeed");
         assert_eq!(result.value.resist_barcodes.len(), 3);
         assert_eq!(result.value.resist_sys_rrns.len(), 3);
         assert_eq!(result.value.print_success, Some(true));

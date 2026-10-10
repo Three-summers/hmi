@@ -12,14 +12,14 @@
 | 协议 | SOAP WebService（CXF 动态服务） |
 | WSDL 地址 | `http://<PRMS地址>:12000/prms-serve/cxf/PrmsDilutionWebService?wsdl` |
 | 统一调用方法 | `InvokeCommonRVMessageByXMLMsgBody`（入参：`methodName` + `msgBodyXmlString`） |
-| 接口列表 | ① `resistInfo`：扫码查询原液定义信息<br>② `check`：校验条码+浓度（不创建数据，batchCreate 前预校验）<br>③ `batchCreate`：批量创建稀释液 |
+| 接口列表 | ① `PRMSResistInfoInq`：扫码查询原液定义信息<br>② `PRMSResistInfoCheckInq`：校验条码+浓度（不创建数据，PRMSBatchCreateReq 前预校验）<br>③ `PRMSBatchCreateReq`：批量创建稀释液 |
 
 **调用流程（三步，与 web 端 Dilution Create 页面逻辑一致）：**
 
 ```
-第 1 步：扫描原液条码 → 调 resistInfo（只传 vendorBarcode）→ 返回定义信息 + 可选稀释浓度列表
-第 2 步（可选，推荐）：调 check（传条码列表 + concentration）→ 预校验通过后返回 resistDefRrn，避免 batchCreate 失败
-第 3 步：选定浓度 → 调 batchCreate（传条码列表 + resistDefRrn + 瓶数/粘度 + 报表字段）→ 返回创建的稀释液条码
+第 1 步：扫描原液条码 → 调 PRMSResistInfoInq（只传 vendorBarcode）→ 返回定义信息 + 可选稀释浓度列表
+第 2 步（可选，推荐）：调 PRMSResistInfoCheckInq（传条码列表 + concentration）→ 预校验通过后返回 resistDefRrn，避免 PRMSBatchCreateReq 失败
+第 3 步：选定浓度 → 调 PRMSBatchCreateReq（传条码列表 + resistDefRrn + 瓶数/粘度 + 报表字段）→ 返回创建的稀释液条码
         （创建成功后后端异步完成 dataCollection 收值，与 web 端 Dilution Create 页面行为一致，无需额外调用）
 ```
 
@@ -32,7 +32,7 @@
 ```xml
 <soap:Body>
     <InvokeCommonRVMessageByXMLMsgBody xmlns="http://tempuri.org/">
-        <methodName>resistInfo</methodName>          <!-- 或 batchCreate -->
+        <methodName>PRMSResistInfoInq</methodName>          <!-- 或 PRMSBatchCreateReq -->
         <msgBodyXmlString><![CDATA[<msgBody>...</msgBody>]]></msgBodyXmlString>
     </InvokeCommonRVMessageByXMLMsgBody>
 </soap:Body>
@@ -58,7 +58,7 @@
 
 ---
 
-## 3. 接口一：resistInfo（扫码查询原液定义）
+## 3. 接口一：PRMSResistInfoInq（扫码查询原液定义）
 
 ### 3.1 用途
 
@@ -134,9 +134,9 @@ Dilution Tool 扫描原液条码后，查询该条码对应的原液定义信息
 | `dilutionRelationship[]` | List | **该原液可稀释成的稀释液定义列表**。每个元素含 `sysRrn`（稀释液定义 RRN）、`resistNO`（稀释液编号）、`concentration`（浓度） |
 | `spectrumLimitList[]` | List | 光谱限制项列表（可选，一般不用） |
 
-> **对接要点（重要）：`resistDefRrn` 即所选浓度的稀释液定义 RRN**。Dilution Tool 展示浓度列表时，需把用户选择的浓度与 `dilutionRelationship[]` 中的 `concentration` 对应起来，**取该条记录的 `sysRrn`** 作为 batchCreate 的 `resistDefRrn` 入参。
+> **对接要点（重要）：`resistDefRrn` 即所选浓度的稀释液定义 RRN**。Dilution Tool 展示浓度列表时，需把用户选择的浓度与 `dilutionRelationship[]` 中的 `concentration` 对应起来，**取该条记录的 `sysRrn`** 作为 PRMSBatchCreateReq 的 `resistDefRrn` 入参。
 >
-> 示例（resistInfo 实际返回）：
+> 示例（PRMSResistInfoInq 实际返回）：
 >
 > | dilutionRelationship 中的浓度（concentration） | 该条记录的 sysRrn（= resistDefRrn 入参） |
 > |---|---|
@@ -147,15 +147,15 @@ Dilution Tool 扫描原液条码后，查询该条码对应的原液定义信息
 
 ---
 
-## 4. 接口二：check（预校验，不创建数据）
+## 4. 接口二：PRMSResistInfoCheckInq（预校验，不创建数据）
 
 ### 4.1 用途
 
-在执行 `batchCreate` 前，先用 `check` 接口验证条码和浓度的匹配关系。**校验逻辑与 batchCreate 完全一致**（复用同一个服务层代码），但不会创建任何数据。适用于 Dilution Tool 在用户确认前做预校验，避免 `batchCreate` 失败导致事务回滚。
+在执行 `PRMSBatchCreateReq` 前，先用 `PRMSResistInfoCheckInq` 接口验证条码和浓度的匹配关系。**校验逻辑与 PRMSBatchCreateReq 完全一致**（复用同一个服务层代码），但不会创建任何数据。适用于 Dilution Tool 在用户确认前做预校验，避免 `PRMSBatchCreateReq` 失败导致事务回滚。
 
-**与 batchCreate 的区别：** check 接口入参为 `concentration`（稀释度）而非 `resistDefRrn`，后端根据条码解析出的原液 resistNO + concentration 反查匹配的稀释液定义，校验通过后返回 `resistDefRrn`，可直接用于后续 batchCreate。
+**与 PRMSBatchCreateReq 的区别：** PRMSResistInfoCheckInq 接口入参为 `concentration`（稀释度）而非 `resistDefRrn`，后端根据条码解析出的原液 resistNO + concentration 反查匹配的稀释液定义，校验通过后返回 `resistDefRrn`，可直接用于后续 PRMSBatchCreateReq。
 
-**校验逻辑（与 batchCreate 完全一致）：**
+**校验逻辑（与 PRMSBatchCreateReq 完全一致）：**
 1. 解析条码（7865 规则 / BarcodeMappingRules）
 2. 检查所有条码的 resistNO 是否一致
 3. 用原液 resistNO 查原液 ResistDef，再用原液 RRN + concentration 查匹配的稀释液定义是否存在
@@ -174,9 +174,9 @@ Dilution Tool 扫描原液条码后，查询该条码对应的原液定义信息
 
 | 字段 | 类型 | 必传 | 说明 |
 |---|---|---|---|
-| `vendorBarcodeList` | String（可重复） | 是（与 sourceResistInfo 二选一） | 同 batchCreate，传原液条码列表 |
-| `concentration` | String | 是 | 稀释度（浓度），与 resistInfo 返回的 `dilutionRelationship[].concentration` 一致 |
-| `sourceResistInfo` | String | 否 | 同 batchCreate，兼容方式，与 vendorBarcodeList 二选一 |
+| `vendorBarcodeList` | String（可重复） | 是（与 sourceResistInfo 二选一） | 同 PRMSBatchCreateReq，传原液条码列表 |
+| `concentration` | String | 是 | 稀释度（浓度），与 PRMSResistInfoInq 返回的 `dilutionRelationship[].concentration` 一致 |
+| `sourceResistInfo` | String | 否 | 同 PRMSBatchCreateReq，兼容方式，与 vendorBarcodeList 二选一 |
 
 ### 4.3 响应参数
 
@@ -198,17 +198,17 @@ Dilution Tool 扫描原液条码后，查询该条码对应的原液定义信息
 |---|---|---|
 | `resistNO` | String | 解析后的原液 resistNO |
 | `defResistNO` | String | 匹配到的稀释液定义 resistNO |
-| `resistDefRrn` | Long | **匹配到的稀释液定义 RRN**（校验通过后可直接作为 batchCreate 的 `resistDefRrn` 入参） |
+| `resistDefRrn` | Long | **匹配到的稀释液定义 RRN**（校验通过后可直接作为 PRMSBatchCreateReq 的 `resistDefRrn` 入参） |
 | `batchNO` | String | 解析后的批次号（取第一个条码） |
 | `expireDate` | String | 解析后的有效期（取第一个条码） |
 | `concentration` | String | 稀释液定义的浓度（回显入参） |
 | `barcodeCount` | Integer | 校验通过的条码数量 |
 
-> 校验失败时返回 `result=1` + `errorDesc`，错误信息与 batchCreate 完全一致（见第 6 节常见错误）。
+> 校验失败时返回 `result=1` + `errorDesc`，错误信息与 PRMSBatchCreateReq 完全一致（见第 6 节常见错误）。
 
 ---
 
-## 5. 接口三：batchCreate（批量创建稀释液）
+## 5. 接口三：PRMSBatchCreateReq（批量创建稀释液）
 
 ### 5.1 用途
 
@@ -256,7 +256,7 @@ Dilution Tool 扫描原液条码后，查询该条码对应的原液定义信息
 | 字段 | 类型 | 必传 | 说明 |
 |---|---|---|---|
 | `vendorBarcodeList` | String（可重复） | 是（与 sourceResistInfo 二选一） | 原液条码列表，**重复该元素即多条，只传 1 个元素同样支持**。后端自动解析每个条码 |
-| `resistDefRrn` | Long | 是 | **所选浓度的稀释液定义 RRN**：先在 resistInfo 返回的 `dilutionRelationship[]` 中找出 `concentration` 与所选浓度一致的记录，**取该条记录的 `sysRrn`** 传入（见 3.3 对接要点示例）。注意不是主节点（原液定义）的 sysRrn |
+| `resistDefRrn` | Long | 是 | **所选浓度的稀释液定义 RRN**：先在 PRMSResistInfoInq 返回的 `dilutionRelationship[]` 中找出 `concentration` 与所选浓度一致的记录，**取该条记录的 `sysRrn`** 传入（见 3.3 对接要点示例）。注意不是主节点（原液定义）的 sysRrn |
 | `eqptId` | String | 否 | **机台 ID（报表"机台"字段）**。用于：① 后端按机台从 System Setting > Printing Setting 获取打印地址；② 写入报表表 RESIST_DILUTION_REPORT.EQPT_ID（报表专用独立表，不写 RESIST 主表） |
 | `bottleCount` | Integer | 是 | 本次创建的稀释液瓶数 |
 | `viscosity` | Double | 是 | 稀释液粘度 |
@@ -307,7 +307,7 @@ vendorBarcodeList（条码列表）
 校验②：resistNO 必须与 resistDefRrn 指向的稀释液定义匹配，且该定义已配置浓度
         │
         ▼
-拼接 batchCreate 入参：
+拼接 PRMSBatchCreateReq 入参：
     ├─ batchNO   ：请求未传 → 取第一条条码解析的 batchNO
     ├─ expDate   ：请求未传 → 取第一条条码解析的 expireDate
     ├─ sourceResistInfo：请求未传 → 自动构造 {"list":[{vendorBarcode,resistNO,batchNO,expireDate}...]}
@@ -316,7 +316,7 @@ vendorBarcodeList（条码列表）
     └─ 报表字段 → 逐字段透传
         │
         ▼
-调 PRMS 现有 batchCreate 服务：
+调 PRMS 现有 PRMSBatchCreateReq 服务：
     resistDefRrn → 稀释液定义；条码 = resistNO + batchNO + expDate + 序号（批次号+瓶次）
     打印地址：labelPrintUrl 未传 → 按机台 eqptId 从 PRINTSETUP(EQPT_ID 匹配) 取 SERVER_URL
     按 bottleCount 循环创建（每瓶）：
@@ -380,8 +380,8 @@ JSON 字符串作为 XML 元素文本直接放置即可：JSON 中的 `"` `{` `}
 
 ## 7. 对接自测建议
 
-1. 先调 `resistInfo` 验证条码可解析（返回 `toResistNo`、`dilutionRelationship` 非空）
+1. 先调 `PRMSResistInfoInq` 验证条码可解析（返回 `toResistNo`、`dilutionRelationship` 非空）
 2. 从 `dilutionRelationship` 任取一条的 `sysRrn` 作为 `resistDefRrn`
-3. （可选）调 `check` 预校验，确认条码+浓度匹配通过
-4. 调 `batchCreate`（简化方式），确认返回 `resistBarcode` 列表且 `result=0`
+3. （可选）调 `PRMSResistInfoCheckInq` 预校验，确认条码+浓度匹配通过
+4. 调 `PRMSBatchCreateReq`（简化方式），确认返回 `resistBarcode` 列表且 `result=0`
 5. 报表字段逐个加上再调一次，确认不报错且落库正确（数据库 RESIST_DILUTION_REPORT 表：每瓶一条，RESIST_RRN 与 RESIST.SYS_RRN 对应，稀释日期=CREATE_TIME、Comment=COMMENTS）

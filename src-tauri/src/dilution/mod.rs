@@ -10,6 +10,9 @@ pub use config::{
     DEFAULT_PROJECT_ID,
 };
 pub use manager::{DilutionManager, MockDilutionDeviceGateway};
-pub use soap::{build_soap_request, parse_soap_response, xml_escape};
+pub use soap::{
+    build_soap_request, parse_soap_response, xml_escape, METHOD_BATCH_CREATE, METHOD_CHECK,
+    METHOD_RESIST_INFO,
+};
 pub use soap_client::SoapPrmsClient;
 pub use types::*;

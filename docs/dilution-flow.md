@@ -15,13 +15,13 @@
 
 - `dilution` 后端状态机与前端 Dilution 视图均为 mock（`src-tauri/src/dilution/types.rs` 中 `PrmsClient` / `DilutionDeviceGateway` 全部是 Mock 实现）
 - 当前设计假设 PRMS 提供 3 个语义操作：`queryMapping` / `uploadViscosity` / `requestDilutionBarcodes`
-- 新 PRMS 接口（SOAP v1.4）改为统一入口 + 3 个方法：`resistInfo` / `check` / `batchCreate`，**创建瓶、生成条码、打印、异步收值、写报表都在 PRMS 侧完成**
+- 新 PRMS 接口（SOAP v1.4）改为统一入口 + 3 个方法：`PRMSResistInfoInq` / `PRMSResistInfoCheckInq` / `PRMSBatchCreateReq`，**创建瓶、生成条码、打印、异步收值、写报表都在 PRMS 侧完成**
 
 ### 1.2 本次改动的核心
 
-1. PRMS 交互改为 SOAP 三步：`resistInfo` →（可选 `check`）→ `batchCreate`
+1. PRMS 交互改为 SOAP 三步：`PRMSResistInfoInq` →（可选 `PRMSResistInfoCheckInq`）→ `PRMSBatchCreateReq`
 2. 本地设备动作（称量 / 搅拌 / 静置 / 测粘度）**复用 craftsmanship 引擎**，通过 **HMIP 通信**与真实设备交互
-3. 本地工艺参数：比例从 resistInfo 返回的 `concentration` 解析，搅拌/静置使用 workspace 全局默认值，粘度上下限使用 resistInfo 返回值
+3. 本地工艺参数：比例从 PRMSResistInfoInq 返回的 `concentration` 解析，搅拌/静置使用 workspace 全局默认值，粘度上下限使用 PRMSResistInfoInq 返回值
 4. `eqptId` / `operator` / `checker` 等机台与人员信息在 **workspace `system/` 配置**中定义
 
 ### 1.3 范围
@@ -36,7 +36,7 @@
 
 | 层 | 职责 | 模块 |
 |---|---|---|
-| PRMS 交互层 | `resistInfo` / `check` / `batchCreate` SOAP 调用 | dilution 状态机 + 新增 SOAP 客户端 |
+| PRMS 交互层 | `PRMSResistInfoInq` / `PRMSResistInfoCheckInq` / `PRMSBatchCreateReq` SOAP 调用 | dilution 状态机 + 新增 SOAP 客户端 |
 | 本地工艺执行层 | 称量 / 搅拌 / 静置 / 测粘度等设备动作 | craftsmanship 引擎 + `comm`（HMIP） |
 | 配置层 | recipeId 映射、全局搅拌/静置默认值、eqptId、人员信息 | workspace `system/` 配置 |
 | UI 层 | 扫码 → 浓度选择 → 执行监控 → 结果展示 | 前端 Dilution 视图（对接后端） |
@@ -45,12 +45,12 @@
 
 ```
 1. create_batch（machineId 入参，未传时取 system 配置 eqptId / operator 默认值）
-2. 扫码原液条码 → resistInfo(vendorBarcode) → 原液信息 + dilutionRelationship[] 浓度列表
+2. 扫码原液条码 → PRMSResistInfoInq(vendorBarcode) → 原液信息 + dilutionRelationship[] 浓度列表
 3. 选浓度 →（可选）check(vendorBarcodeList, concentration) 预校验 → resistDefRrn
 4. 本地工艺段：craftsmanship 运行时执行本地配方
       称量原液 → 称量溶剂（按比例）→ 搅拌 → 静置 → 测粘度（全部走 HMIP）
 5. 从 craftsmanship 运行时结果读取粘度 / 实际质量
-6. batchCreate(vendorBarcodeList, resistDefRrn, eqptId, bottleCount, viscosity, 报表字段)
+6. PRMSBatchCreateReq(vendorBarcodeList, resistDefRrn, eqptId, bottleCount, viscosity, 报表字段)
       → 返回 resistSysRrn[] / resistBarcode[] / printSuccess
 7. 本地分装（条码关联瓶子）
 8. Completed（收值 / 报表由 PRMS 异步完成）
@@ -68,14 +68,14 @@
 
 | 方法 | 入参 | 出参（本地使用字段） |
 |---|---|---|
-| `resistInfo` | `vendorBarcode` | 原液定义（resistName / concentration / viscosityUpperLimit / viscosityLowerLimit / defrostTime / mtrNO 等，只读展示）；`dilutionRelationship[]`：每项 `concentration` + `sysRrn` |
-| `check` | `vendorBarcodeList[]` + `concentration` | 通过：`resistDefRrn` / `batchNO` / `expireDate` / `barcodeCount`；失败：`result=1` + `errorDesc` |
-| `batchCreate` | `vendorBarcodeList[]` + `resistDefRrn` + `eqptId` + `bottleCount` + `viscosity` + 报表字段（17 个） | `resistSysRrn[]` / `resistBarcode[]` / `printSuccess` |
+| `PRMSResistInfoInq` | `vendorBarcode` | 原液定义（resistName / concentration / viscosityUpperLimit / viscosityLowerLimit / defrostTime / mtrNO 等，只读展示）；`dilutionRelationship[]`：每项 `concentration` + `sysRrn` |
+| `PRMSResistInfoCheckInq` | `vendorBarcodeList[]` + `concentration` | 通过：`resistDefRrn` / `batchNO` / `expireDate` / `barcodeCount`；失败：`result=1` + `errorDesc` |
+| `PRMSBatchCreateReq` | `vendorBarcodeList[]` + `resistDefRrn` + `eqptId` + `bottleCount` + `viscosity` + 报表字段（17 个） | `resistSysRrn[]` / `resistBarcode[]` / `printSuccess` |
 
 **关键约定：**
 - `resistDefRrn` = `dilutionRelationship[]` 中与所选浓度匹配那条记录的 `sysRrn`（不是主节点原液定义的 sysRrn）
 - 条码解析（7865 / BarcodeMappingRules）由 PRMS 侧自动完成，本地不解析
-- `batchCreate` 成功后 PRMS 异步执行 dataCollection 收值，本地无需额外调用
+- `PRMSBatchCreateReq` 成功后 PRMS 异步执行 dataCollection 收值，本地无需额外调用
 - 报表 17 字段完整映射见官方文档 §5.3，本地只负责收集并透传
 
 ### 3.3 SOAP 客户端
@@ -123,7 +123,7 @@ pub trait PrmsClient: Send + Sync {
 ### 4.3 与 dilution 状态机的接口
 
 - dilution 驱动 craftsmanship 运行时：`craftsmanship_runtime_load_recipe`（本地配方）→ `craftsmanship_runtime_start_with_input`（`runInputs.parameters` 传瓶数 / 比例等）→ 轮询 `get_status` 或订阅 `craftsmanship-runtime-event`
-- 配方完成后，dilution 从运行时 `snapshot.runtime_values` / `signal_values` 读取：**粘度平均值、原液实际质量、溶剂实际质量**，用于 batchCreate 入参（viscosity）与报表字段（稀释重量等）
+- 配方完成后，dilution 从运行时 `snapshot.runtime_values` / `signal_values` 读取：**粘度平均值、原液实际质量、溶剂实际质量**，用于 PRMSBatchCreateReq 入参（viscosity）与报表字段（稀释重量等）
 
 ---
 
@@ -133,14 +133,14 @@ pub trait PrmsClient: Send + Sync {
 
 | 旧状态 / 步骤 | 处理 |
 |---|---|
-| `MappingResolved`（queryMapping） | 改为 `ResistInfoResolved`（resistInfo 返回浓度列表） |
+| `MappingResolved`（queryMapping） | 改为 `ResistInfoResolved`（PRMSResistInfoInq 返回浓度列表） |
 | `RecipeLocked`（本地锁定 mock 配方） | 保留概念；配方参数改为来自系统配置 |
 | `RawLoading` / `SolventLoading` / `Mixing` / `Settling` / `ViscosityTesting` | 保留语义；**执行移交给 craftsmanship 引擎** |
-| `ViscositySynced`（upload_viscosity） | 删除；粘度作为 batchCreate 入参 |
-| `BarcodeRequested`（request_dilution_barcodes） | 删除；条码由 batchCreate 返回 |
+| `ViscositySynced`（upload_viscosity） | 删除；粘度作为 PRMSBatchCreateReq 入参 |
+| `BarcodeRequested`（request_dilution_barcodes） | 删除；条码由 PRMSBatchCreateReq 返回 |
 | `Printing`（本地打印标签） | 删除；打印由 PRMS / Bartender 处理 |
-| `Dispensing` | 保留；**移到 batchCreate 之后**，条码关联分装 |
-| `ReportPending`（本地生成 report） | 改为报表字段收集并透传 batchCreate |
+| `Dispensing` | 保留；**移到 PRMSBatchCreateReq 之后**，条码关联分装 |
+| `ReportPending`（本地生成 report） | 改为报表字段收集并透传 PRMSBatchCreateReq |
 
 ### 5.2 新状态机（语义）
 
@@ -151,7 +151,7 @@ Draft → ScanningRawResist → ResistInfoResolved → RecipeLocked
       → Completed / Failed
 ```
 
-具体状态命名在实施时确定；`check` 预校验失败与 `batchCreate` 失败均进入 `Failed` 并保留 PRMS 错误信息。
+具体状态命名在实施时确定；`PRMSResistInfoCheckInq` 预校验失败与 `PRMSBatchCreateReq` 失败均进入 `Failed` 并保留 PRMS 错误信息。
 
 ---
 
@@ -178,13 +178,13 @@ Draft → ScanningRawResist → ResistInfoResolved → RecipeLocked
 }
 ```
 
-- `eqptId`：batchCreate 的机台字段，同时用于 PRMS 侧打印配置查询（PRINTSETUP）；**作为 `CreateBatchRequest.machineId` 未传时的默认值**
+- `eqptId`：PRMSBatchCreateReq 的机台字段，同时用于 PRMS 侧打印配置查询（PRINTSETUP）；**作为 `CreateBatchRequest.machineId` 未传时的默认值**
 - `operator` / `checker`：默认人员值；创建批次时会固化到批次快照，运行与报表以批次快照为准
 - `labelPrintUrl` 可选；不配时 PRMS 按 `eqptId` 查打印地址
 
 ### 6.2 浓度工艺参数表
 
-key = `dilutionRelationship[].concentration`（resistInfo 返回值），并关联本地 recipe 文件：
+key = `dilutionRelationship[].concentration`（PRMSResistInfoInq 返回值），并关联本地 recipe 文件：
 
 ```json
 {
@@ -204,9 +204,9 @@ key = `dilutionRelationship[].concentration`（resistInfo 返回值），并关�
 - `recipeId`：指向 `projects/<id>/recipes/<recipeId>.json`，即该浓度对应的本地配方（见 4.2）
 - `concentration` 为 `raw:solvent` 时直接解析为原液/溶剂比例，例如 `0.01:5`；百分比形式如 `70%` 兼容解析为 `70:30`
 - `processDefaults`：所有浓度共用的搅拌和静置默认时长；批次锁定时写入运行快照
-- 粘度上下限来自 resistInfo 的 `viscosityLowerLimit` / `viscosityUpperLimit`，不再按浓度在配置中重复维护
+- 粘度上下限来自 PRMSResistInfoInq 的 `viscosityLowerLimit` / `viscosityUpperLimit`，不再按浓度在配置中重复维护
 - 密度字段不再参与稀释流程
-- resistInfo 返回的浓度在表中查不到 → 该选项不可用（提示配置缺失，不阻断其它浓度）
+- PRMSResistInfoInq 返回的浓度在表中查不到 → 该选项不可用（提示配置缺失，不阻断其它浓度）
 
 ---
 
@@ -216,11 +216,11 @@ key = `dilutionRelationship[].concentration`（resistInfo 返回值），并关�
 |---|---|
 | `CreateBatchRequest` | `machineId` **保留**入参（支持一台 HMI 管多机台）；未传时取配置 `eqptId` 作默认值 |
 | `Batch` | 新增 `resist_info` / `resist_def_rrn` / `resist_barcodes` / `check_result` 等 |
-| `RawResistScan` | `validation_status` 由本地 mock 判定改为 resistInfo / check 结果 |
+| `RawResistScan` | `validation_status` 由本地 mock 判定改为 PRMSResistInfoInq / check 结果 |
 | `RunBatchRequest` | `viscosity_readings_cp` / `raw_load` 保留 |
-| `DilutionReport` | 本地生成改为收集 17 个报表字段透传 batchCreate（官方文档 §5.3） |
+| `DilutionReport` | 本地生成改为收集 17 个报表字段透传 PRMSBatchCreateReq（官方文档 §5.3） |
 | `PrmsOperation` | 删除 `UploadViscosity` / `RequestDilutionBarcodes`；新增 `Check` 等 |
-| `DilutionRecipeSnapshot` | 保留 recipeId、比例和时序快照；比例来自 concentration，时序来自全局默认值，粘度范围来自 resistInfo，不再保存密度 |
+| `DilutionRecipeSnapshot` | 保留 recipeId、比例和时序快照；比例来自 concentration，时序来自全局默认值，粘度范围来自 PRMSResistInfoInq，不再保存密度 |
 
 ---
 
@@ -241,7 +241,7 @@ key = `dilutionRelationship[].concentration`（resistInfo 返回值），并关�
 | P2 | workspace `system/` 配置：浓度工艺参数表（含 recipeId 关联）+ eqptId / operator |
 | P3 | craftsmanship 设备 / 动作建模（HMIP 报文占位）+ 预写各浓度 recipe 文件 |
 | P4 | dilution 状态机重排 + 与 craftsmanship 运行时集成（读粘度 / 质量结果） |
-| P5 | 前端 Dilution 视图对接：扫码 → 浓度选择 → 执行监控 → batchCreate → 分装 → 完成 |
+| P5 | 前端 Dilution 视图对接：扫码 → 浓度选择 → 执行监控 → PRMSBatchCreateReq → 分装 → 完成 |
 
 ---
 

@@ -34,7 +34,7 @@
 ./soap_cli flow
 ```
 
-**预期**：终端 A 逐条打印 `[mock] POST method=resistInfo -> HTTP 200`（check、batchCreate 同理）；终端 B 各命令打印请求/响应报文并以退出码 0 结束。
+**预期**：终端 A 逐条打印 `[mock] POST method=PRMSResistInfoInq -> HTTP 200`（PRMSResistInfoCheckInq、PRMSBatchCreateReq 同理）；终端 B 各命令打印请求/响应报文并以退出码 0 结束。
 
 ## 4. 第二步：连真实 PRMS 联调
 
@@ -66,12 +66,12 @@
 | `resist-info <条码>` | 查询原液信息 + 可稀释浓度列表 | `soap_cli resist-info MZJTST11234567826050700003` |
 | `check <条码> --concentration <浓度>` | 浓度预校验，返回 `resistDefRrn` | `soap_cli check <条码> --concentration 0.01:2.222` |
 | `batch-create [选项]` | 创建稀释瓶 / 生成条码 / 打印（17 个报表字段虚拟填充） | `soap_cli batch-create --bottles 3` |
-| `flow [选项]` | 完整流程：resistInfo → check → 虚拟工艺段 → batchCreate | `soap_cli flow` |
+| `flow [选项]` | 完整流程：PRMSResistInfoInq → PRMSResistInfoCheckInq → 虚拟工艺段 → PRMSBatchCreateReq | `soap_cli flow` |
 | `mock [--port <端口>]` | 内置 mock PRMS 服务端（默认 8899） | `soap_cli mock --port 8899` |
 
 通用选项：`--endpoint <url>`、`--json`（机器可读输出）、`--timeout-ms <n>`（默认 15000）、`-h/--help`。
 
-`batch-create` 会先按 `--barcode + --concentration` 调用 `check`，并将返回的 `resistDefRrn` 用于 `batchCreate`，因此不会使用固定或 mock RRN。若为了对报文显式传 `--rrn`，该值必须与 `check` 返回值一致，否则 CLI 在创建前停止。
+`batch-create` 会先按 `--barcode + --concentration` 调用 `PRMSResistInfoCheckInq`，并将返回的 `resistDefRrn` 用于 `PRMSBatchCreateReq`，因此不会使用固定或 mock RRN。若为了对报文显式传 `--rrn`，该值必须与 `PRMSResistInfoCheckInq` 返回值一致，否则 CLI 在创建前停止。
 
 batch-create / flow 可选参数：`--barcode`（可重复）、`--concentration`、`--bottles`、`--viscosity`、`--rrn`（仅用于显式一致性校验）、`--skip-check`（仅 flow）、`--sleep-ms` 等，详见 `./soap_cli --help`。
 
@@ -79,9 +79,9 @@ batch-create / flow 可选参数：`--barcode`（可重复）、`--concentration
 
 | 方法 | 成功标志（result=0） | 关注返回字段 |
 |---|---|---|
-| `resistInfo` | `InvokeCommonRVMessageByXMLMsgBodyResult` = 0 | `dilutionRelationship` 列表：稀释胶名称、`concentration`（比例）、`sysRrn` |
-| `check` | 同上 | `resistDefRrn`（后续 batchCreate 的入参）、`batchNO`、`expireDate` |
-| `batchCreate` | 同上 | `resistSysRrn[]`、`resistBarcode[]`、`printSuccess` |
+| `PRMSResistInfoInq` | `InvokeCommonRVMessageByXMLMsgBodyResult` = 0 | `dilutionRelationship` 列表：稀释胶名称、`concentration`（比例）、`sysRrn` |
+| `PRMSResistInfoCheckInq` | 同上 | `resistDefRrn`（后续 PRMSBatchCreateReq 的入参）、`batchNO`、`expireDate` |
+| `PRMSBatchCreateReq` | 同上 | `resistSysRrn[]`、`resistBarcode[]`、`printSuccess` |
 
 失败时：`result` = 1，且 `errorDesc` 返回错误描述（如 `vendorBarcode not found`、`barcode not matched with concentration`）。
 
@@ -91,9 +91,9 @@ mock 服务端按条码内容触发错误分支，用于验证我方对失败响
 
 | 条码特征 | 触发的错误 |
 |---|---|
-| 含 `UNKNOWN` | resistInfo 失败：`vendorBarcode not found` |
-| 含 `REJECT` | check 失败：`barcode not matched with concentration` |
-| 含 `FAIL` | batchCreate 失败：`batchCreate failed` |
+| 含 `UNKNOWN` | PRMSResistInfoInq 失败：`vendorBarcode not found` |
+| 含 `REJECT` | PRMSResistInfoCheckInq 失败：`barcode not matched with concentration` |
+| 含 `FAIL` | PRMSBatchCreateReq 失败：`batchCreate failed` |
 
 ```bash
 ./soap_cli resist-info UNKNOWN-123            # 退出码 1

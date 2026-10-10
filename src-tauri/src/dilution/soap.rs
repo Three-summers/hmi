@@ -2,6 +2,11 @@
 
 use serde::{Deserialize, Serialize};
 
+/// PRMS SOAP 统一入口内嵌的业务方法名（接口变更后的新方法名）
+pub const METHOD_RESIST_INFO: &str = "PRMSResistInfoInq";
+pub const METHOD_CHECK: &str = "PRMSResistInfoCheckInq";
+pub const METHOD_BATCH_CREATE: &str = "PRMSBatchCreateReq";
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct SoapEnvelopeResponse {
@@ -142,12 +147,12 @@ mod tests {
     #[test]
     fn build_soap_request_should_wrap_method_and_body() {
         let xml = build_soap_request(
-            "resistInfo",
+            METHOD_RESIST_INFO,
             "<msgBody><vendorBarcode>ABC</vendorBarcode></msgBody>",
         );
         assert!(xml.contains("soap:Envelope"));
         assert!(xml.contains("InvokeCommonRVMessageByXMLMsgBody"));
-        assert!(xml.contains("<temp:methodName>resistInfo</temp:methodName>"));
+        assert!(xml.contains("<temp:methodName>PRMSResistInfoInq</temp:methodName>"));
         assert!(xml.contains("&lt;msgBody&gt;"));
         assert!(!xml.contains("<msgBody>"));
     }

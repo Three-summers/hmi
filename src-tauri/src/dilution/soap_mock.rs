@@ -3,6 +3,7 @@
 //! 用于测试 `SoapPrmsClient::invoke` 的 HTTP 传输层（封包发送 / 状态码 / 响应解析），
 //! 也供 `soap_cli mock` 子命令作为内置联调服务端使用。
 
+use super::{METHOD_BATCH_CREATE, METHOD_CHECK, METHOD_RESIST_INFO};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
@@ -10,6 +11,9 @@ use std::thread;
 
 /// 请求处理函数：原始请求体 → (HTTP 状态码, 响应体)
 pub type Responder = dyn Fn(&str) -> (u16, String) + Send + Sync;
+
+/// 现场联调场景（MLTOK 原液条码 → TMR-IK02 70% 稀释）的 mock resistDefRrn
+pub const FIELD_70_PCT_RRN: &str = "2030625845182312999";
 
 pub struct MockSoapServer {
     pub addr: std::net::SocketAddr,
@@ -116,6 +120,14 @@ pub fn soap_envelope(
 }
 
 pub fn resist_info_msg_body(barcode: &str) -> String {
+    // 现场联调场景：MLTOK 前缀原液条码 → TMR-IK02 PM 5.4cP → 70% 稀释（附表场景）
+    if barcode.starts_with("MLTOK") {
+        let def_batch_no = barcode.get(7..15).unwrap_or("51183520");
+        let expire_time = barcode.get(15..21).unwrap_or("260520");
+        return format!(
+            r#"<msgBody><resistNO>MLTOK01</resistNO><resistName>TMR-IK02 PM 5.4cP</resistName><concentration>1.0</concentration><mtrNO>MTR001</mtrNO><defrostTime>08:00</defrostTime><vendorBarcode>{barcode}</vendorBarcode><defBatchNO>{def_batch_no}</defBatchNO><toResistNo>MLTOK01</toResistNo><expireTime>{expire_time}</expireTime><dilutionRelationship><resistNO>MLTOK01-D</resistNO><resistName>TMR-IK02 PM 5.4cP-70%</resistName><concentration>70%</concentration><sysRrn>{FIELD_70_PCT_RRN}</sysRrn></dilutionRelationship></msgBody>"#
+        );
+    }
     format!(
         r#"<msgBody><resistNO>MZJTST1</resistNO><resistName>光刻胶A</resistName><concentration>1.0</concentration><mtrNO>MTR001</mtrNO><defrostTime>08:00</defrostTime><vendorBarcode>{barcode}</vendorBarcode><defBatchNO>12345678</defBatchNO><toResistNo>MZJTST1</toResistNo><expireTime>260507</expireTime><dilutionRelationship><resistNO>MZJTST1-D</resistNO><resistName>稀释光刻胶A 0.01:2.222</resistName><concentration>0.01:2.222</concentration><sysRrn>2030625845182312449</sysRrn></dilutionRelationship><dilutionRelationship><resistNO>MZJTST1-D2</resistNO><resistName>稀释光刻胶A2 0.01:2.5</resistName><concentration>0.01:2.5</concentration><sysRrn>2030625845182312450</sysRrn></dilutionRelationship></msgBody>"#
     )
@@ -124,6 +136,7 @@ pub fn resist_info_msg_body(barcode: &str) -> String {
 pub fn check_msg_body(concentration: &str, barcode_count: usize) -> String {
     let rrn = match concentration {
         "0.01:2.5" => "2030625845182312450",
+        "70%" | "70:30" => FIELD_70_PCT_RRN,
         _ => "2030625845182312449",
     };
     format!(
@@ -131,15 +144,20 @@ pub fn check_msg_body(concentration: &str, barcode_count: usize) -> String {
     )
 }
 
-pub fn batch_create_msg_body(bottle_count: u32) -> String {
+pub fn batch_create_msg_body(bottle_count: u32, resist_def_rrn: &str) -> String {
+    let (sys_rrn_prefix, barcode_prefix) = if resist_def_rrn == FIELD_70_PCT_RRN {
+        ("20306258451823130", "MLTOK01-D")
+    } else {
+        ("20306258451823125", "MZJTST1-D")
+    };
     let mut sys_rrns = String::new();
     let mut barcodes = String::new();
     for index in 1..=bottle_count {
         sys_rrns.push_str(&format!(
-            "<resistSysRrn>20306258451823125{index:02}</resistSysRrn>"
+            "<resistSysRrn>{sys_rrn_prefix}{index:02}</resistSysRrn>"
         ));
         barcodes.push_str(&format!(
-            "<resistBarcode>MZJTST1-D-{index:03}</resistBarcode>"
+            "<resistBarcode>{barcode_prefix}-{index:03}</resistBarcode>"
         ));
     }
     format!("<msgBody>{sys_rrns}{barcodes}<printSuccess>true</printSuccess></msgBody>")
@@ -169,7 +187,7 @@ fn extract_escaped_element(request: &str, element: &str) -> Option<String> {
 pub fn respond_like_prms(request_body: &str) -> (u16, String) {
     let method = extract_method_name(request_body).unwrap_or("unknown");
     match method {
-        "resistInfo" => {
+        METHOD_RESIST_INFO => {
             let barcode =
                 extract_escaped_element(request_body, "vendorBarcode").unwrap_or_default();
             if barcode.contains("UNKNOWN") {
@@ -181,14 +199,17 @@ pub fn respond_like_prms(request_body: &str) -> (u16, String) {
                 )
             }
         }
-        "check" => {
+        METHOD_CHECK => {
             let concentration =
                 extract_escaped_element(request_body, "concentration").unwrap_or_default();
             let barcode_count = request_body
                 .match_indices("&lt;vendorBarcodeList&gt;")
                 .count();
             if request_body.contains("REJECT")
-                || !matches!(concentration.as_str(), "0.01:2.222" | "0.01:2.5")
+                || !matches!(
+                    concentration.as_str(),
+                    "0.01:2.222" | "0.01:2.5" | "70%" | "70:30"
+                )
             {
                 (
                     200,
@@ -205,7 +226,7 @@ pub fn respond_like_prms(request_body: &str) -> (u16, String) {
                 )
             }
         }
-        "batchCreate" => {
+        METHOD_BATCH_CREATE => {
             let bottle_count = extract_escaped_element(request_body, "bottleCount")
                 .and_then(|value| value.parse::<u32>().ok());
             let rrn = extract_escaped_element(request_body, "resistDefRrn").unwrap_or_default();
@@ -221,7 +242,10 @@ pub fn respond_like_prms(request_body: &str) -> (u16, String) {
                     200,
                     soap_envelope(1, Some("sourceResistInfo is empty"), None),
                 )
-            } else if !matches!(rrn.as_str(), "2030625845182312449" | "2030625845182312450") {
+            } else if !matches!(
+                rrn.as_str(),
+                "2030625845182312449" | "2030625845182312450" | FIELD_70_PCT_RRN
+            ) {
                 (
                     200,
                     soap_envelope(1, Some("ResistDef not found, resistDefRrn"), None),
@@ -237,7 +261,11 @@ pub fn respond_like_prms(request_body: &str) -> (u16, String) {
                 let bottle_count = bottle_count.unwrap_or_default();
                 (
                     200,
-                    soap_envelope(0, None, Some(&batch_create_msg_body(bottle_count))),
+                    soap_envelope(
+                        0,
+                        None,
+                        Some(&batch_create_msg_body(bottle_count, &rrn)),
+                    ),
                 )
             }
         }
@@ -253,7 +281,7 @@ mod tests {
     #[test]
     fn check_should_return_rrn_matching_requested_concentration() {
         let request = build_soap_request(
-            "check",
+            METHOD_CHECK,
             "<msgBody><vendorBarcodeList>MZJTST11234567826050700003</vendorBarcodeList><concentration>0.01:2.222</concentration></msgBody>",
         );
         let (_, response) = respond_like_prms(&request);
@@ -263,7 +291,7 @@ mod tests {
     #[test]
     fn batch_create_should_reject_missing_viscosity() {
         let request = build_soap_request(
-            "batchCreate",
+            METHOD_BATCH_CREATE,
             "<msgBody><vendorBarcodeList>MZJTST11234567826050700003</vendorBarcodeList><resistDefRrn>2030625845182312449</resistDefRrn><bottleCount>1</bottleCount></msgBody>",
         );
         let (_, response) = respond_like_prms(&request);

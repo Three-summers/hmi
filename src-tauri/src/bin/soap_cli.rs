@@ -16,6 +16,7 @@ use hmi_lib::dilution::{
     build_soap_request, default_workspace_root, load_dilution_config, parse_concentration_ratio,
     CheckBatchRequest, CheckResult, CreateDilutionBatchRequest, DilutionConfig,
     DilutionRelationship, QueryResistInfoRequest, ResistInfo, SoapPrmsClient,
+    METHOD_BATCH_CREATE, METHOD_CHECK, METHOD_RESIST_INFO,
 };
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
@@ -409,13 +410,13 @@ mod cli {
 
 命令:
   resist-info <条码>
-      PRMS resistInfo：查询原液信息与可稀释浓度列表
+      PRMS PRMSResistInfoInq：查询原液信息与可稀释浓度列表
   check <条码> [条码...] --concentration <浓度>
-      PRMS check：预校验，返回 resistDefRrn
+      PRMS PRMSResistInfoCheckInq：预校验，返回 resistDefRrn
   batch-create [选项]
-      PRMS batchCreate：创建稀释瓶 / 生成条码 / 打印，17 个报表字段虚拟填充
+      PRMS PRMSBatchCreateReq：创建稀释瓶 / 生成条码 / 打印，17 个报表字段虚拟填充
   flow [选项]
-      完整流程: resistInfo → check → 虚拟工艺段（虚拟读数）→ batchCreate
+      完整流程: PRMSResistInfoInq → PRMSResistInfoCheckInq → 虚拟工艺段（虚拟读数）→ PRMSBatchCreateReq
   mock [--port <端口>]
       本地内置 mock SOAP 服务端（默认端口 {DEFAULT_MOCK_PORT}，与 scripts/soap_mock_server.py 一致）
 
@@ -427,7 +428,7 @@ mod cli {
 
 batch-create 选项:
   --barcode <条码>         原液条码（可重复；默认 {DEFAULT_BARCODE}）
-  --rrn <rrn>              显式 resistDefRrn（可选；默认调用 check 自动获取，显式值也会校验）
+  --rrn <rrn>              显式 resistDefRrn（可选；默认调用 PRMSResistInfoCheckInq 自动获取，显式值也会校验）
   --bottles <n>            稀释瓶数（默认 1）
   --concentration <浓度>   稀释浓度（默认 0.01:2.222，raw:solvent 比例形式，不支持百分比）
   --viscosity <v>          粘度（默认 5.0 cP）
@@ -439,9 +440,9 @@ batch-create 选项:
 
 flow 选项:
   --barcode <条码>         原液条码（可重复；默认 {DEFAULT_BARCODE}）
-  --concentration <浓度>   指定浓度（默认取 resistInfo 返回的第一个）
+  --concentration <浓度>   指定浓度（默认取 PRMSResistInfoInq 返回的第一个）
   --bottles <n>            稀释瓶数（默认 1）
-  --skip-check             跳过 check 预校验（resistDefRrn 取 resistInfo 的 sysRrn）
+  --skip-check             跳过 PRMSResistInfoCheckInq 预校验（resistDefRrn 取 PRMSResistInfoInq 的 sysRrn）
   --sleep-ms <n>           虚拟工艺段模拟耗时（默认 0 不等待）
 
 mock 选项:
@@ -543,7 +544,7 @@ fn virtual_readings(cfg: &DilutionConfig, concentration: &str) -> VirtualReading
     }
 }
 
-/// 构造 batchCreate 请求：虚拟默认值填充 17 报表字段，`--xxx` 显式覆盖；
+/// 构造 PRMSBatchCreateReq 请求：虚拟默认值填充 17 报表字段，`--xxx` 显式覆盖；
 /// `--no-fill` 时仅发送显式报表字段；viscosity 等必填基础字段始终保留
 fn fill_batch_create(
     args: &cli::BatchCreateArgs,
@@ -608,7 +609,7 @@ fn fill_batch_create(
         resist_def_rrn: resist_def_rrn.to_string(),
         eqpt_id: pick("eqpt-id", Some(defaults.eqpt_id.clone())),
         bottle_count: args.bottles,
-        // viscosity 是 batchCreate 基础必填字段；--no-fill 只影响可选报表字段。
+        // viscosity 是 PRMSBatchCreateReq 基础必填字段；--no-fill 只影响可选报表字段。
         viscosity: Some(args.viscosity),
         batch_no: None,
         exp_date: None,
@@ -728,7 +729,7 @@ fn validate_batch_create_summary(summary: &Value, bottle_count: u32) -> Result<(
         .unwrap_or(0);
     if barcode_count != bottle_count as usize || rrn_count != bottle_count as usize {
         return Err(format!(
-            "batchCreate 返回 {barcode_count} 个条码和 {rrn_count} 个 RRN，但请求瓶数为 {bottle_count}"
+            "PRMSBatchCreateReq 返回 {barcode_count} 个条码和 {rrn_count} 个 RRN，但请求瓶数为 {bottle_count}"
         ));
     }
     Ok(())
@@ -746,7 +747,7 @@ fn run_resist_info(opts: &cli::CommonOpts, barcode: &str) -> Result<(), String> 
     });
     let _info = call_and_report(
         &client,
-        "resistInfo",
+        METHOD_RESIST_INFO,
         &msg_body,
         |xml| parse_resist_info(xml).and_then(summarize),
         opts,
@@ -774,7 +775,7 @@ fn run_check(
     });
     let _result = call_and_report(
         &client,
-        "check",
+        METHOD_CHECK,
         &msg_body,
         |xml| parse_check_result(xml).and_then(summarize),
         opts,
@@ -802,7 +803,7 @@ fn run_batch_create(args: cli::BatchCreateArgs) -> Result<(), String> {
     });
     let check_value = call_and_report(
         &client,
-        "check",
+        METHOD_CHECK,
         &check_body,
         |xml| parse_check_result(xml).and_then(summarize),
         opts,
@@ -816,7 +817,7 @@ fn run_batch_create(args: cli::BatchCreateArgs) -> Result<(), String> {
     let msg_body = batch_create_msg_body(&request);
     let result = call_and_report(
         &client,
-        "batchCreate",
+        METHOD_BATCH_CREATE,
         &msg_body,
         |xml| parse_batch_create_result(xml).and_then(summarize),
         opts,
@@ -835,20 +836,20 @@ fn run_flow(args: cli::FlowArgs) -> Result<(), String> {
     let barcodes = args.barcodes.clone();
     let mut steps = Vec::new();
 
-    // 1. resistInfo：原液信息 + 浓度列表
+    // 1. PRMSResistInfoInq：原液信息 + 浓度列表
     let msg_body = resist_info_msg_body(&QueryResistInfoRequest {
         vendor_barcode: barcodes[0].clone(),
     });
     let info_value = call_and_report(
         &client,
-        "resistInfo",
+        METHOD_RESIST_INFO,
         &msg_body,
         |xml| parse_resist_info(xml).and_then(summarize),
         opts,
         &mut steps,
     )?;
     let info: ResistInfo = serde_json::from_value(info_value)
-        .map_err(|error| format!("解析 resistInfo 结果失败: {error}"))?;
+        .map_err(|error| format!("解析 PRMSResistInfoInq 结果失败: {error}"))?;
 
     // 2. 确定浓度与匹配的 dilutionRelationship
     let concentration = match &args.concentration {
@@ -858,7 +859,7 @@ fn run_flow(args: cli::FlowArgs) -> Result<(), String> {
             .first()
             .map(|relationship| relationship.concentration.clone())
             .ok_or_else(|| {
-                "resistInfo 未返回任何浓度选项，请用 --concentration 指定".to_string()
+                "PRMSResistInfoInq 未返回任何浓度选项，请用 --concentration 指定".to_string()
             })?,
     };
     let relationship = info
@@ -872,10 +873,10 @@ fn run_flow(args: cli::FlowArgs) -> Result<(), String> {
                 .map(|relationship| relationship.concentration.as_str())
                 .collect::<Vec<_>>()
                 .join(" / ");
-            format!("浓度 {concentration} 不在 resistInfo 返回的浓度列表中（{available}）")
+            format!("浓度 {concentration} 不在 PRMSResistInfoInq 返回的浓度列表中（{available}）")
         })?;
 
-    // 3. check 预校验（--skip-check 时用 resistInfo 的 sysRrn）
+    // 3. PRMSResistInfoCheckInq 预校验（--skip-check 时用 PRMSResistInfoInq 的 sysRrn）
     let resist_def_rrn = if args.skip_check {
         relationship.sys_rrn.clone()
     } else {
@@ -885,7 +886,7 @@ fn run_flow(args: cli::FlowArgs) -> Result<(), String> {
         });
         let check_value = call_and_report(
             &client,
-            "check",
+            METHOD_CHECK,
             &msg_body,
             |xml| parse_check_result(xml).and_then(summarize),
             opts,
@@ -922,7 +923,7 @@ fn run_flow(args: cli::FlowArgs) -> Result<(), String> {
         std::thread::sleep(std::time::Duration::from_millis(args.sleep_ms));
     }
 
-    // 5. batchCreate：自动填充全部报表字段（虚拟读数 + resistInfo 上下文）
+    // 5. PRMSBatchCreateReq：自动填充全部报表字段（虚拟读数 + PRMSResistInfoInq 上下文）
     let batch_args = cli::BatchCreateArgs {
         opts: opts.clone(),
         barcodes: barcodes.clone(),
@@ -943,7 +944,7 @@ fn run_flow(args: cli::FlowArgs) -> Result<(), String> {
     let msg_body = batch_create_msg_body(&request);
     let result = call_and_report(
         &client,
-        "batchCreate",
+        METHOD_BATCH_CREATE,
         &msg_body,
         |xml| parse_batch_create_result(xml).and_then(summarize),
         opts,
@@ -1366,7 +1367,7 @@ mod tests {
         let mut steps = Vec::new();
         let error = call_and_report(
             &make_client(&opts),
-            "check",
+            METHOD_CHECK,
             "<msgBody/>",
             |xml| parse_check_result(xml).and_then(summarize),
             &opts,
@@ -1387,7 +1388,7 @@ mod tests {
         let observed = Arc::clone(&batch_create_called);
         let server = MockSoapServer::start(move |request| {
             match extract_method_name(request).unwrap_or_default() {
-                "resistInfo" => (
+                METHOD_RESIST_INFO => (
                     200,
                     soap_mock::soap_envelope(
                         0,
@@ -1395,7 +1396,7 @@ mod tests {
                         Some(&soap_mock::resist_info_msg_body(DEFAULT_BARCODE)),
                     ),
                 ),
-                "check" => (
+                METHOD_CHECK => (
                     200,
                     soap_mock::soap_envelope(
                         0,
@@ -1403,7 +1404,7 @@ mod tests {
                         Some(&soap_mock::check_msg_body("0.01:2.222", 0)),
                     ),
                 ),
-                "batchCreate" => {
+                METHOD_BATCH_CREATE => {
                     observed.store(true, Ordering::SeqCst);
                     soap_mock::respond_like_prms(request)
                 }
@@ -1432,8 +1433,8 @@ mod tests {
     #[test]
     fn extract_method_name_should_find_method() {
         let request =
-            r#"<soap:Envelope><temp:methodName>resistInfo</temp:methodName></soap:Envelope>"#;
-        assert_eq!(extract_method_name(request), Some("resistInfo"));
+            r#"<soap:Envelope><temp:methodName>PRMSResistInfoInq</temp:methodName></soap:Envelope>"#;
+        assert_eq!(extract_method_name(request), Some("PRMSResistInfoInq"));
         assert_eq!(extract_method_name("no method"), None);
     }
 }

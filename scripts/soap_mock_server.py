@@ -2,23 +2,23 @@
 """本地 PRMS SOAP mock 服务（验证 dilution 的 SOAP invoke 层 / 真实 App UI 冒烟）
 
 模拟 PRMS 的 `InvokeCommonRVMessageByXMLMsgBody` 统一 SOAP 入口，响应：
-- resistInfo  → 原液信息 + 2 个稀释浓度关系（0.01:2.222 / 0.01:2.5）
-- check       → resistDefRrn / batchNO / expireDate
-- batchCreate → 按请求 bottleCount 返回等量 resistSysRrn[] / resistBarcode[] / printSuccess
+- PRMSResistInfoInq       → 原液信息 + 2 个稀释浓度关系（0.01:2.222 / 0.01:2.5）
+- PRMSResistInfoCheckInq  → resistDefRrn / batchNO / expireDate
+- PRMSBatchCreateReq      → 按请求 bottleCount 返回等量 resistSysRrn[] / resistBarcode[] / printSuccess
 
 特殊条码触发错误分支（用于验证错误路径）：
-- 条码含 UNKNOWN → resistInfo 返回 result=1（"vendorBarcode not found"）
-- 条码含 REJECT  → check 返回 result=1（"barcode not matched with concentration"）
-- 条码含 FAIL    → batchCreate 返回 result=1（"batchCreate failed"）
+- 条码含 UNKNOWN → PRMSResistInfoInq 返回 result=1（"vendorBarcode not found"）
+- 条码含 REJECT  → PRMSResistInfoCheckInq 返回 result=1（"barcode not matched with concentration"）
+- 条码含 FAIL    → PRMSBatchCreateReq 返回 result=1（"batchCreate failed"）
 
 用法：
     python3 scripts/soap_mock_server.py [port]        # 默认 8899
     然后另开终端：
     PRMS_SOAP_ENDPOINT=http://127.0.0.1:8899/ ./dev.sh
 
-注意：PRMS 浓度使用 raw:solvent 比例形式（如 0.01:2.222），不支持百分比。
-workspace system/dilution.json 只配置了 0.01:2.222 浓度，mock 返回两个关系时，
-UI 选 0.01:2.5 会按设计提示"未配置"；选 0.01:2.222 正常。
+注意：mock 支持两种场景：
+- 默认场景：MZJTST 条码，浓度 0.01:2.222 / 0.01:2.5（raw:solvent 比例）
+- 现场附表场景：MLTOK 前缀条码 → TMR-IK02 PM 5.4cP → 70% 稀释（也接受 70:30 写法）
 """
 import html
 import re
@@ -29,20 +29,31 @@ SOAP_ACTION = "InvokeCommonRVMessageByXMLMsgBody"
 
 RESIST_INFO_MSG_BODY = """<msgBody><resistNO>MZJTST1</resistNO><resistName>光刻胶A</resistName><concentration>1.0</concentration><mtrNO>MTR001</mtrNO><defrostTime>08:00</defrostTime><vendorBarcode>{barcode}</vendorBarcode><defBatchNO>12345678</defBatchNO><toResistNo>MZJTST1</toResistNo><expireTime>260507</expireTime><dilutionRelationship><resistNO>MZJTST1-D</resistNO><resistName>稀释光刻胶A 0.01:2.222</resistName><concentration>0.01:2.222</concentration><sysRrn>2030625845182312449</sysRrn></dilutionRelationship><dilutionRelationship><resistNO>MZJTST1-D2</resistNO><resistName>稀释光刻胶A2 0.01:2.5</resistName><concentration>0.01:2.5</concentration><sysRrn>2030625845182312450</sysRrn></dilutionRelationship></msgBody>"""
 
+# 现场联调场景（附表）：MLTOK 前缀原液条码 → TMR-IK02 PM 5.4cP → 70% 稀释
+MLTOK_RESIST_INFO_MSG_BODY = """<msgBody><resistNO>MLTOK01</resistNO><resistName>TMR-IK02 PM 5.4cP</resistName><concentration>1.0</concentration><mtrNO>MTR001</mtrNO><defrostTime>08:00</defrostTime><vendorBarcode>{barcode}</vendorBarcode><defBatchNO>{def_batch_no}</defBatchNO><toResistNo>MLTOK01</toResistNo><expireTime>{expire_time}</expireTime><dilutionRelationship><resistNO>MLTOK01-D</resistNO><resistName>TMR-IK02 PM 5.4cP-70%</resistName><concentration>70%</concentration><sysRrn>2030625845182312999</sysRrn></dilutionRelationship></msgBody>"""
+
+FIELD_70_PCT_RRN = "2030625845182312999"
+
 CHECK_MSG_BODY = "<msgBody><resistNO>MZJTST1</resistNO><defResistNO>MZJTST1-D</defResistNO><resistDefRrn>{rrn}</resistDefRrn><batchNO>12345678</batchNO><expireDate>260507</expireDate><concentration>{concentration}</concentration><barcodeCount>{barcode_count}</barcodeCount></msgBody>"
 
 RRN_BY_CONCENTRATION = {
     "0.01:2.222": "2030625845182312449",
     "0.01:2.5": "2030625845182312450",
+    "70%": FIELD_70_PCT_RRN,
+    "70:30": FIELD_70_PCT_RRN,
 }
 
 
-def batch_create_msg_body(bottle_count):
+def batch_create_msg_body(bottle_count, rrn=""):
+    if rrn == FIELD_70_PCT_RRN:
+        sys_rrn_prefix, barcode_prefix = "20306258451823130", "MLTOK01-D"
+    else:
+        sys_rrn_prefix, barcode_prefix = "20306258451823125", "MZJTST1-D"
     sys_rrns = "".join(
-        f"<resistSysRrn>20306258451823125{i:02}</resistSysRrn>" for i in range(1, bottle_count + 1)
+        f"<resistSysRrn>{sys_rrn_prefix}{i:02}</resistSysRrn>" for i in range(1, bottle_count + 1)
     )
     barcodes = "".join(
-        f"<resistBarcode>MZJTST1-D-{i:03}</resistBarcode>" for i in range(1, bottle_count + 1)
+        f"<resistBarcode>{barcode_prefix}-{i:03}</resistBarcode>" for i in range(1, bottle_count + 1)
     )
     return f"<msgBody>{sys_rrns}{barcodes}<printSuccess>true</printSuccess></msgBody>"
 
@@ -84,12 +95,18 @@ def _extract(escaped_body, element):
 
 def respond(body):
     method = _extract(body, "methodName") or "unknown"
-    if method == "resistInfo":
+    if method == "PRMSResistInfoInq":
         barcode = _extract(body, "vendorBarcode") or ""
         if "UNKNOWN" in barcode:
             return envelope(1, "vendorBarcode not found")
+        if barcode.startswith("MLTOK"):
+            return envelope(0, None, MLTOK_RESIST_INFO_MSG_BODY.format(
+                barcode=barcode,
+                def_batch_no=barcode[7:15],
+                expire_time=barcode[15:21],
+            ))
         return envelope(0, None, RESIST_INFO_MSG_BODY.format(barcode=barcode))
-    if method == "check":
+    if method == "PRMSResistInfoCheckInq":
         if "REJECT" in body:
             return envelope(1, "barcode not matched with concentration")
         concentration = _extract(body, "concentration") or ""
@@ -100,7 +117,7 @@ def respond(body):
         return envelope(0, None, CHECK_MSG_BODY.format(
             concentration=concentration, rrn=rrn, barcode_count=barcode_count
         ))
-    if method == "batchCreate":
+    if method == "PRMSBatchCreateReq":
         if "FAIL" in body:
             return envelope(1, "batchCreate failed")
         if not _extract(body, "vendorBarcodeList"):
@@ -120,7 +137,7 @@ def respond(body):
             return envelope(1, "bottleCount must be greater than 0")
         if count <= 0:
             return envelope(1, "bottleCount must be greater than 0")
-        return envelope(0, None, batch_create_msg_body(count))
+        return envelope(0, None, batch_create_msg_body(count, rrn))
     return None  # 未知方法 → HTTP 500
 
 
