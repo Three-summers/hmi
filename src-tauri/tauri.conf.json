@@ -3,6 +3,7 @@
   "productName": "hmi",
   "version": "0.1.0",
   "identifier": "com.industrial.hmi",
+  "mainBinaryName": "hmi",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
